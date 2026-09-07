@@ -8,3 +8,4 @@ data/pacecast.db
 data/weather/_preview.txt
 web/node_modules/
 web/.next/
+/local/
