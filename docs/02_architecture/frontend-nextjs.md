@@ -1,0 +1,49 @@
+# フロントエンド移行方針（Next.js）
+
+作成日: 2026-09-06  
+根拠: `docs/05_improvements/second-request.md`
+
+## 1. 現状
+
+MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが同じプロセスにあった。学習初期の一周には向いていたが、画面改善と今後の画面追加を続けるとテンプレートが肥大しやすい。
+
+## 2. 責務分離
+
+| 層 | 担当 | 置かないもの |
+| --- | --- | --- |
+| Next.js（`web/`） | 画面、入力制御、一覧の月別整形、ツールチップ | 予測計算、CSV パース、DB アクセス |
+| FastAPI（`pacecast/`） | JSON API、SQLite、取り込み・紐付け・予測 | 見た目のレイアウト |
+
+ブラウザは Next.js（開発時はポート 3000）を開く。API は FastAPI（ポート 8000）。開発中は Next.js の rewrite で `/api/*` を FastAPI に転送する。
+
+## 3. API
+
+- `GET /api/home` ホーム用サマリーと最近の走行
+- `GET /api/runs` / `GET /api/runs/{id}` / `POST /api/runs` / `PUT /api/runs/{id}` / `DELETE /api/runs/{id}`
+- `GET /api/weather` / `POST /api/weather/import`
+- `GET /api/intensities` 走行強度の定義
+- `POST /api/predict`
+
+走行時間は DB 上は従来どおり `duration_sec`。API の入出力は時・分・秒に分解し、既存記録と互換を保つ。
+
+## 4. ディレクトリ
+
+```
+web/                 Next.js App Router
+  app/               画面
+  components/        共通 UI
+  lib/               API クライアントと表示整形
+pacecast/
+  routers/api.py     JSON API
+  services/          業務ロジック（変更をここに閉じる）
+```
+
+## 5. 起動
+
+1. `uvicorn pacecast.main:app --reload --host 127.0.0.1 --port 8000`
+2. `npm run dev`（`web/`）
+3. ブラウザは http://127.0.0.1:3000
+
+## 6. 拡張
+
+画面追加は `web/app` にルートを足す。予測手法の変更は `pacecast/services` だけを変え、API の形が同じならフロントは触らない。

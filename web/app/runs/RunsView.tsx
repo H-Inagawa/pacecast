@@ -1,0 +1,123 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { BackHome } from "../../components/BackHome";
+import { RunFormModal } from "../../components/RunFormModal";
+import { StickyActions } from "../../components/StickyActions";
+import { apiGet, apiSend } from "../../lib/api";
+import { formatDate, formatDistanceKm, formatDuration, groupRunsByMonth } from "../../lib/format";
+import type { Run } from "../../lib/types";
+
+type Props = {
+  initialEditId?: number;
+};
+
+export function RunsView({ initialEditId }: Props) {
+  const router = useRouter();
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [formRunId, setFormRunId] = useState<number | null | undefined>(undefined);
+
+  async function load() {
+    try {
+      setRuns(await apiGet<Run[]>("/api/runs"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "読み込みに失敗しました");
+    } finally {
+      setLoaded(true);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  useEffect(() => {
+    if (initialEditId == null) {
+      return;
+    }
+    setFormRunId(initialEditId);
+    router.replace("/runs");
+  }, [initialEditId, router]);
+
+  async function remove(id: number) {
+    if (!window.confirm("記録を削除してよろしいですか？")) {
+      return;
+    }
+    await apiSend(`/api/runs/${id}`, "DELETE");
+    await load();
+  }
+
+  const groups = groupRunsByMonth(runs);
+  const formOpen = formRunId !== undefined;
+
+  return (
+    <>
+      <h1>走行記録</h1>
+      {error ? <p className="error">{error}</p> : null}
+      {!loaded ? (
+        <p className="empty">読み込み中...</p>
+      ) : groups.length ? (
+        groups.map((group) => (
+          <section className="month-block" key={group.key}>
+            <h2>{group.label}</h2>
+            <p className="meta">走行距離：{formatDistanceKm(group.total)}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>日付</th>
+                  <th>距離</th>
+                  <th>走行時間</th>
+                  <th>平均心拍数</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.runs.map((run) => (
+                  <tr key={run.id} className={run.hr_zone ? `zone-${run.hr_zone}` : undefined}>
+                    <td>{formatDate(run.started_at)}</td>
+                    <td>{formatDistanceKm(run.distance_km)}</td>
+                    <td>{formatDuration(run.duration_sec)}</td>
+                    <td>{run.avg_heart_rate == null ? "—" : `${run.avg_heart_rate}bpm`}</td>
+                    <td className="row-actions">
+                      <button type="button" className="text-link" onClick={() => setFormRunId(run.id)}>
+                        編集
+                      </button>
+                      <button type="button" className="linkish" onClick={() => void remove(run.id)}>
+                        削除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        ))
+      ) : (
+        <p className="empty">
+          記録がありません。
+          <button type="button" className="text-link" onClick={() => setFormRunId(null)}>
+            最初の走行を追加
+          </button>
+          してください。
+        </p>
+      )}
+      {formOpen ? null : (
+        <StickyActions>
+          <button type="button" className="button action-lg" onClick={() => setFormRunId(null)}>
+            記録を追加
+          </button>
+          <BackHome variant="button" />
+        </StickyActions>
+      )}
+      <RunFormModal
+        open={formOpen}
+        runId={formRunId ?? undefined}
+        onClose={() => setFormRunId(undefined)}
+        onSaved={() => void load()}
+      />
+    </>
+  );
+}
