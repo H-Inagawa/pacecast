@@ -61,6 +61,11 @@ export default function PredictPage() {
     }
   }
 
+  const customOn = distanceMode === "custom";
+  const raceOn = distanceMode === "race";
+  const manualOn = mode === "manual";
+  const forecastOn = mode === "forecast";
+
   return (
     <>
       <h1>パフォーマンス予測</h1>
@@ -69,73 +74,91 @@ export default function PredictPage() {
       <form id="predict-form" className="stack" onSubmit={(event) => void onSubmit(event)}>
         <p className="meta">距離の指定方法</p>
         <label className="choice">
-          <input type="radio" name="distance-mode" checked={distanceMode === "custom"} onChange={() => setDistanceMode("custom")} />
+          <input type="radio" name="distance-mode" checked={customOn} onChange={() => setDistanceMode("custom")} />
           距離を指定して予測
         </label>
+        <div className={customOn ? "mode-card active" : "mode-card inactive"}>
+          <label>
+            距離（km）
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={distanceKm}
+              onChange={(event) => setDistanceKm(event.target.value)}
+              disabled={!customOn}
+              required={customOn}
+            />
+          </label>
+          <label>
+            走行強度
+            <select value={intensity} onChange={(event) => setIntensity(event.target.value)} disabled={!customOn}>
+              {(profile?.custom_intensities ?? []).map((item) => (
+                <option key={item.key} value={item.key}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <label className="choice">
-          <input type="radio" name="distance-mode" checked={distanceMode === "race"} onChange={() => setDistanceMode("race")} />
+          <input type="radio" name="distance-mode" checked={raceOn} onChange={() => setDistanceMode("race")} />
           レース種別で予測
         </label>
-        {distanceMode === "custom" ? (
-          <div className="mode-card active">
-            <label>
-              距離（km）
-              <input type="number" min="0.01" step="0.01" value={distanceKm} onChange={(event) => setDistanceKm(event.target.value)} required />
+        <div className={raceOn ? "mode-card active" : "mode-card inactive"}>
+          {Object.entries(RACE_LABELS).map(([key, label]) => (
+            <label className="choice" key={key}>
+              <input type="radio" name="race" checked={race === key} onChange={() => setRace(key)} disabled={!raceOn} />
+              {label}
             </label>
-            <label>
-              走行強度
-              <select value={intensity} onChange={(event) => setIntensity(event.target.value)}>
-                {(profile?.custom_intensities ?? []).map((item) => (
-                  <option key={item.key} value={item.key}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        ) : null}
-        {distanceMode === "race" ? (
-          <div className="mode-card active">
-            {Object.entries(RACE_LABELS).map(([key, label]) => (
-              <label className="choice" key={key}>
-                <input type="radio" name="race" checked={race === key} onChange={() => setRace(key)} />
-                {label}
-              </label>
-            ))}
-          </div>
-        ) : null}
+          ))}
+        </div>
 
         <p className="meta">気象条件の指定方法</p>
         <label className="choice">
-          <input type="radio" name="mode" checked={mode === "manual"} onChange={() => setMode("manual")} />
+          <input type="radio" name="mode" checked={manualOn} onChange={() => setMode("manual")} />
           気温・湿度を入力する
         </label>
-        <label className="choice">
-          <input type="radio" name="mode" checked={mode === "forecast"} onChange={() => setMode("forecast")} />
-          日時を指定して予報を使う（練馬）
-        </label>
-        {mode === "manual" ? (
-          <div className="mode-card active">
-            <div className="split">
-              <label>
-                気温（℃）
-                <input type="number" step="0.1" value={temperature} onChange={(event) => setTemperature(event.target.value)} />
-              </label>
-              <label>
-                湿度（％）
-                <input type="number" min="0" max="100" value={humidity} onChange={(event) => setHumidity(event.target.value)} />
-              </label>
-            </div>
-          </div>
-        ) : null}
-        {mode === "forecast" ? (
-          <div className="mode-card active">
+        <div className={manualOn ? "mode-card active" : "mode-card inactive"}>
+          <div className="split">
             <label>
-              予報を使う日時
-              <input type="datetime-local" value={forecastAt} onChange={(event) => setForecastAt(event.target.value)} />
+              気温（℃）
+              <input
+                type="number"
+                step="0.1"
+                value={temperature}
+                onChange={(event) => setTemperature(event.target.value)}
+                disabled={!manualOn}
+              />
+            </label>
+            <label>
+              湿度（％）
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={humidity}
+                onChange={(event) => setHumidity(event.target.value)}
+                disabled={!manualOn}
+              />
             </label>
           </div>
-        ) : null}
+        </div>
+        <label className="choice">
+          <input type="radio" name="mode" checked={forecastOn} onChange={() => setMode("forecast")} />
+          日時を指定して予報を使う（練馬）
+        </label>
+        <div className={forecastOn ? "mode-card active" : "mode-card inactive"}>
+          <label>
+            予報を使う日時
+            <input
+              type="datetime-local"
+              value={forecastAt}
+              onChange={(event) => setForecastAt(event.target.value)}
+              disabled={!forecastOn}
+            />
+          </label>
+        </div>
       </form>
 
       {result ? (
