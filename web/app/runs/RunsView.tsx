@@ -6,7 +6,7 @@ import { BackHome } from "../../components/BackHome";
 import { RunFormModal } from "../../components/RunFormModal";
 import { StickyActions } from "../../components/StickyActions";
 import { apiGet, apiSend } from "../../lib/api";
-import { formatDate, formatDistanceKm, formatDuration, groupRunsByMonth } from "../../lib/format";
+import { formatDate, formatDistanceKm, formatDuration, formatPace, groupRunsByMonth } from "../../lib/format";
 import type { Run } from "../../lib/types";
 
 type Props = {
@@ -70,7 +70,9 @@ export function RunsView({ initialEditId }: Props) {
                   <th>日付</th>
                   <th>距離</th>
                   <th>走行時間</th>
+                  <th>ペース</th>
                   <th>平均心拍数</th>
+                  <th>気象</th>
                   <th></th>
                 </tr>
               </thead>
@@ -80,7 +82,13 @@ export function RunsView({ initialEditId }: Props) {
                     <td>{formatDate(run.started_at)}</td>
                     <td>{formatDistanceKm(run.distance_km)}</td>
                     <td>{formatDuration(run.duration_sec)}</td>
+                    <td>{formatPace(run.pace_sec_per_km)}</td>
                     <td>{run.avg_heart_rate == null ? "—" : `${run.avg_heart_rate}bpm`}</td>
+                    <td>
+                      {run.weather
+                        ? `${run.weather.temperature_c.toFixed(1)}℃ / ${run.weather.humidity_pct.toFixed(0)}%`
+                        : "—"}
+                    </td>
                     <td className="row-actions">
                       <button type="button" className="text-link" onClick={() => setFormRunId(run.id)}>
                         編集
