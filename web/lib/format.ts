@@ -27,6 +27,15 @@ export function formatRunSummary(count: number, distanceKm: number): string {
   return `走行件数：${count}件 走行距離：${formatDistanceKm(distanceKm)}`;
 }
 
+export const MISSING_WEATHER_LABEL = "--.-℃ / --%";
+
+export function formatWeatherBrief(weather: { temperature_c: number; humidity_pct: number } | null): string {
+  if (!weather) {
+    return MISSING_WEATHER_LABEL;
+  }
+  return `${weather.temperature_c.toFixed(1)}℃ / ${weather.humidity_pct.toFixed(0)}%`;
+}
+
 export function formatDate(value: string): string {
   return formatDateTime(value).slice(0, 10);
 }

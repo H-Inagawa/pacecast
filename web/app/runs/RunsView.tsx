@@ -6,7 +6,7 @@ import { BackHome } from "../../components/BackHome";
 import { RunFormModal } from "../../components/RunFormModal";
 import { StickyActions } from "../../components/StickyActions";
 import { apiGet, apiSend } from "../../lib/api";
-import { formatDateTime, formatDistanceKm, formatDuration, formatPace, formatRunSummary, groupRunsByMonth } from "../../lib/format";
+import { formatDateTime, formatDistanceKm, formatDuration, formatPace, formatRunSummary, formatWeatherBrief, groupRunsByMonth } from "../../lib/format";
 import type { Run } from "../../lib/types";
 
 type Props = {
@@ -88,11 +88,7 @@ export function RunsView({ initialEditId }: Props) {
                     <td>{formatDuration(run.duration_sec)}</td>
                     <td>{formatPace(run.pace_sec_per_km)}</td>
                     <td>{run.avg_heart_rate == null ? "—" : `${run.avg_heart_rate}bpm`}</td>
-                    <td>
-                      {run.weather
-                        ? `${run.weather.temperature_c.toFixed(1)}℃ / ${run.weather.humidity_pct.toFixed(0)}%`
-                        : "—"}
-                    </td>
+                    <td>{formatWeatherBrief(run.weather)}</td>
                     <td className="row-actions">
                       <button type="button" className="text-link" onClick={() => setFormRunId(run.id)}>
                         編集
