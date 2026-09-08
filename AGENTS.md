@@ -63,3 +63,6 @@
 
 - Python メソッドの docstring は、説明・引数・戻り値を日本語で書く
 - 仕様判断を変えたら、このファイルと該当ドキュメントを更新する
+- GitHub Issues（[#31](https://github.com/H-Inagawa/pacecast/issues/31)）
+  - 登録・コメントの冒頭に `【Cursor自動入力】` を付ける
+  - Issue は close しない。終了は開発者がプッシュ後に行う

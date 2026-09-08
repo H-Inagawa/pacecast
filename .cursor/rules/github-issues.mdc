@@ -1,0 +1,12 @@
+---
+description: GitHub Issues の運用（Cursor と開発者の区別、close しない）
+alwaysApply: true
+---
+
+# GitHub Issues
+
+根拠: https://github.com/H-Inagawa/pacecast/issues/31
+
+- Issue の登録・コメントの冒頭に `【Cursor自動入力】` を付ける
+- 実装後も Issue を close しない。終了は開発者がプッシュ後に行う
+- [#31](https://github.com/H-Inagawa/pacecast/issues/31) 自身も close しない
