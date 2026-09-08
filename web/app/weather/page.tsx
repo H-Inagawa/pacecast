@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { BackHome } from "../../components/BackHome";
 import { StickyActions } from "../../components/StickyActions";
+import { formatDateTime } from "../../lib/format";
 import { apiGet, apiUpload } from "../../lib/api";
 import type { WeatherPage } from "../../lib/types";
 
@@ -59,7 +60,7 @@ export default function WeatherScreen() {
               <h2>期間</h2>
               <p className="meta">
                 {data.summary.first && data.summary.last
-                  ? `${data.summary.first} 〜 ${data.summary.last}`
+                  ? `${formatDateTime(data.summary.first)} 〜 ${formatDateTime(data.summary.last)}`
                   : "—"}
               </p>
             </article>
@@ -97,7 +98,7 @@ export default function WeatherScreen() {
               <tbody>
                 {data.rows.map((row) => (
                   <tr key={row.observed_at}>
-                    <td>{row.observed_at}</td>
+                    <td>{formatDateTime(row.observed_at)}</td>
                     <td>{row.temperature_c.toFixed(1)}℃</td>
                     <td>{row.humidity_pct.toFixed(0)}%</td>
                     <td>

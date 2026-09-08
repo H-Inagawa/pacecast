@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { BackHome } from "./BackHome";
 import { DurationFields } from "./DurationFields";
 import { apiGet, apiSend } from "../lib/api";
-import { defaultDateTimeLocal } from "../lib/format";
+import { defaultDateTimeLocal, toDateTimeLocalInput } from "../lib/format";
 import type { Run } from "../lib/types";
 
 type Props = {
@@ -47,7 +47,7 @@ export function RunForm({ title, runId, variant = "page", onCancel, onSuccess }:
     }
     void apiGet<Run>(`/api/runs/${runId}`).then((run) => {
       setForm({
-        started_at: run.started_at,
+        started_at: toDateTimeLocalInput(run.started_at),
         distance_km: run.distance_km.toFixed(2),
         hours: run.hours,
         minutes: run.minutes,

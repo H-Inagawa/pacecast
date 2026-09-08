@@ -28,12 +28,27 @@ export function formatRunSummary(count: number, distanceKm: number): string {
 }
 
 export function formatDate(value: string): string {
-  const [date] = value.split("T");
-  return date.replaceAll("-", "/");
+  return formatDateTime(value).slice(0, 10);
 }
 
 export function formatDateTime(value: string): string {
-  return value.replace("T", " ").replaceAll("-", "/").slice(0, 16);
+  const normalized = value.trim().replace("T", " ").replaceAll("/", "-");
+  const match = normalized.match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+  if (!match) {
+    return value;
+  }
+  const hour = match[2] ?? "00";
+  const minute = match[3] ?? "00";
+  return `${match[1]} ${hour}:${minute}`;
+}
+
+export function toDateTimeLocalInput(value: string): string {
+  const formatted = formatDateTime(value);
+  const match = formatted.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/);
+  if (!match) {
+    return value;
+  }
+  return `${match[1]}T${match[2]}:${match[3]}`;
 }
 
 export function defaultDateTimeLocal(): string {

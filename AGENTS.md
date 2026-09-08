@@ -27,6 +27,7 @@
 - 走行記録の見出し右と各月に `走行件数：XX件 走行距離：XXX.XXkm` を出す（件数・距離のフォントは同じ）
 - 走行時間は時（0〜23）・分・秒のセレクト
 - 走行距離の表示は小数第2位
+- 日時の表示は `YYYY-MM-DD HH:mm`（24時間・ハイフン）。カレンダー入力（date / datetime-local）はブラウザ表示のスラッシュを許容する
 - 予測の気象指定は、選んでいない方式の入力を disabled にする（非表示にしない）。距離指定も同じ
 - 予測結果はペースとタイム。予想平均心拍は出さない（強度の目標 bpm は入力条件・類似走の重み付けに使う）
 - 走行記録・予測・設定・気象の「ホームへ戻る」は画面下部に固定し、白抜きの緑ボタンにする
@@ -58,6 +59,7 @@
 | `docs/02_architecture/intensity-prediction.md` | 強度付き予測 |
 | `docs/02_architecture/decisions-2026-09-06.md` | 改善時の判断 |
 | `docs/02_architecture/decisions-2026-09-08.md` | 予想平均心拍を結果に出さない判断 |
+| `docs/02_architecture/date-display.md` | 日時表示の共通規則 |
 | `docs/03_database/database-design.md` | DB 設計 |
 
 ## 開発時の約束

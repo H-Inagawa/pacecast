@@ -117,10 +117,10 @@ def format_pace(sec_per_km: float) -> str:
 
 def parse_datetime_local(text: str) -> datetime:
     """
-    datetime-local 入力を datetime にする。
+    日時文字列を datetime にする。
 
     Args:
-        text: `YYYY-MM-DDTHH:MM` または秒付き。
+        text: `YYYY-MM-DD HH:MM` または `YYYY-MM-DDTHH:MM`（秒付きも可）。
 
     Returns:
         タイムゾーンなしの datetime。
@@ -129,7 +129,12 @@ def parse_datetime_local(text: str) -> datetime:
         ValueError: 形式が不正なとき。
     """
     raw = text.strip()
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"):
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+    ):
         try:
             return datetime.strptime(raw, fmt)
         except ValueError:
@@ -139,12 +144,12 @@ def parse_datetime_local(text: str) -> datetime:
 
 def to_datetime_local_value(value: datetime) -> str:
     """
-    datetime を HTML の datetime-local 用文字列にする。
+    datetime を画面表示と同じ日時文字列にする。
 
     Args:
         value: 変換する日時。
 
     Returns:
-        `YYYY-MM-DDTHH:MM` 形式の文字列。
+        `YYYY-MM-DD HH:MM` 形式の文字列。
     """
-    return value.strftime("%Y-%m-%dT%H:%M")
+    return value.strftime("%Y-%m-%d %H:%M")

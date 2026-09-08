@@ -5,7 +5,7 @@ import { BackHome } from "../../components/BackHome";
 import { StickyActions } from "../../components/StickyActions";
 import { WeatherDistanceHelp } from "../../components/WeatherDistanceHelp";
 import { apiGet, apiSend } from "../../lib/api";
-import { confidenceLabel, defaultDateTimeLocal, formatDistanceKm, formatDuration, formatPace } from "../../lib/format";
+import { confidenceLabel, defaultDateTimeLocal, formatDateTime, formatDistanceKm, formatDuration, formatPace } from "../../lib/format";
 import type { PredictResult, Profile } from "../../lib/types";
 
 const RACE_LABELS: Record<string, string> = {
@@ -165,7 +165,7 @@ export default function PredictPage() {
         <>
           {result.condition ? (
             <p className="meta">
-              予報: {result.condition.location_label} {result.condition.observed_at} / {result.condition.temperature_c.toFixed(1)}℃ /{" "}
+              予報: {result.condition.location_label} {formatDateTime(result.condition.observed_at)} / {result.condition.temperature_c.toFixed(1)}℃ /{" "}
               {result.condition.humidity_pct.toFixed(0)}%
             </p>
           ) : null}
@@ -200,7 +200,7 @@ export default function PredictPage() {
             <tbody>
               {result.used_runs.map((run) => (
                 <tr key={run.record_id}>
-                  <td>{run.started_at}</td>
+                  <td>{formatDateTime(run.started_at)}</td>
                   <td>{formatDistanceKm(run.distance_km)}</td>
                   <td>{formatPace(run.pace_sec_per_km)}</td>
                   <td>{run.avg_heart_rate ?? "—"}</td>

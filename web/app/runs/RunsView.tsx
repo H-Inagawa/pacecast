@@ -6,7 +6,7 @@ import { BackHome } from "../../components/BackHome";
 import { RunFormModal } from "../../components/RunFormModal";
 import { StickyActions } from "../../components/StickyActions";
 import { apiGet, apiSend } from "../../lib/api";
-import { formatDate, formatDistanceKm, formatDuration, formatPace, formatRunSummary, groupRunsByMonth } from "../../lib/format";
+import { formatDateTime, formatDistanceKm, formatDuration, formatPace, formatRunSummary, groupRunsByMonth } from "../../lib/format";
 import type { Run } from "../../lib/types";
 
 type Props = {
@@ -71,7 +71,7 @@ export function RunsView({ initialEditId }: Props) {
             <table>
               <thead>
                 <tr>
-                  <th>日付</th>
+                  <th>日時</th>
                   <th>距離</th>
                   <th>走行時間</th>
                   <th>ペース</th>
@@ -83,7 +83,7 @@ export function RunsView({ initialEditId }: Props) {
               <tbody>
                 {group.runs.map((run) => (
                   <tr key={run.id} className={run.hr_zone ? `zone-${run.hr_zone}` : undefined}>
-                    <td>{formatDate(run.started_at)}</td>
+                    <td>{formatDateTime(run.started_at)}</td>
                     <td>{formatDistanceKm(run.distance_km)}</td>
                     <td>{formatDuration(run.duration_sec)}</td>
                     <td>{formatPace(run.pace_sec_per_km)}</td>
