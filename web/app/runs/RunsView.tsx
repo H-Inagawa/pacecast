@@ -6,7 +6,7 @@ import { BackHome } from "../../components/BackHome";
 import { RunFormModal } from "../../components/RunFormModal";
 import { StickyActions } from "../../components/StickyActions";
 import { apiGet, apiSend } from "../../lib/api";
-import { formatDate, formatDistanceKm, formatDuration, formatPace, groupRunsByMonth } from "../../lib/format";
+import { formatDate, formatDistanceKm, formatDuration, formatPace, formatRunSummary, groupRunsByMonth } from "../../lib/format";
 import type { Run } from "../../lib/types";
 
 type Props = {
@@ -52,10 +52,14 @@ export function RunsView({ initialEditId }: Props) {
 
   const groups = groupRunsByMonth(runs);
   const formOpen = formRunId !== undefined;
+  const totalDistance = runs.reduce((sum, run) => sum + run.distance_km, 0);
 
   return (
     <>
-      <h1>走行記録</h1>
+      <header className="page-heading">
+        <h1>走行記録</h1>
+        {loaded ? <p className="meta">{formatRunSummary(runs.length, totalDistance)}</p> : null}
+      </header>
       {error ? <p className="error">{error}</p> : null}
       {!loaded ? (
         <p className="empty">読み込み中...</p>
@@ -63,7 +67,7 @@ export function RunsView({ initialEditId }: Props) {
         groups.map((group) => (
           <section className="month-block" key={group.key}>
             <h2>{group.label}</h2>
-            <p className="meta">走行距離：{formatDistanceKm(group.total)}</p>
+            <p className="meta">{formatRunSummary(group.runs.length, group.total)}</p>
             <table>
               <thead>
                 <tr>

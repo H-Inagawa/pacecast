@@ -23,6 +23,10 @@ export function formatDistanceKm(km: number): string {
   return `${km.toFixed(2)}km`;
 }
 
+export function formatRunSummary(count: number, distanceKm: number): string {
+  return `走行件数：${count}件 走行距離：${formatDistanceKm(distanceKm)}`;
+}
+
 export function formatDate(value: string): string {
   const [date] = value.split("T");
   return date.replaceAll("-", "/");

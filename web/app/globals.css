@@ -75,6 +75,22 @@ a { color: var(--accent); }
   margin: 0 0 0.6rem;
 }
 
+.page-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.6rem;
+}
+
+.page-heading h1 {
+  margin: 0;
+}
+
+.page-heading .meta {
+  margin: 0;
+}
+
 .eyebrow {
   letter-spacing: 0.14em;
   color: var(--accent);
