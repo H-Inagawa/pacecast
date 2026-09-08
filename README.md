@@ -34,6 +34,19 @@ npm run dev
 
 ブラウザで http://127.0.0.1:3000 を開きます。初回の API 起動時、気象テーブルが空なら `data/weather/data.csv` を自動取り込みします。
 
+## 停止
+
+使い終わったら、API（8000）と画面（3000）の各ターミナルで `Ctrl+C` を押します。ターミナルを閉じるだけでは、プロセスが残ることがあります。
+
+ポートが使用中のまま（`EADDRINUSE`）で再起動できないときは、PowerShell で次を実行して強制終了します。
+
+```powershell
+Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue |
+  ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue |
+  ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+```
+
 ## テスト
 
 ```bash

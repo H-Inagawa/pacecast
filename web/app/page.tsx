@@ -5,7 +5,7 @@ export default function HomePage() {
     <section className="hero">
       <p className="eyebrow">RUNNING × WEATHER</p>
       <h1>この条件なら、どのくらい走れるか。</h1>
-      <p className="lede">過去の走行記録と気象データを重ねて、指定した気温・湿度でのペース・タイム・心拍を見積もります。</p>
+      <p className="lede">過去の走行記録と気象データを重ねて、指定した気温・湿度でのペース・タイムを見積もります。</p>
       <div className="hero-actions">
         <Link className="button primary" href="/runs">
           走行記録

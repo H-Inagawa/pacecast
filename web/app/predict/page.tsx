@@ -69,7 +69,7 @@ export default function PredictPage() {
   return (
     <>
       <h1>パフォーマンス予測</h1>
-      <p className="lede">気象条件と走行強度を指定して、過去走からペース・タイム・心拍を見積もります。</p>
+      <p className="lede">気象条件と走行強度を指定して、過去走からペース・タイムを見積もります。</p>
       {error ? <p className="error">{error}</p> : null}
       <form id="predict-form" className="stack" onSubmit={(event) => void onSubmit(event)}>
         <p className="meta">距離の指定方法</p>
