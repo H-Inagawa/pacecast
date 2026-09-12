@@ -68,6 +68,7 @@
 | `docs/02_architecture/wbgt.md` | 推定 WBGT とアメダス地点 |
 | `docs/02_architecture/decisions-2026-09-12.md` | WBGT 導入時の判断 |
 | `docs/03_database/database-design.md` | DB 設計 |
+| `docs/06_dev/team-setup.md` | 別 PC での環境構築・Git・DB |
 
 ## 開発時の約束
 
@@ -76,3 +77,5 @@
 - GitHub Issues（[#31](https://github.com/H-Inagawa/pacecast/issues/31)）
   - 登録・コメントの冒頭に `【Cursor自動入力】` を付ける
   - Issue は close しない。終了は開発者がプッシュ後に行う
+  - `future` ラベルは後でやる。今は実装しない
+- 別 PC での起動・`gh` ログイン・DB / Git の進め方は `docs/06_dev/team-setup.md`

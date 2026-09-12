@@ -1,0 +1,23 @@
+name: 作業
+description: 現状と完了の目安を書く
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cursor が Issue を登録・コメントするときは、本文の先頭に `【Cursor自動入力】` を付けます。
+        Issue は Cursor から close しません。終了は開発者がプッシュしたあとに行います（#31）。
+  - type: textarea
+    id: current
+    attributes:
+      label: 現状
+      description: いま困っていること、いまの動き
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: 完了の目安
+      description: こうなっていれば終わり、という状態
+    validations:
+      required: true
