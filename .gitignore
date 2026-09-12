@@ -5,6 +5,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 data/pacecast.db
+data/amedastable.json
 data/weather/_preview.txt
 web/node_modules/
 web/.next/

@@ -2,7 +2,7 @@
 
 from collections.abc import Generator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from pacecast.config import DATA_DIR, DB_PATH
@@ -80,7 +80,49 @@ def init_db(bind=None) -> None:
     """
     from pacecast import models  # noqa: F401
 
-    Base.metadata.create_all(bind=bind or engine)
+    target = bind or engine
+    Base.metadata.create_all(bind=target)
+    migrate_schema(target)
+
+
+def migrate_schema(bind=None) -> None:
+    """
+    既存 SQLite に不足している列を追加する。
+
+    Args:
+        bind: 対象エンジン。省略時は既定の engine。
+
+    Returns:
+        なし。
+    """
+    target = bind or engine
+    additions = {
+        "weather_observations": (
+            ("wind_ms", "REAL"),
+            ("solar_wm2", "REAL"),
+            ("wbgt_c", "REAL"),
+            ("wbgt_method", "TEXT"),
+            ("station_id", "TEXT"),
+        ),
+        "user_profiles": (
+            ("amedas_station_id", "TEXT"),
+            ("amedas_station_name", "TEXT"),
+        ),
+    }
+    with target.begin() as connection:
+        for table_name, columns in additions.items():
+            existing = {
+                row[1]
+                for row in connection.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
+            }
+            if not existing:
+                continue
+            for column_name, column_type in columns:
+                if column_name in existing:
+                    continue
+                connection.execute(
+                    text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
+                )
 
 
 def get_db() -> Generator[Session, None, None]:

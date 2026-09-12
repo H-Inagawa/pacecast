@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { HelpTip, WBGT_HELP_TEXT } from "../../components/WeatherDistanceHelp";
 import { BackHome } from "../../components/BackHome";
 import { RunFormModal } from "../../components/RunFormModal";
 import { StickyActions } from "../../components/StickyActions";
@@ -76,7 +77,9 @@ export function RunsView({ initialEditId }: Props) {
                   <th>走行時間</th>
                   <th>ペース</th>
                   <th>平均心拍数</th>
-                  <th>気象</th>
+                  <th>
+                    <HelpTip label="気象" text={WBGT_HELP_TEXT} ariaLabel="WBGTの説明" />
+                  </th>
                   <th></th>
                 </tr>
               </thead>

@@ -22,6 +22,11 @@ DB: SQLite（`data/pacecast.db`）
 | humidity_pct | REAL | NOT NULL | 相対湿度（％） |
 | temperature_quality | INTEGER | NULL | 気象庁の品質情報 |
 | humidity_quality | INTEGER | NULL | 気象庁の品質情報 |
+| wind_ms | REAL | NULL | 風速（m/s）。推定 WBGT の入力 |
+| solar_wm2 | REAL | NULL | 全天日射（W/m²）。推定 WBGT の入力 |
+| wbgt_c | REAL | NULL | 推定 WBGT（℃） |
+| wbgt_method | TEXT | NULL | 式の版（`ono2014`） |
+| station_id | TEXT | NULL | アメダス観測所 ID |
 | source | TEXT | NOT NULL | `csv` など |
 | imported_at | DATETIME | NOT NULL | 取り込み日時 |
 
@@ -54,6 +59,8 @@ DB: SQLite（`data/pacecast.db`）
 | color_rows | INTEGER | NOT NULL | 行の色分け（0/1）。最大心拍が空なら無効 |
 | hr_low / hr_medium / hr_high | INTEGER | NULL | 低・中・高の目標心拍 |
 | hr_race_5k / hr_race_10k / hr_race_half / hr_race_full | INTEGER | NULL | レース種目の目標心拍 |
+| amedas_station_id | TEXT | NULL | アメダス観測所 ID（未設定時は 44071） |
+| amedas_station_name | TEXT | NULL | 地点名（例: 練馬） |
 | updated_at | DATETIME | NOT NULL | 更新日時 |
 
 ## 3. インデックス

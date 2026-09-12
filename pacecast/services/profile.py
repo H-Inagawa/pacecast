@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
+from pacecast.config import DEFAULT_AMEDAS_STATION_ID, DEFAULT_AMEDAS_STATION_NAME
 from pacecast.models import UserProfile
 from pacecast.services.intensity import (
     PROFILE_HR_FIELDS,
@@ -27,7 +28,19 @@ def get_or_create_profile(db: Session) -> UserProfile:
     """
     profile = db.get(UserProfile, 1)
     if profile is None:
-        profile = UserProfile(id=1, color_rows=True, updated_at=datetime.now())
+        profile = UserProfile(
+            id=1,
+            color_rows=True,
+            amedas_station_id=DEFAULT_AMEDAS_STATION_ID,
+            amedas_station_name=DEFAULT_AMEDAS_STATION_NAME,
+            updated_at=datetime.now(),
+        )
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+    if not profile.amedas_station_id:
+        profile.amedas_station_id = DEFAULT_AMEDAS_STATION_ID
+        profile.amedas_station_name = profile.amedas_station_name or DEFAULT_AMEDAS_STATION_NAME
         db.add(profile)
         db.commit()
         db.refresh(profile)

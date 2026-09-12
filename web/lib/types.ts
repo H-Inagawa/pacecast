@@ -2,6 +2,7 @@ export type WeatherBrief = {
   temperature_c: number;
   humidity_pct: number;
   observed_at: string;
+  wbgt_c: number | null;
 };
 
 export type Run = {
@@ -55,6 +56,17 @@ export type Profile = {
   suggested: IntensityHrs;
   custom_intensities: Intensity[];
   race_options: Intensity[];
+  amedas_station_id: string;
+  amedas_station_name: string;
+  wbgt_ready_count: number;
+  run_count: number;
+};
+
+export type AmedasStation = {
+  station_id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
 };
 
 export type SimilarRun = {
@@ -66,7 +78,9 @@ export type SimilarRun = {
   avg_heart_rate: number | null;
   temperature_c: number;
   humidity_pct: number;
+  wbgt_c: number;
   weather_distance: number;
+  wbgt_delta: number;
 };
 
 export type PredictResult = {
@@ -84,6 +98,9 @@ export type PredictResult = {
     temperature_c: number;
     humidity_pct: number;
     location_label: string;
+    wind_ms?: number | null;
+    solar_wm2?: number | null;
+    wbgt_c?: number | null;
   } | null;
   weather_distance_help: string;
 };
@@ -103,5 +120,8 @@ export type WeatherPage = {
     humidity_pct: number;
     temperature_quality: number | null;
     humidity_quality: number | null;
+    wind_ms: number | null;
+    solar_wm2: number | null;
+    wbgt_c: number | null;
   }[];
 };

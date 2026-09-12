@@ -5,7 +5,7 @@ import { BackHome } from "../../components/BackHome";
 import { StickyActions } from "../../components/StickyActions";
 import { WeatherDistanceHelp } from "../../components/WeatherDistanceHelp";
 import { apiGet, apiSend } from "../../lib/api";
-import { confidenceLabel, defaultDateTimeLocal, formatDateTime, formatDistanceKm, formatDuration, formatPace } from "../../lib/format";
+import { confidenceLabel, defaultDateTimeLocal, formatDateTime, formatDistanceKm, formatDuration, formatPace, formatWbgtDelta, formatWeatherBrief } from "../../lib/format";
 import type { PredictResult, Profile } from "../../lib/types";
 
 const RACE_LABELS: Record<string, string> = {
@@ -167,6 +167,7 @@ export default function PredictPage() {
             <p className="meta">
               予報: {result.condition.location_label} {formatDateTime(result.condition.observed_at)} / {result.condition.temperature_c.toFixed(1)}℃ /{" "}
               {result.condition.humidity_pct.toFixed(0)}%
+              {result.condition.wbgt_c != null ? ` / WBGT ${result.condition.wbgt_c.toFixed(1)}℃` : ""}
             </p>
           ) : null}
           <p className="meta">走行強度: {result.intensity_label}</p>
@@ -205,9 +206,13 @@ export default function PredictPage() {
                   <td>{formatPace(run.pace_sec_per_km)}</td>
                   <td>{run.avg_heart_rate ?? "—"}</td>
                   <td>
-                    {run.temperature_c.toFixed(1)}℃ / {run.humidity_pct.toFixed(0)}%
+                    {formatWeatherBrief({
+                      temperature_c: run.temperature_c,
+                      humidity_pct: run.humidity_pct,
+                      wbgt_c: run.wbgt_c,
+                    })}
                   </td>
-                  <td>{run.weather_distance.toFixed(2)}</td>
+                  <td>{formatWbgtDelta(run.wbgt_delta)}</td>
                 </tr>
               ))}
             </tbody>

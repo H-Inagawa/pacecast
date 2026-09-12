@@ -13,6 +13,7 @@ from pacecast.db import get_db
 from pacecast.formatting import duration_from_hms, parse_datetime_local, split_duration
 from pacecast.models import RunningRecord, UserProfile, WeatherObservation
 from pacecast.schemas import (
+    AmedasStationOut,
     ForecastOut,
     HomeOut,
     ImportOut,
@@ -30,6 +31,7 @@ from pacecast.schemas import (
     WeatherRow,
     WeatherSummary,
 )
+from pacecast.services.amedas import list_stations, resolve_station
 from pacecast.services.forecast import ForecastError, fetch_forecast_condition
 from pacecast.services.intensity import (
     INTENSITY_LABELS,
@@ -38,7 +40,7 @@ from pacecast.services.intensity import (
     race_options,
     suggested_intensity_hrs,
 )
-from pacecast.services.matching import attach_weather, relink_all_runs
+from pacecast.services.matching import relink_all_runs
 from pacecast.services.prediction import predict_performance
 from pacecast.services.profile import (
     effective_color_rows,
@@ -50,12 +52,19 @@ from pacecast.services.profile import (
     save_profile,
 )
 from pacecast.services.weather_import import import_weather_csv, weather_count
+from pacecast.services.weather_sync import (
+    backfill_run_wbgt,
+    enrich_run_weather,
+    profile_station,
+    target_wbgt,
+)
 
 router = APIRouter(prefix="/api")
 
 WEATHER_DISTANCE_HELP = (
-    "指定した気温・湿度と、過去の走行時の気温・湿度がどれだけ近いかを表します。"
-    "0 に近いほど条件が似ています。気温 1℃ の差と湿度 5% の差を同じ重みにしています。"
+    "予測対象の推定 WBGT と、その走の推定 WBGT の差です。"
+    "過去走のほうが高い（暑い）と +、低い（涼しい）と - を付けます。"
+    "0 に近いほど条件が似ています。単位は ℃ です。"
 )
 
 
@@ -80,18 +89,41 @@ def _intensity_hrs(values: dict[str, int | None]) -> IntensityHrs:
     )
 
 
-def _profile_out(profile: UserProfile) -> ProfileOut:
+def _wbgt_counts(db: Session) -> tuple[int, int]:
+    """
+    走行件数と WBGT 付き件数を返す。
+
+    Args:
+        db: DB セッション。
+
+    Returns:
+        `(全走行件数, WBGT 付き件数)`。
+    """
+    run_count = db.scalar(select(func.count()).select_from(RunningRecord)) or 0
+    ready = db.scalar(
+        select(func.count())
+        .select_from(RunningRecord)
+        .join(WeatherObservation, RunningRecord.weather_observation_id == WeatherObservation.id)
+        .where(WeatherObservation.wbgt_c.is_not(None))
+    ) or 0
+    return int(run_count), int(ready)
+
+
+def _profile_out(profile: UserProfile, db: Session) -> ProfileOut:
     """
     プロフィールを API 用にする。
 
     Args:
         profile: 保存済み設定。
+        db: DB セッション。
 
     Returns:
         設定画面・予測画面用の値。
     """
     stored = profile_target_hrs(profile)
     suggested = suggested_intensity_hrs(profile.max_heart_rate) if profile.max_heart_rate else {}
+    station = profile_station(profile)
+    run_count, ready = _wbgt_counts(db)
     return ProfileOut(
         display_name=profile.display_name,
         birthday=profile.birthday.isoformat() if profile.birthday else None,
@@ -109,6 +141,10 @@ def _profile_out(profile: UserProfile) -> ProfileOut:
             IntensityOut(key=item.key, label=item.label, target_hr=item.target_hr, distance_km=item.distance_km)
             for item in race_options(stored)
         ],
+        amedas_station_id=station.station_id,
+        amedas_station_name=station.name,
+        wbgt_ready_count=ready,
+        run_count=run_count,
     )
 
 
@@ -129,6 +165,7 @@ def _run_out(record: RunningRecord, profile: UserProfile | None = None) -> RunOu
             temperature_c=record.weather.temperature_c,
             humidity_pct=record.weather.humidity_pct,
             observed_at=record.weather.observed_at.strftime("%Y-%m-%d %H:%M"),
+            wbgt_c=record.weather.wbgt_c,
         )
     return RunOut(
         id=record.id,
@@ -291,11 +328,12 @@ def create_run(payload: RunWrite, db: Session = Depends(get_db)) -> RunOut:
         updated_at=datetime.now(),
     )
     _apply_write(record, payload)
-    attach_weather(db, record)
+    profile = get_or_create_profile(db)
+    enrich_run_weather(db, record, profile_station(profile))
     db.add(record)
     db.commit()
     db.refresh(record)
-    return _run_out(record, get_or_create_profile(db))
+    return _run_out(record, profile)
 
 
 @router.put("/runs/{run_id}", response_model=RunOut)
@@ -315,10 +353,11 @@ def update_run(run_id: int, payload: RunWrite, db: Session = Depends(get_db)) ->
     if record is None:
         raise HTTPException(status_code=404, detail="記録が見つかりません")
     _apply_write(record, payload)
-    attach_weather(db, record)
+    profile = get_or_create_profile(db)
+    enrich_run_weather(db, record, profile_station(profile))
     db.commit()
     db.refresh(record)
-    return _run_out(record, get_or_create_profile(db))
+    return _run_out(record, profile)
 
 
 @router.delete("/runs/{run_id}")
@@ -374,6 +413,9 @@ def weather_page(date: str | None = None, db: Session = Depends(get_db)) -> Weat
                 humidity_pct=row.humidity_pct,
                 temperature_quality=row.temperature_quality,
                 humidity_quality=row.humidity_quality,
+                wind_ms=row.wind_ms,
+                solar_wm2=row.solar_wm2,
+                wbgt_c=row.wbgt_c,
             )
             for row in observations
         ]
@@ -402,6 +444,7 @@ def weather_import(
         else:
             result = import_weather_csv(db)
         relink_all_runs(db)
+        backfill_run_wbgt(db)
         notice = f"{result.location}の気象を取り込みました（追加{result.inserted}件 / 更新{result.updated}件）"
     except (OSError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=f"取り込みに失敗しました: {exc}") from exc
@@ -419,7 +462,26 @@ def get_profile(db: Session = Depends(get_db)) -> ProfileOut:
     Returns:
         プロフィール。
     """
-    return _profile_out(get_or_create_profile(db))
+    return _profile_out(get_or_create_profile(db), db)
+
+
+@router.get("/amedas/stations", response_model=list[AmedasStationOut])
+def amedas_stations() -> list[AmedasStationOut]:
+    """
+    設定用のアメダス地点一覧を返す。
+
+    Returns:
+        地点名順の観測所。
+    """
+    return [
+        AmedasStationOut(
+            station_id=item.station_id,
+            name=item.name,
+            latitude=item.latitude,
+            longitude=item.longitude,
+        )
+        for item in list_stations()
+    ]
 
 
 @router.put("/profile", response_model=ProfileOut)
@@ -458,7 +520,18 @@ def update_profile(payload: ProfileWrite, db: Session = Depends(get_db)) -> Prof
     profile.hr_race_10k = intensities.race_10k
     profile.hr_race_half = intensities.race_half
     profile.hr_race_full = intensities.race_full
-    return _profile_out(save_profile(db, profile))
+
+    previous_station = profile.amedas_station_id
+    if payload.amedas_station_id:
+        station = resolve_station(payload.amedas_station_id)
+        profile.amedas_station_id = station.station_id
+        profile.amedas_station_name = station.name
+
+    saved = save_profile(db, profile)
+    if payload.amedas_station_id and payload.amedas_station_id != previous_station:
+        backfill_run_wbgt(db, saved)
+        db.refresh(saved)
+    return _profile_out(saved, db)
 
 
 @router.get("/intensities", response_model=ProfileOut)
@@ -472,7 +545,7 @@ def intensities(db: Session = Depends(get_db)) -> ProfileOut:
     Returns:
         プロフィールに紐づく強度。
     """
-    return _profile_out(get_or_create_profile(db))
+    return _profile_out(get_or_create_profile(db), db)
 
 
 @router.post("/predict", response_model=PredictOut)
@@ -489,20 +562,34 @@ def predict(payload: PredictIn, db: Session = Depends(get_db)) -> PredictOut:
     """
     condition = None
     try:
+        profile = get_or_create_profile(db)
+        station = profile_station(profile)
         if payload.mode == "forecast":
             if not payload.forecast_at:
                 raise ValueError("予報を使う日時を入力してください")
             forecast = fetch_forecast_condition(
                 parse_datetime_local(payload.forecast_at),
-                location_label=DEFAULT_LOCATION,
+                latitude=station.latitude,
+                longitude=station.longitude,
+                location_label=station.name,
             )
             temperature = forecast.temperature_c
             humidity = forecast.humidity_pct
+            wbgt = target_wbgt(
+                temperature,
+                humidity,
+                forecast.observed_at,
+                station,
+                forecast,
+            )
             condition = ForecastOut(
                 observed_at=forecast.observed_at.strftime("%Y-%m-%d %H:%M"),
                 temperature_c=forecast.temperature_c,
                 humidity_pct=forecast.humidity_pct,
                 location_label=forecast.location_label,
+                wind_ms=forecast.wind_ms,
+                solar_wm2=forecast.solar_wm2,
+                wbgt_c=wbgt,
             )
         else:
             if payload.temperature_c is None or payload.humidity_pct is None:
@@ -511,7 +598,7 @@ def predict(payload: PredictIn, db: Session = Depends(get_db)) -> PredictOut:
             humidity = payload.humidity_pct
             if not (0 <= humidity <= 100):
                 raise ValueError("湿度は 0〜100 の範囲で入力してください")
-        profile = get_or_create_profile(db)
+            wbgt = target_wbgt(temperature, humidity, datetime.now(), station)
         if payload.distance_mode == "race":
             race_key = payload.race or "race_5k"
             if race_key not in RACE_DISTANCES_KM:
@@ -529,8 +616,7 @@ def predict(payload: PredictIn, db: Session = Depends(get_db)) -> PredictOut:
         intensity_label = INTENSITY_LABELS.get(intensity_key, intensity_key)
         result = predict_performance(
             db,
-            temperature,
-            humidity,
+            wbgt,
             distance,
             intensity_key=intensity_key,
             intensity_label=intensity_label,
@@ -540,7 +626,7 @@ def predict(payload: PredictIn, db: Session = Depends(get_db)) -> PredictOut:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     if result is None:
-        raise HTTPException(status_code=400, detail="気象と紐付いた走行記録がまだ無いため、予測できません")
+        raise HTTPException(status_code=400, detail="WBGT が付いた走行記録がまだ無いため、予測できません")
 
     return PredictOut(
         predicted_pace_sec_per_km=result.predicted_pace_sec_per_km,
@@ -561,7 +647,9 @@ def predict(payload: PredictIn, db: Session = Depends(get_db)) -> PredictOut:
                 avg_heart_rate=item.avg_heart_rate,
                 temperature_c=item.temperature_c,
                 humidity_pct=item.humidity_pct,
+                wbgt_c=item.wbgt_c,
                 weather_distance=item.weather_distance,
+                wbgt_delta=item.wbgt_delta,
             )
             for item in result.used_runs
         ],

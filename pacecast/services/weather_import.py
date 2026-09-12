@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from pacecast.config import DEFAULT_LOCATION, DEFAULT_WEATHER_CSV
 from pacecast.models import WeatherObservation
+from pacecast.services.wbgt import apply_wbgt
 
 _DATETIME_FORMATS = (
     "%Y/%m/%d %H:%M:%S",
@@ -248,6 +249,7 @@ def import_weather_csv(
         current.humidity_quality = item.humidity_quality
         current.source = source
         current.imported_at = now
+        apply_wbgt(current)
         updated += 1
 
     db.commit()

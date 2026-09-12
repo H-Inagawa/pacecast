@@ -9,6 +9,7 @@ class WeatherBrief(BaseModel):
     temperature_c: float
     humidity_pct: float
     observed_at: str
+    wbgt_c: float | None = None
 
 
 class RunOut(BaseModel):
@@ -58,6 +59,9 @@ class WeatherRow(BaseModel):
     humidity_pct: float
     temperature_quality: int | None
     humidity_quality: int | None
+    wind_ms: float | None = None
+    solar_wm2: float | None = None
+    wbgt_c: float | None = None
 
 
 class WeatherSummary(BaseModel):
@@ -118,6 +122,10 @@ class ProfileOut(BaseModel):
     suggested: IntensityHrs
     custom_intensities: list[IntensityOut]
     race_options: list[IntensityOut]
+    amedas_station_id: str
+    amedas_station_name: str
+    wbgt_ready_count: int = 0
+    run_count: int = 0
 
 
 class ProfileWrite(BaseModel):
@@ -128,6 +136,16 @@ class ProfileWrite(BaseModel):
     max_heart_rate: int | None = None
     color_rows: bool = True
     intensities: IntensityHrs = IntensityHrs()
+    amedas_station_id: str | None = None
+
+
+class AmedasStationOut(BaseModel):
+    """設定用のアメダス地点。"""
+
+    station_id: str
+    name: str
+    latitude: float
+    longitude: float
 
 
 class SimilarRunOut(BaseModel):
@@ -141,7 +159,9 @@ class SimilarRunOut(BaseModel):
     avg_heart_rate: int | None
     temperature_c: float
     humidity_pct: float
+    wbgt_c: float
     weather_distance: float
+    wbgt_delta: float
 
 
 class ForecastOut(BaseModel):
@@ -151,6 +171,9 @@ class ForecastOut(BaseModel):
     temperature_c: float
     humidity_pct: float
     location_label: str
+    wind_ms: float | None = None
+    solar_wm2: float | None = None
+    wbgt_c: float | None = None
 
 
 class PredictIn(BaseModel):

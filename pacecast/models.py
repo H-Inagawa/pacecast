@@ -20,6 +20,11 @@ class WeatherObservation(Base):
     humidity_pct: Mapped[float] = mapped_column(Float, nullable=False)
     temperature_quality: Mapped[int | None] = mapped_column(Integer, nullable=True)
     humidity_quality: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    wind_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    solar_wm2: Mapped[float | None] = mapped_column(Float, nullable=True)
+    wbgt_c: Mapped[float | None] = mapped_column(Float, nullable=True)
+    wbgt_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    station_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
     source: Mapped[str] = mapped_column(String(32), nullable=False, default="csv")
     imported_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
@@ -76,4 +81,6 @@ class UserProfile(Base):
     hr_race_10k: Mapped[int | None] = mapped_column(Integer, nullable=True)
     hr_race_half: Mapped[int | None] = mapped_column(Integer, nullable=True)
     hr_race_full: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    amedas_station_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    amedas_station_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

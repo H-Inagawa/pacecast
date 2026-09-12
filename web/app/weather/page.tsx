@@ -92,6 +92,7 @@ export default function WeatherScreen() {
                   <th>時刻</th>
                   <th>気温</th>
                   <th>湿度</th>
+                  <th>WBGT</th>
                   <th>品質（気温 / 湿度）</th>
                 </tr>
               </thead>
@@ -101,6 +102,7 @@ export default function WeatherScreen() {
                     <td>{formatDateTime(row.observed_at)}</td>
                     <td>{row.temperature_c.toFixed(1)}℃</td>
                     <td>{row.humidity_pct.toFixed(0)}%</td>
+                    <td>{row.wbgt_c == null ? "—" : `${row.wbgt_c.toFixed(1)}℃`}</td>
                     <td>
                       {row.temperature_quality ?? "—"} / {row.humidity_quality ?? "—"}
                     </td>

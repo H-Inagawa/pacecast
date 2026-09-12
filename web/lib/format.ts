@@ -29,11 +29,28 @@ export function formatRunSummary(count: number, distanceKm: number): string {
 
 export const MISSING_WEATHER_LABEL = "--.-℃ / --%";
 
-export function formatWeatherBrief(weather: { temperature_c: number; humidity_pct: number } | null): string {
+export function formatWeatherBrief(
+  weather: { temperature_c: number; humidity_pct: number; wbgt_c?: number | null } | null,
+): string {
   if (!weather) {
     return MISSING_WEATHER_LABEL;
   }
-  return `${weather.temperature_c.toFixed(1)}℃ / ${weather.humidity_pct.toFixed(0)}%`;
+  const brief = `${weather.temperature_c.toFixed(1)}℃ / ${weather.humidity_pct.toFixed(0)}%`;
+  if (weather.wbgt_c == null) {
+    return brief;
+  }
+  return `${brief} / WBGT ${weather.wbgt_c.toFixed(1)}`;
+}
+
+export function formatWbgtDelta(delta: number): string {
+  const amount = Math.abs(delta).toFixed(2);
+  if (delta > 0) {
+    return `+${amount}`;
+  }
+  if (delta < 0) {
+    return `-${amount}`;
+  }
+  return amount;
 }
 
 export function formatDate(value: string): string {

@@ -11,7 +11,8 @@
 | 画面 | Next.js（App Router） | 画面追加と入力制御をフロントに閉じる |
 | DB | SQLite | セットアップ不要で履歴をファイルとして残せる |
 | ORM | SQLAlchemy 2.0 | スキーマ変更とテスト用 DB 切り替えがしやすい |
-| 予報 | Open-Meteo | API キー不要で時別の気温・湿度が取れる |
+| 予報・再解析 | Open-Meteo | API キー不要。気温・湿度に加え風速・日射を取り、推定 WBGT に使う |
+| アメダス | 気象庁 bosai JSON | 地点マスタと、直近数日の気温・湿度・風 |
 
 ## 2. 構成図
 
@@ -26,6 +27,9 @@
                                           +-- services/intensity
                                           +-- services/prediction
                                           +-- services/forecast
+                                          +-- services/amedas
+                                          +-- services/wbgt
+                                          +-- services/weather_sync
                                           |
                                           v
                                      [SQLite] data/pacecast.db

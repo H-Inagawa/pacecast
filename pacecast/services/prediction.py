@@ -24,7 +24,9 @@ class SimilarRun:
     avg_heart_rate: int | None
     temperature_c: float
     humidity_pct: float
+    wbgt_c: float
     weather_distance: float
+    wbgt_delta: float
     weight: float
 
 
@@ -43,20 +45,18 @@ class PredictionResult:
     intensity_label: str
 
 
-def weather_distance(temp_a: float, humidity_a: float, temp_b: float, humidity_b: float) -> float:
+def weather_distance(wbgt_a: float, wbgt_b: float) -> float:
     """
-    2つの気象条件の距離を返す。
+    2つの推定 WBGT の距離を返す。
 
     Args:
-        temp_a: 気温 A（℃）。
-        humidity_a: 湿度 A（％）。
-        temp_b: 気温 B（℃）。
-        humidity_b: 湿度 B（％）。
+        wbgt_a: WBGT A（℃）。
+        wbgt_b: WBGT B（℃）。
 
     Returns:
-        気温差 1℃ または湿度差 5% を距離 1 とした値。
+        絶対差。0 に近いほど暑さ条件が似ている。
     """
-    return abs(temp_a - temp_b) + abs(humidity_a - humidity_b) / 5.0
+    return abs(wbgt_a - wbgt_b)
 
 
 def _confidence(sample_count: int, near_count: int) -> str:
@@ -79,27 +79,25 @@ def _confidence(sample_count: int, near_count: int) -> str:
 
 def predict_performance(
     db: Session,
-    temperature_c: float,
-    humidity_pct: float,
+    wbgt_c: float,
     distance_km: float,
     intensity_key: str = "medium",
     intensity_label: str = "中強度",
     target_hr: int | None = None,
 ) -> PredictionResult | None:
     """
-    指定した気象・距離・走行強度に対するパフォーマンスを予測する。
+    指定した推定 WBGT・距離・走行強度に対するパフォーマンスを予測する。
 
     Args:
         db: DB セッション。
-        temperature_c: 目標気温（℃）。
-        humidity_pct: 目標湿度（％）。
+        wbgt_c: 目標の推定 WBGT（℃）。
         distance_km: 予測したい走行距離（km）。
         intensity_key: 走行強度キー。
         intensity_label: 画面表示用の強度名。
         target_hr: 目標心拍。無ければ気象のみで重み付けする。
 
     Returns:
-        予測結果。気象付きの過去走が無ければ None。
+        予測結果。WBGT 付きの過去走が無ければ None。
     """
     records = db.scalars(
         select(RunningRecord)
@@ -112,14 +110,9 @@ def predict_performance(
     weighted: list[tuple[RunningRecord, float, float]] = []
     for record in records:
         weather = record.weather
-        if weather is None:
+        if weather is None or weather.wbgt_c is None:
             continue
-        w_distance = weather_distance(
-            temperature_c,
-            humidity_pct,
-            weather.temperature_c,
-            weather.humidity_pct,
-        )
+        w_distance = weather_distance(wbgt_c, weather.wbgt_c)
         if target_hr is None:
             combined = w_distance
         elif record.avg_heart_rate is None:
@@ -138,7 +131,7 @@ def predict_performance(
     used_runs = []
     for record, distance, weight in sorted(weighted, key=lambda item: item[1])[:8]:
         weather = record.weather
-        assert weather is not None
+        assert weather is not None and weather.wbgt_c is not None
         used_runs.append(
             SimilarRun(
                 record_id=record.id,
@@ -149,7 +142,9 @@ def predict_performance(
                 avg_heart_rate=record.avg_heart_rate,
                 temperature_c=weather.temperature_c,
                 humidity_pct=weather.humidity_pct,
+                wbgt_c=weather.wbgt_c,
                 weather_distance=distance,
+                wbgt_delta=weather.wbgt_c - wbgt_c,
                 weight=weight,
             )
         )
