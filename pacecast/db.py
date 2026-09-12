@@ -108,6 +108,10 @@ def migrate_schema(bind=None) -> None:
             ("amedas_station_id", "TEXT"),
             ("amedas_station_name", "TEXT"),
         ),
+        "running_records": (
+            ("amedas_station_id", "TEXT"),
+            ("amedas_station_name", "TEXT"),
+        ),
     }
     with target.begin() as connection:
         for table_name, columns in additions.items():
@@ -123,6 +127,123 @@ def migrate_schema(bind=None) -> None:
                 connection.execute(
                     text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
                 )
+        _fill_legacy_station_ids(connection)
+    _rebuild_weather_unique_if_needed(target)
+
+
+def _fill_legacy_station_ids(connection) -> None:
+    """
+    地点が空の気象・走行に、サンプル CSV の練馬を入れる。
+
+    設定の未指定既定（東京）は上書きしない。
+
+    Args:
+        connection: 開いている DB 接続。
+
+    Returns:
+        なし。
+    """
+    from pacecast.config import SAMPLE_AMEDAS_STATION_ID, SAMPLE_AMEDAS_STATION_NAME
+
+    weather_cols = {
+        row[1] for row in connection.execute(text("PRAGMA table_info(weather_observations)")).fetchall()
+    }
+    if "station_id" in weather_cols:
+        connection.execute(
+            text(
+                "UPDATE weather_observations SET station_id = :sid "
+                "WHERE station_id IS NULL OR station_id = ''"
+            ),
+            {"sid": SAMPLE_AMEDAS_STATION_ID},
+        )
+    run_cols = {row[1] for row in connection.execute(text("PRAGMA table_info(running_records)")).fetchall()}
+    if "amedas_station_id" in run_cols:
+        connection.execute(
+            text(
+                "UPDATE running_records SET amedas_station_id = :sid, amedas_station_name = :sname "
+                "WHERE amedas_station_id IS NULL OR amedas_station_id = ''"
+            ),
+            {"sid": SAMPLE_AMEDAS_STATION_ID, "sname": SAMPLE_AMEDAS_STATION_NAME},
+        )
+
+
+def _rebuild_weather_unique_if_needed(bind) -> None:
+    """
+    気象の UNIQUE が観測時刻だけなら、(時刻, 地点) に作り直す。
+
+    外部キーは別接続で切る。同じトランザクション内だと PRAGMA が効かない。
+
+    Args:
+        bind: SQLAlchemy エンジン。
+
+    Returns:
+        なし。
+    """
+    raw = bind.raw_connection()
+    try:
+        cursor = raw.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = {row[0] for row in cursor.fetchall()}
+        if "weather_observations" not in tables:
+            return
+        cursor.execute("PRAGMA index_list(weather_observations)")
+        needs_rebuild = False
+        for index in cursor.fetchall():
+            if not index[2]:
+                continue
+            cursor.execute(f"PRAGMA index_info({index[1]})")
+            columns = [row[2] for row in cursor.fetchall()]
+            if columns == ["observed_at"]:
+                needs_rebuild = True
+                break
+        if not needs_rebuild:
+            return
+
+        cursor.execute("PRAGMA foreign_keys=OFF")
+        cursor.execute(
+            """
+            CREATE TABLE weather_observations_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                observed_at DATETIME NOT NULL,
+                location VARCHAR(64) NOT NULL,
+                temperature_c FLOAT NOT NULL,
+                humidity_pct FLOAT NOT NULL,
+                temperature_quality INTEGER,
+                humidity_quality INTEGER,
+                wind_ms FLOAT,
+                solar_wm2 FLOAT,
+                wbgt_c FLOAT,
+                wbgt_method VARCHAR(32),
+                station_id VARCHAR(16),
+                source VARCHAR(32) NOT NULL,
+                imported_at DATETIME NOT NULL,
+                UNIQUE (observed_at, station_id)
+            )
+            """
+        )
+        cursor.execute(
+            """
+            INSERT INTO weather_observations_new (
+                id, observed_at, location, temperature_c, humidity_pct,
+                temperature_quality, humidity_quality, wind_ms, solar_wm2,
+                wbgt_c, wbgt_method, station_id, source, imported_at
+            )
+            SELECT
+                id, observed_at, location, temperature_c, humidity_pct,
+                temperature_quality, humidity_quality, wind_ms, solar_wm2,
+                wbgt_c, wbgt_method, station_id, source, imported_at
+            FROM weather_observations
+            """
+        )
+        cursor.execute("DROP TABLE weather_observations")
+        cursor.execute("ALTER TABLE weather_observations_new RENAME TO weather_observations")
+        cursor.execute(
+            "CREATE INDEX ix_weather_observations_observed_at ON weather_observations (observed_at)"
+        )
+        cursor.execute("PRAGMA foreign_keys=ON")
+        raw.commit()
+    finally:
+        raw.close()
 
 
 def get_db() -> Generator[Session, None, None]:

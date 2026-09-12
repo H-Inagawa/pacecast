@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from pacecast.db import Base
@@ -12,9 +12,12 @@ class WeatherObservation(Base):
     """1時間ごとの気象観測。"""
 
     __tablename__ = "weather_observations"
+    __table_args__ = (
+        UniqueConstraint("observed_at", "station_id", name="uq_weather_observed_station"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    observed_at: Mapped[datetime] = mapped_column(DateTime, unique=True, nullable=False, index=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     location: Mapped[str] = mapped_column(String(64), nullable=False)
     temperature_c: Mapped[float] = mapped_column(Float, nullable=False)
     humidity_pct: Mapped[float] = mapped_column(Float, nullable=False)
@@ -42,6 +45,8 @@ class RunningRecord(Base):
     duration_sec: Mapped[int] = mapped_column(Integer, nullable=False)
     avg_heart_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    amedas_station_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    amedas_station_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     weather_observation_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("weather_observations.id", ondelete="SET NULL"),

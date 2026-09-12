@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { BackHome } from "../../components/BackHome";
 import { StickyActions } from "../../components/StickyActions";
+import { StationPicker } from "../../components/StationPicker";
 import { WeatherDistanceHelp } from "../../components/WeatherDistanceHelp";
 import { apiGet, apiSend } from "../../lib/api";
 import { confidenceLabel, defaultDateTimeLocal, formatDateTime, formatDistanceKm, formatDuration, formatPace, formatWbgtDelta, formatWeatherBrief } from "../../lib/format";
-import type { PredictResult, Profile } from "../../lib/types";
+import type { AmedasStation, PredictResult, Profile } from "../../lib/types";
 
 const RACE_LABELS: Record<string, string> = {
   race_5k: "5km",
@@ -24,12 +25,20 @@ export default function PredictPage() {
   const [temperature, setTemperature] = useState("20.0");
   const [humidity, setHumidity] = useState("60");
   const [forecastAt, setForecastAt] = useState(defaultDateTimeLocal());
+  const [forecastStationId, setForecastStationId] = useState("44132");
+  const [stations, setStations] = useState<AmedasStation[]>([]);
   const [intensity, setIntensity] = useState("medium");
   const [result, setResult] = useState<PredictResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void apiGet<Profile>("/api/profile").then(setProfile);
+    void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
+      ([nextProfile, amedasStations]) => {
+        setProfile(nextProfile);
+        setStations(amedasStations);
+        setForecastStationId(nextProfile.amedas_station_id || "44132");
+      },
+    );
   }, []);
 
   async function onSubmit(event: React.FormEvent) {
@@ -53,6 +62,7 @@ export default function PredictPage() {
         humidity_pct: Number(humidity),
         forecast_at: forecastAt,
         intensity,
+        amedas_station_id: mode === "forecast" ? forecastStationId : undefined,
       });
       setResult(payload);
     } catch (err) {
@@ -146,9 +156,16 @@ export default function PredictPage() {
         </div>
         <label className="choice">
           <input type="radio" name="mode" checked={forecastOn} onChange={() => setMode("forecast")} />
-          日時を指定して予報を使う（練馬）
+          日時を指定して予報を使う
         </label>
         <div className={forecastOn ? "mode-card active" : "mode-card inactive"}>
+          <StationPicker
+            stations={stations}
+            value={forecastStationId}
+            onChange={setForecastStationId}
+            disabled={!forecastOn}
+            label="予報の地点"
+          />
           <label>
             予報を使う日時
             <input

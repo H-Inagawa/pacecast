@@ -18,6 +18,8 @@ export type Run = {
   pace_sec_per_km: number;
   weather: WeatherBrief | null;
   hr_zone: "low" | "medium" | "high" | null;
+  amedas_station_id: string | null;
+  amedas_station_name: string | null;
 };
 
 export type HomeData = {

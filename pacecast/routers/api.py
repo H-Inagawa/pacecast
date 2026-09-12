@@ -180,6 +180,8 @@ def _run_out(record: RunningRecord, profile: UserProfile | None = None) -> RunOu
         pace_sec_per_km=record.pace_sec_per_km,
         weather=weather,
         hr_zone=run_zone(profile, record.avg_heart_rate) if profile is not None else None,
+        amedas_station_id=record.amedas_station_id,
+        amedas_station_name=record.amedas_station_name,
     )
 
 
@@ -329,7 +331,10 @@ def create_run(payload: RunWrite, db: Session = Depends(get_db)) -> RunOut:
     )
     _apply_write(record, payload)
     profile = get_or_create_profile(db)
-    enrich_run_weather(db, record, profile_station(profile))
+    station = resolve_station(payload.amedas_station_id or profile.amedas_station_id)
+    record.amedas_station_id = station.station_id
+    record.amedas_station_name = station.name
+    enrich_run_weather(db, record, station)
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -354,7 +359,10 @@ def update_run(run_id: int, payload: RunWrite, db: Session = Depends(get_db)) ->
         raise HTTPException(status_code=404, detail="記録が見つかりません")
     _apply_write(record, payload)
     profile = get_or_create_profile(db)
-    enrich_run_weather(db, record, profile_station(profile))
+    station = resolve_station(payload.amedas_station_id or record.amedas_station_id or profile.amedas_station_id)
+    record.amedas_station_id = station.station_id
+    record.amedas_station_name = station.name
+    enrich_run_weather(db, record, station)
     db.commit()
     db.refresh(record)
     return _run_out(record, profile)
@@ -471,7 +479,7 @@ def amedas_stations() -> list[AmedasStationOut]:
     設定用のアメダス地点一覧を返す。
 
     Returns:
-        地点名順の観測所。
+        観測所番号順の観測所。
     """
     return [
         AmedasStationOut(
@@ -563,7 +571,7 @@ def predict(payload: PredictIn, db: Session = Depends(get_db)) -> PredictOut:
     condition = None
     try:
         profile = get_or_create_profile(db)
-        station = profile_station(profile)
+        station = resolve_station(payload.amedas_station_id or profile.amedas_station_id)
         if payload.mode == "forecast":
             if not payload.forecast_at:
                 raise ValueError("予報を使う日時を入力してください")

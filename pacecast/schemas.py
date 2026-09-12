@@ -27,6 +27,8 @@ class RunOut(BaseModel):
     pace_sec_per_km: float
     weather: WeatherBrief | None
     hr_zone: str | None = None
+    amedas_station_id: str | None = None
+    amedas_station_name: str | None = None
 
 
 class RunWrite(BaseModel):
@@ -39,6 +41,7 @@ class RunWrite(BaseModel):
     seconds: int = Field(ge=0, le=59)
     avg_heart_rate: int | None = None
     notes: str | None = None
+    amedas_station_id: str | None = None
 
 
 class HomeOut(BaseModel):
@@ -187,6 +190,7 @@ class PredictIn(BaseModel):
     humidity_pct: float | None = None
     forecast_at: str | None = None
     intensity: str = "medium"
+    amedas_station_id: str | None = None
 
 
 class PredictOut(BaseModel):

@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BackHome } from "./BackHome";
 import { DurationFields } from "./DurationFields";
+import { StationPicker } from "./StationPicker";
 import { apiGet, apiSend } from "../lib/api";
 import { defaultDateTimeLocal, toDateTimeLocalInput } from "../lib/format";
-import type { Run } from "../lib/types";
+import type { AmedasStation, Profile, Run } from "../lib/types";
 
 type Props = {
   title: string;
@@ -40,6 +41,19 @@ export function RunForm({ title, runId, variant = "page", onCancel, onSuccess }:
   const router = useRouter();
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [stations, setStations] = useState<AmedasStation[]>([]);
+  const [stationId, setStationId] = useState("44132");
+
+  useEffect(() => {
+    void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
+      ([profile, amedasStations]) => {
+        setStations(amedasStations);
+        if (!runId) {
+          setStationId(profile.amedas_station_id || "44132");
+        }
+      },
+    );
+  }, [runId]);
 
   useEffect(() => {
     if (!runId) {
@@ -55,6 +69,7 @@ export function RunForm({ title, runId, variant = "page", onCancel, onSuccess }:
         avg_heart_rate: run.avg_heart_rate == null ? "" : String(run.avg_heart_rate),
         notes: run.notes ?? "",
       });
+      setStationId(run.amedas_station_id || "44132");
     });
   }, [runId]);
 
@@ -69,6 +84,7 @@ export function RunForm({ title, runId, variant = "page", onCancel, onSuccess }:
       seconds: form.seconds,
       avg_heart_rate: form.avg_heart_rate ? Number(form.avg_heart_rate) : null,
       notes: form.notes,
+      amedas_station_id: stationId,
     };
     try {
       if (runId) {
@@ -95,6 +111,7 @@ export function RunForm({ title, runId, variant = "page", onCancel, onSuccess }:
       <Heading id={variant === "modal" ? "run-form-title" : undefined}>{title}</Heading>
       {error ? <p className="error">{error}</p> : null}
       <form className="stack" onSubmit={(event) => void onSubmit(event)}>
+        <StationPicker stations={stations} value={stationId} onChange={setStationId} label="走行地点" />
         <label>
           走行日時
           <input

@@ -6,6 +6,7 @@ import { BackHome } from "../../components/BackHome";
 import { StickyActions } from "../../components/StickyActions";
 import { apiGet, apiSend } from "../../lib/api";
 import { ageFromBirthday, emptyHrs, maxHrFromAge, suggestedHrs } from "../../lib/heartRate";
+import { StationPicker } from "../../components/StationPicker";
 import type { AmedasStation, IntensityHrs, Profile } from "../../lib/types";
 
 function fieldValue(value: number | null): string {
@@ -27,8 +28,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [age, setAge] = useState<number | null>(null);
   const [stations, setStations] = useState<AmedasStation[]>([]);
-  const [stationId, setStationId] = useState("44071");
-  const [stationFilter, setStationFilter] = useState("");
+  const [stationId, setStationId] = useState("44132");
   const [wbgtReady, setWbgtReady] = useState(0);
   const [runCount, setRunCount] = useState(0);
 
@@ -98,16 +98,6 @@ export default function SettingsPage() {
   }
 
   const colorLocked = !maxHr;
-  const filteredStations = stations.filter((item) => {
-    if (!stationFilter.trim()) {
-      return true;
-    }
-    return item.name.includes(stationFilter.trim()) || item.station_id.includes(stationFilter.trim());
-  });
-  const stationOptions =
-    filteredStations.some((item) => item.station_id === stationId) || !stationId
-      ? filteredStations
-      : [...filteredStations, ...stations.filter((item) => item.station_id === stationId)];
 
   return (
     <>
@@ -121,27 +111,9 @@ export default function SettingsPage() {
             ユーザー名
             <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
           </label>
-          <label>
-            アメダス地点の絞り込み
-            <input
-              type="search"
-              placeholder="地点名や番号で絞り込み"
-              value={stationFilter}
-              onChange={(event) => setStationFilter(event.target.value)}
-            />
-          </label>
-          <label>
-            アメダス地点
-            <select value={stationId} onChange={(event) => setStationId(event.target.value)}>
-              {stationOptions.map((item) => (
-                <option key={item.station_id} value={item.station_id}>
-                  {item.name}（{item.station_id}）
-                </option>
-              ))}
-            </select>
-          </label>
+          <StationPicker stations={stations} value={stationId} onChange={setStationId} />
           <p className="meta">
-            気象の取得と推定 WBGT に使います。未設定時は練馬（44071）。
+            気象の取得と推定 WBGT に使います。未設定時は東京（44132）。観測所番号順です。
             {runCount ? ` WBGT 付きの走行: ${wbgtReady} / ${runCount} 件` : ""}
           </p>
           <label>

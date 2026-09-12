@@ -11,7 +11,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from pacecast.config import DEFAULT_LOCATION, DEFAULT_WEATHER_CSV
+from pacecast.config import DEFAULT_LOCATION, DEFAULT_WEATHER_CSV, SAMPLE_AMEDAS_STATION_ID
 from pacecast.models import WeatherObservation
 from pacecast.services.wbgt import apply_wbgt
 
@@ -215,7 +215,7 @@ def import_weather_csv(
 
     observations = parse_weather_csv(_decode_csv_bytes(raw_bytes), source_name=str(path))
     existing = {
-        row.observed_at: row
+        (row.observed_at, row.station_id): row
         for row in db.scalars(select(WeatherObservation)).all()
     }
 
@@ -225,7 +225,8 @@ def import_weather_csv(
     location = observations[0].location if observations else DEFAULT_LOCATION
 
     for item in observations:
-        current = existing.get(item.observed_at)
+        station_id = SAMPLE_AMEDAS_STATION_ID if item.location == DEFAULT_LOCATION else None
+        current = existing.get((item.observed_at, station_id))
         if current is None:
             row = WeatherObservation(
                 observed_at=item.observed_at,
@@ -234,11 +235,12 @@ def import_weather_csv(
                 humidity_pct=item.humidity_pct,
                 temperature_quality=item.temperature_quality,
                 humidity_quality=item.humidity_quality,
+                station_id=station_id,
                 source=source,
                 imported_at=now,
             )
             db.add(row)
-            existing[item.observed_at] = row
+            existing[(item.observed_at, station_id)] = row
             inserted += 1
             continue
 
@@ -247,6 +249,7 @@ def import_weather_csv(
         current.humidity_pct = item.humidity_pct
         current.temperature_quality = item.temperature_quality
         current.humidity_quality = item.humidity_quality
+        current.station_id = station_id or current.station_id
         current.source = source
         current.imported_at = now
         apply_wbgt(current)

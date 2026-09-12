@@ -52,6 +52,33 @@ def test_find_nearest_weather_breaks_tie_with_earlier(db) -> None:
     assert found.id == earlier.id
 
 
+def test_find_nearest_weather_prefers_same_station(db) -> None:
+    """地点を指定したときは、その地点の観測だけを見る。"""
+    nerima = WeatherObservation(
+        observed_at=datetime(2025, 9, 5, 7, 0),
+        location="練馬",
+        temperature_c=20.0,
+        humidity_pct=50.0,
+        station_id="44071",
+        source="test",
+        imported_at=datetime(2026, 1, 1),
+    )
+    tokyo = WeatherObservation(
+        observed_at=datetime(2025, 9, 5, 7, 0),
+        location="東京",
+        temperature_c=22.0,
+        humidity_pct=55.0,
+        station_id="44132",
+        source="test",
+        imported_at=datetime(2026, 1, 1),
+    )
+    db.add_all([nerima, tokyo])
+    db.commit()
+    found = find_nearest_weather(db, datetime(2025, 9, 5, 7, 5), station_id="44132")
+    assert found is not None
+    assert found.id == tokyo.id
+
+
 def test_find_nearest_weather_returns_none_when_too_far(db) -> None:
     """許容差を超える観測は関連付けない。"""
     _add_weather(db, datetime(2025, 9, 5, 1, 0))
