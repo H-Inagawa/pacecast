@@ -4,6 +4,9 @@ import {
   formatPace,
   formatRunSummary,
   formatWbgtDelta,
+  formatHumidityPct,
+  formatTemperatureC,
+  formatWbgtValue,
   formatWeatherBrief,
   groupRunsByMonth,
 } from "../lib/format";
@@ -40,6 +43,17 @@ describe("format", () => {
     expect(formatWeatherBrief({ temperature_c: 21, humidity_pct: 60, wbgt_c: 19.9 })).toBe(
       "21.0℃ / 60% / WBGT 19.9",
     );
+  });
+
+  it("気象の各項目を列用に分ける", () => {
+    const weather = { temperature_c: 21, humidity_pct: 60, wbgt_c: 19.9 };
+    expect(formatTemperatureC(weather)).toBe("21.0℃");
+    expect(formatHumidityPct(weather)).toBe("60%");
+    expect(formatWbgtValue(weather)).toBe("19.9");
+    expect(formatTemperatureC(null)).toBe("--.-℃");
+    expect(formatHumidityPct(null)).toBe("--%");
+    expect(formatWbgtValue(null)).toBe("--.-");
+    expect(formatWbgtValue({ wbgt_c: null })).toBe("--.-");
   });
 
   it("気象距離の表示は符号付きにする", () => {

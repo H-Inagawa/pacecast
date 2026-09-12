@@ -232,6 +232,10 @@ button.drawer-logout:hover {
   grid-template-columns: 1fr;
 }
 
+.sticky-actions-1-3-1 {
+  grid-template-columns: 1fr 3fr 1fr;
+}
+
 .sticky-actions .button,
 .sticky-actions button,
 .sticky-actions a.button {
@@ -259,6 +263,33 @@ a.button.home-back,
 a.button.home-back:hover,
 .button.home-back:hover {
   background: #e7f2ec;
+}
+
+.button.columns-settings {
+  background: var(--ok);
+  color: #fff;
+  white-space: normal;
+  line-height: 1.2;
+  font-size: 0.92rem;
+}
+
+.button.columns-settings:hover {
+  background: #254a41;
+}
+
+.column-options {
+  list-style: none;
+  margin: 1rem 0 1.2rem;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.column-group-label {
+  margin: 0;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
 
 body:has(.sticky-actions) .page {

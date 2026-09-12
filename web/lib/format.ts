@@ -27,7 +27,37 @@ export function formatRunSummary(count: number, distanceKm: number): string {
   return `走行件数：${count}件 走行距離：${formatDistanceKm(distanceKm)}`;
 }
 
-export const MISSING_WEATHER_LABEL = "--.-℃ / --%";
+export const MISSING_TEMPERATURE_LABEL = "--.-℃";
+export const MISSING_HUMIDITY_LABEL = "--%";
+export const MISSING_WBGT_LABEL = "--.-";
+export const MISSING_WEATHER_LABEL = `${MISSING_TEMPERATURE_LABEL} / ${MISSING_HUMIDITY_LABEL}`;
+
+export function formatTemperatureC(
+  weather: { temperature_c: number } | null,
+): string {
+  if (!weather) {
+    return MISSING_TEMPERATURE_LABEL;
+  }
+  return `${weather.temperature_c.toFixed(1)}℃`;
+}
+
+export function formatHumidityPct(
+  weather: { humidity_pct: number } | null,
+): string {
+  if (!weather) {
+    return MISSING_HUMIDITY_LABEL;
+  }
+  return `${weather.humidity_pct.toFixed(0)}%`;
+}
+
+export function formatWbgtValue(
+  weather: { wbgt_c?: number | null } | null,
+): string {
+  if (!weather || weather.wbgt_c == null) {
+    return MISSING_WBGT_LABEL;
+  }
+  return weather.wbgt_c.toFixed(1);
+}
 
 export function formatWeatherBrief(
   weather: { temperature_c: number; humidity_pct: number; wbgt_c?: number | null } | null,
