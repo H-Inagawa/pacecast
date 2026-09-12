@@ -80,6 +80,8 @@
 - GitHub Issues（[#31](https://github.com/H-Inagawa/pacecast/issues/31)）
   - 登録・コメントの冒頭に `【Cursor自動入力】` を付ける
   - Issue は close しない。終了は開発者がプッシュ後に行う
-  - `future` ラベルは後でやる。今は実装しない
+  - `future` は後でやる。今は実装しない
+  - `figma` は見た目。実装依頼が来るまで実装しない
   - [#8](https://github.com/H-Inagawa/pacecast/issues/8)（仕様とドキュメント）と [#38](https://github.com/H-Inagawa/pacecast/issues/38)（チーム手順）も close しない。ずれたら都度直す
+  - 今やる実装は `is:open -label:future -label:figma -label:rules`
 - 別 PC での起動・`gh` ログイン・DB / Git の進め方は `docs/06_dev/team-setup.md`

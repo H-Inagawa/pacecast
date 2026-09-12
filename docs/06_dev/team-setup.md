@@ -107,13 +107,26 @@ GitHub Projects や Milestone は使わず、ラベルで分けます。
 | 見え方 | 意味 |
 | --- | --- |
 | `future` が付いている | 後でやる。今は実装しない |
-| `figma` | 見た目の本番。実装 Issue とは別。ラフ（Excalidraw）はしない |
-| それ以外の Open | 着手してよい |
+| `figma` | 見た目の本番。実装 Issue とは別。ラフはしない |
+| `rules` | 運用・仕様の目次。close しない。ずれたら都度直す |
+| それ以外の Open | 次に着手してよい実装 |
 
-今やるものだけ見るとき:
+今やる実装だけ見るとき:
 
 ```powershell
-gh issue list --search "is:open -label:future"
+gh issue list --search "is:open -label:future -label:figma -label:rules"
+```
+
+見た目（Figma）だけ見るとき:
+
+```powershell
+gh issue list --search "is:open label:figma"
+```
+
+後でやるものだけ見るとき:
+
+```powershell
+gh issue list --search "is:open label:future"
 ```
 
 デザインの実ファイル（Figma）の URL は、各子 Issue（[#18](https://github.com/H-Inagawa/pacecast/issues/18) の表）の本文に貼ります。未作成なら「未」のままです。画面はすでに動いているので、ラフスケッチはしません。
