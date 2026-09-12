@@ -44,16 +44,6 @@ class RunWrite(BaseModel):
     amedas_station_id: str | None = None
 
 
-class HomeOut(BaseModel):
-    """ホーム画面用。"""
-
-    run_count: int
-    total_distance: float
-    recent_runs: list[RunOut]
-    display_name: str | None = None
-    color_rows: bool = False
-
-
 class IntensityOut(BaseModel):
     """走行強度の定義。"""
 

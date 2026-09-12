@@ -14,7 +14,6 @@ from pacecast.models import RunningRecord, UserProfile, WeatherObservation
 from pacecast.schemas import (
     AmedasStationOut,
     ForecastOut,
-    HomeOut,
     IntensityHrs,
     IntensityOut,
     PredictIn,
@@ -212,35 +211,6 @@ def _apply_write(record: RunningRecord, payload: RunWrite) -> RunningRecord:
         record.created_at = now
     record.updated_at = now
     return record
-
-
-@router.get("/home", response_model=HomeOut)
-def home(db: Session = Depends(get_db)) -> HomeOut:
-    """
-    ホーム画面用の集計を返す。
-
-    Args:
-        db: DB セッション。
-
-    Returns:
-        件数・累計距離・最近の走行。
-    """
-    runs = db.scalars(
-        select(RunningRecord)
-        .options(joinedload(RunningRecord.weather))
-        .order_by(RunningRecord.started_at.desc())
-        .limit(5)
-    ).all()
-    run_count = db.scalar(select(func.count()).select_from(RunningRecord)) or 0
-    total_distance = db.scalar(select(func.coalesce(func.sum(RunningRecord.distance_km), 0))) or 0
-    profile = get_or_create_profile(db)
-    return HomeOut(
-        run_count=run_count,
-        total_distance=float(total_distance),
-        recent_runs=[_run_out(run, profile) for run in runs],
-        display_name=profile.display_name,
-        color_rows=effective_color_rows(profile),
-    )
 
 
 @router.get("/runs", response_model=list[RunOut])

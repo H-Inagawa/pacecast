@@ -22,14 +22,6 @@ export type Run = {
   amedas_station_name: string | null;
 };
 
-export type HomeData = {
-  run_count: number;
-  total_distance: number;
-  recent_runs: Run[];
-  display_name: string | null;
-  color_rows: boolean;
-};
-
 export type IntensityHrs = {
   low: number | null;
   medium: number | null;

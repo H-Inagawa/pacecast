@@ -18,7 +18,6 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 
 ## 3. API
 
-- `GET /api/home` ホーム用サマリーと最近の走行
 - `GET /api/runs` / `GET /api/runs/{id}` / `POST /api/runs` / `PUT /api/runs/{id}` / `DELETE /api/runs/{id}`
 - `GET /api/profile` / `PUT /api/profile`
 - `GET /api/amedas/stations`
