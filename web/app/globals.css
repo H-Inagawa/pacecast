@@ -372,6 +372,40 @@ button.text-link { background: none; color: var(--accent); padding: 0; border-ra
   display: block;
 }
 
+.chart-frame {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1rem 0.6rem 0.4rem;
+  overflow-x: auto;
+}
+
+.chart {
+  display: block;
+  width: 100%;
+  min-width: 28rem;
+  height: auto;
+}
+
+.chart-plot {
+  fill: #fffdf8;
+}
+
+.chart-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart-tick,
+.chart-axis {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.chart-dot {
+  fill: var(--accent);
+}
+
 @media (max-width: 720px) {
   .button.primary { min-width: 100%; }
   .section-head { flex-direction: column; align-items: flex-start; }

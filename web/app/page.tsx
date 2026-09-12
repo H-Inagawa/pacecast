@@ -14,6 +14,9 @@ export default function HomePage() {
           パフォーマンスを予測
         </Link>
       </div>
+      <Link className="button secondary" href="/analyze">
+        分析結果を見る
+      </Link>
     </section>
   );
 }

@@ -30,7 +30,7 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 
 ```
 web/                 Next.js App Router
-  app/               画面
+  app/               画面（分析は `/analyze`）
   components/        共通 UI
   lib/               API クライアントと表示整形
 pacecast/
