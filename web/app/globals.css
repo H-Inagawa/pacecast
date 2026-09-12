@@ -171,6 +171,13 @@ body:has(.sticky-actions) .page {
   margin: 1.6rem 0 1rem;
 }
 
+.hero-secondary {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .button, button, input[type="submit"] {
   display: inline-block;
   border: 0;
@@ -332,6 +339,30 @@ button.text-link { background: none; color: var(--accent); padding: 0; border-ra
 
 .modal-panel h2 {
   margin-top: 0;
+}
+
+.about-panel {
+  width: min(40rem, 100%);
+  max-height: calc(100vh - 7rem);
+  overflow: auto;
+}
+
+.about-panel h3 {
+  margin: 1.2rem 0 0.4rem;
+  font-size: 1rem;
+}
+
+.about-list {
+  margin: 0;
+  padding-left: 1.15rem;
+}
+
+.about-list li + li {
+  margin-top: 0.55rem;
+}
+
+.about-list strong {
+  display: block;
 }
 
 .help {
