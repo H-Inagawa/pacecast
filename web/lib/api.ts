@@ -7,6 +7,35 @@ function apiUrl(path: string): string {
   return path;
 }
 
+const AUTH_PAGES = new Set(["/login", "/register", "/verify"]);
+
+function redirectToLogin(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (AUTH_PAGES.has(window.location.pathname)) {
+    return;
+  }
+  window.location.assign("/login");
+}
+
+async function sessionHeaders(): Promise<HeadersInit> {
+  if (typeof window !== "undefined") {
+    return {};
+  }
+  try {
+    const { cookies } = await import("next/headers");
+    const store = await cookies();
+    const session = store.get("pacecast_session");
+    if (session?.value) {
+      return { Cookie: `pacecast_session=${session.value}` };
+    }
+  } catch {
+    return {};
+  }
+  return {};
+}
+
 async function readError(response: Response): Promise<string> {
   try {
     const payload = await response.json();
@@ -38,7 +67,14 @@ async function withLoading<T>(task: () => Promise<T>): Promise<T> {
 
 export async function apiGet<T>(path: string): Promise<T> {
   return withLoading(async () => {
-    const response = await fetch(apiUrl(path), { cache: "no-store" });
+    const response = await fetch(apiUrl(path), {
+      cache: "no-store",
+      credentials: "include",
+      headers: await sessionHeaders(),
+    });
+    if (response.status === 401) {
+      redirectToLogin();
+    }
     if (!response.ok) {
       throw new Error(await readError(response));
     }
@@ -48,11 +84,21 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 export async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
   return withLoading(async () => {
+    const headers: Record<string, string> = {
+      ...((await sessionHeaders()) as Record<string, string>),
+    };
+    if (body) {
+      headers["Content-Type"] = "application/json";
+    }
     const response = await fetch(apiUrl(path), {
       method,
-      headers: body ? { "Content-Type": "application/json" } : undefined,
+      credentials: "include",
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
+    if (response.status === 401) {
+      redirectToLogin();
+    }
     if (!response.ok) {
       throw new Error(await readError(response));
     }

@@ -66,12 +66,40 @@ DB: SQLite（`data/pacecast.db`）
 | amedas_station_name | TEXT | NULL | 地点名（例: 東京） |
 | updated_at | DATETIME | NOT NULL | 更新日時 |
 
+ログインアカウントは別テーブル。走行・設定はこれまでどおり `user_profiles` の 1 行を共有する。
+
+### auth_users
+
+| 列 | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | INTEGER | PK | 内部 ID |
+| email | TEXT | UNIQUE, NOT NULL | ログイン用メール（小文字） |
+| password_hash | TEXT | NOT NULL | PBKDF2 |
+| email_verified | INTEGER | NOT NULL | 確認リンクを開いたか |
+| created_at | DATETIME | NOT NULL | 登録日時 |
+
+開発者用 `dev@pacecast.local` は起動時に確認済みで用意する。
+
+### email_verifications
+
+| 列 | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | INTEGER | PK | 内部 ID |
+| user_id | INTEGER | FK, NOT NULL | `auth_users.id` |
+| token | TEXT | UNIQUE, NOT NULL | メールの確認トークン |
+| expires_at | DATETIME | NOT NULL | 有効期限（24 時間） |
+| used_at | DATETIME | NULL | 使用日時 |
+| created_at | DATETIME | NOT NULL | 発行日時 |
+
 ## 3. インデックス
 
 - `weather_observations (observed_at, station_id)`（UNIQUE）
 - `weather_observations.observed_at`
 - `running_records.started_at`
 - `running_records.weather_observation_id`
+- `auth_users.email`（UNIQUE）
+- `email_verifications.token`（UNIQUE）
+- `email_verifications.user_id`
 
 ## 4. 導出値
 

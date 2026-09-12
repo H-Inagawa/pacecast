@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { apiSend } from "../lib/api";
 import { NAV_ITEMS, isCurrentPath } from "../lib/nav";
 
 export function DrawerMenu() {
@@ -32,6 +33,15 @@ export function DrawerMenu() {
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  async function onLogout() {
+    try {
+      await apiSend("/api/auth/logout", "POST");
+    } catch {
+      // Cookie が残っていてもログイン画面へ戻す
+    }
+    window.location.assign("/login");
+  }
 
   return (
     <>
@@ -74,6 +84,9 @@ export function DrawerMenu() {
                 );
               })}
             </ul>
+            <button type="button" className="drawer-item drawer-logout" onClick={onLogout}>
+              ログアウト
+            </button>
           </nav>
         </div>
       ) : null}

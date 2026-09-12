@@ -22,6 +22,7 @@
     v
 [Next.js / web]  --rewrite /api/*-->  [FastAPI :8000]
                                           |
+                                          +-- services/auth
                                           +-- services/matching
                                           +-- services/intensity
                                           +-- services/prediction

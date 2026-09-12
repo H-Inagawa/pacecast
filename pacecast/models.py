@@ -90,3 +90,32 @@ class UserProfile(Base):
     amedas_station_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
     amedas_station_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class AuthUser(Base):
+    """ログイン用のアカウント。走行データは user_profiles の単一行を共有する。"""
+
+    __tablename__ = "auth_users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(254), nullable=False, unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    verifications: Mapped[list["EmailVerification"]] = relationship(back_populates="user")
+
+
+class EmailVerification(Base):
+    """新規登録のメール確認トークン。"""
+
+    __tablename__ = "email_verifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("auth_users.id"), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    user: Mapped[AuthUser] = relationship(back_populates="verifications")

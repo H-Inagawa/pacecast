@@ -18,11 +18,14 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 
 ## 3. API
 
+- `POST /api/auth/register` / `POST /api/auth/login` / `POST /api/auth/logout` / `GET /api/auth/verify` / `GET /api/auth/me`
 - `GET /api/runs` / `GET /api/runs/{id}` / `POST /api/runs` / `PUT /api/runs/{id}` / `DELETE /api/runs/{id}`
 - `GET /api/profile` / `PUT /api/profile`
 - `GET /api/amedas/stations`
 - `GET /api/intensities` 走行強度の定義
 - `POST /api/predict`
+
+認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` 以外は未ログインならログインへ戻す。
 
 走行時間は DB 上は従来どおり `duration_sec`。API の入出力は時・分・秒に分解し、既存記録と互換を保つ。
 

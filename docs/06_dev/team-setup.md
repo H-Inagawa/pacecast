@@ -71,7 +71,12 @@ cd web
 npm run dev
 ```
 
-ブラウザは http://127.0.0.1:3000 です。停止とポート解放は `README.md` を見てください。
+ブラウザは http://127.0.0.1:3000 です。ログイン画面では、登録なしで次を入れます。
+
+- メール: `dev@pacecast.local`
+- パスワード: `pacecast-dev`
+
+SMTP を置いていなければ、新規登録後に画面へ確認リンクが出ます。メールを送るときは `PACECAST_SMTP_HOST` などを設定します。停止とポート解放は `README.md` を見てください。
 
 ```powershell
 pytest

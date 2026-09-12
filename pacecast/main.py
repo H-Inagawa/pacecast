@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pacecast import __version__
 from pacecast.db import init_db
 from pacecast.routers.api import router as api_router
+from pacecast.routers.auth import router as auth_router
 
 
 @asynccontextmanager
@@ -32,7 +33,9 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:3000",
     ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(auth_router)
 app.include_router(api_router)

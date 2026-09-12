@@ -163,3 +163,37 @@ class PredictOut(BaseModel):
     used_runs: list[SimilarRunOut]
     condition: ForecastOut | None = None
     weather_distance_help: str
+
+
+class AuthCredentials(BaseModel):
+    """ログイン・新規登録の入力。"""
+
+    email: str
+    password: str
+
+
+class RegisterOut(BaseModel):
+    """新規登録の結果。SMTP 未設定時は確認 URL を返す。"""
+
+    message: str
+    verification_url: str | None = None
+
+
+class AuthUserOut(BaseModel):
+    """ログイン中のアカウント。"""
+
+    id: int
+    email: str
+
+
+class MeOut(BaseModel):
+    """現在のセッション。"""
+
+    authenticated: bool
+    email: str | None = None
+
+
+class MessageOut(BaseModel):
+    """単純な完了メッセージ。"""
+
+    message: str

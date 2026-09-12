@@ -83,6 +83,15 @@ def init_db(bind=None) -> None:
     target = bind or engine
     Base.metadata.create_all(bind=target)
     migrate_schema(target)
+    factory = sessionmaker(bind=target, autoflush=False, autocommit=False)
+    session = factory()
+    try:
+        from pacecast.services.auth import ensure_dev_user
+
+        ensure_dev_user(session)
+        session.commit()
+    finally:
+        session.close()
 
 
 def migrate_schema(bind=None) -> None:

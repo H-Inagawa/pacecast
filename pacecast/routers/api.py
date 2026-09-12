@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from pacecast.db import get_db
+from pacecast.routers.deps import require_user
 from pacecast.formatting import duration_from_hms, parse_datetime_local, split_duration
 from pacecast.models import RunningRecord, UserProfile, WeatherObservation
 from pacecast.schemas import (
@@ -54,7 +55,7 @@ from pacecast.services.weather_sync import (
     target_wbgt,
 )
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", dependencies=[Depends(require_user)])
 
 WEATHER_DISTANCE_HELP = (
     "予測対象の推定 WBGT と、その走の推定 WBGT の差です。"

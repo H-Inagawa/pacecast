@@ -26,6 +26,7 @@ describe("DrawerMenu", () => {
     expect(screen.queryByRole("link", { name: "パフォーマンスを予測" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "走行記録" })).toHaveAttribute("href", "/runs");
     expect(screen.getByRole("link", { name: "ホーム" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("button", { name: "ログアウト" })).toBeInTheDocument();
   });
 
   it("背景クリックで閉じる", async () => {
