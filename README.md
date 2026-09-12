@@ -51,4 +51,6 @@ Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
 
 ```bash
 pytest
+cd web
+npm test
 ```

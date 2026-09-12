@@ -10,7 +10,7 @@
 
 - 言語: Python 3.11+
 - API: FastAPI（`http://127.0.0.1:8000`）
-- 画面: Next.js App Router（`web/`、`http://127.0.0.1:3000`）
+- 画面: Next.js App Router（`web/`、`http://127.0.0.1:3000`）。画面テストは Vitest（`web/` で `npm test`）
 - DB: SQLite（`data/pacecast.db`）
 - ORM: SQLAlchemy 2.0
 - 天気予報: Open-Meteo（API キー不要）。地点は設定のアメダス観測所（未設定時は東京 44132）。テスト用の既存設定は練馬（44071）のまま
@@ -58,7 +58,7 @@
 | `docs/01_requirements/requirements.md` | 要件定義 |
 | `docs/01_requirements/open-questions.md` | 未決事項 |
 | `docs/02_architecture/system-architecture.md` | システム構成 |
-| `docs/02_architecture/frontend-nextjs.md` | フロント移行方針 |
+| `docs/02_architecture/frontend-nextjs.md` | フロント移行方針と画面テスト |
 | `docs/02_architecture/intensity-prediction.md` | 強度付き予測 |
 | `docs/02_architecture/decisions-2026-09-06.md` | 改善時の判断 |
 | `docs/02_architecture/decisions-2026-09-08.md` | 予想平均心拍を結果に出さない判断 |

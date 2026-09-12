@@ -44,6 +44,22 @@ pacecast/
 2. `npm run dev`（`web/`）
 3. ブラウザは http://127.0.0.1:3000
 
-## 6. 拡張
+## 6. 自動テスト
+
+根拠: [Issue #9](https://github.com/H-Inagawa/pacecast/issues/9)
+
+| 層 | 道具 | 見るもの |
+| --- | --- | --- |
+| API・計算 | pytest | 紐付け、予測、WBGT、アメダス |
+| 画面の入力と表示 | Vitest + Testing Library | 予測フォーム、地点選択、日付・気象の整形 |
+
+画面の主要操作（記録追加・予測・設定保存）は、まずコンポーネント／ページ単体で確認する。API とブラウザを同時に立てる E2E は、画面単体では足りない操作が出てから足す。
+
+```bash
+cd web
+npm test
+```
+
+## 7. 拡張
 
 画面追加は `web/app` にルートを足す。予測手法の変更は `pacecast/services` だけを変え、API の形が同じならフロントは触らない。
