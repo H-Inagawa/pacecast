@@ -28,7 +28,7 @@ class WeatherObservation(Base):
     wbgt_c: Mapped[float | None] = mapped_column(Float, nullable=True)
     wbgt_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
     station_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    source: Mapped[str] = mapped_column(String(32), nullable=False, default="csv")
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="open-meteo")
     imported_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     running_records: Mapped[list["RunningRecord"]] = relationship(back_populates="weather")

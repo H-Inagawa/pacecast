@@ -11,8 +11,8 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 
 | 層 | 担当 | 置かないもの |
 | --- | --- | --- |
-| Next.js（`web/`） | 画面、入力制御、一覧の月別整形、ツールチップ | 予測計算、CSV パース、DB アクセス |
-| FastAPI（`pacecast/`） | JSON API、SQLite、取り込み・紐付け・予測 | 見た目のレイアウト |
+| Next.js（`web/`） | 画面、入力制御、一覧の月別整形、ツールチップ | 予測計算、DB アクセス |
+| FastAPI（`pacecast/`） | JSON API、SQLite、気象取得・紐付け・予測 | 見た目のレイアウト |
 
 ブラウザは Next.js（開発時はポート 3000）を開く。API は FastAPI（ポート 8000）。開発中は Next.js の rewrite で `/api/*` を FastAPI に転送する。
 
@@ -20,7 +20,8 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 
 - `GET /api/home` ホーム用サマリーと最近の走行
 - `GET /api/runs` / `GET /api/runs/{id}` / `POST /api/runs` / `PUT /api/runs/{id}` / `DELETE /api/runs/{id}`
-- `GET /api/weather` / `POST /api/weather/import`
+- `GET /api/profile` / `PUT /api/profile`
+- `GET /api/amedas/stations`
 - `GET /api/intensities` 走行強度の定義
 - `POST /api/predict`
 

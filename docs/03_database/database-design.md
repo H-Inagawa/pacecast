@@ -27,7 +27,7 @@ DB: SQLite（`data/pacecast.db`）
 | wbgt_c | REAL | NULL | 推定 WBGT（℃） |
 | wbgt_method | TEXT | NULL | 式の版（`ono2014`） |
 | station_id | TEXT | NULL | アメダス観測所 ID。`(observed_at, station_id)` で一意 |
-| source | TEXT | NOT NULL | `csv` など |
+| source | TEXT | NOT NULL | `amedas` / `open-meteo` など |
 | imported_at | DATETIME | NOT NULL | 取り込み日時 |
 
 ### running_records

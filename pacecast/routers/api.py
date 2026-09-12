@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from pacecast.config import DEFAULT_LOCATION, DEFAULT_WEATHER_CSV
 from pacecast.db import get_db
 from pacecast.formatting import duration_from_hms, parse_datetime_local, split_duration
 from pacecast.models import RunningRecord, UserProfile, WeatherObservation
@@ -16,7 +15,6 @@ from pacecast.schemas import (
     AmedasStationOut,
     ForecastOut,
     HomeOut,
-    ImportOut,
     IntensityHrs,
     IntensityOut,
     PredictIn,
@@ -27,9 +25,6 @@ from pacecast.schemas import (
     RunWrite,
     SimilarRunOut,
     WeatherBrief,
-    WeatherPageOut,
-    WeatherRow,
-    WeatherSummary,
 )
 from pacecast.services.amedas import list_stations, resolve_station
 from pacecast.services.forecast import ForecastError, fetch_forecast_condition
@@ -40,7 +35,6 @@ from pacecast.services.intensity import (
     race_options,
     suggested_intensity_hrs,
 )
-from pacecast.services.matching import relink_all_runs
 from pacecast.services.prediction import predict_performance
 from pacecast.services.profile import (
     effective_color_rows,
@@ -51,7 +45,6 @@ from pacecast.services.profile import (
     run_zone,
     save_profile,
 )
-from pacecast.services.weather_import import import_weather_csv, weather_count
 from pacecast.services.weather_sync import (
     backfill_run_wbgt,
     enrich_run_weather,
@@ -221,28 +214,6 @@ def _apply_write(record: RunningRecord, payload: RunWrite) -> RunningRecord:
     return record
 
 
-def _weather_summary(db: Session) -> WeatherSummary:
-    """
-    気象データの概要を返す。
-
-    Args:
-        db: DB セッション。
-
-    Returns:
-        件数・期間・地点。
-    """
-    first = db.scalar(select(func.min(WeatherObservation.observed_at)))
-    last = db.scalar(select(func.max(WeatherObservation.observed_at)))
-    location = db.scalar(select(WeatherObservation.location).limit(1)) or DEFAULT_LOCATION
-    return WeatherSummary(
-        count=weather_count(db),
-        first=first.strftime("%Y-%m-%d %H:%M") if first else None,
-        last=last.strftime("%Y-%m-%d %H:%M") if last else None,
-        location=location,
-        default_csv=str(DEFAULT_WEATHER_CSV),
-    )
-
-
 @router.get("/home", response_model=HomeOut)
 def home(db: Session = Depends(get_db)) -> HomeOut:
     """
@@ -386,77 +357,6 @@ def delete_run(run_id: int, db: Session = Depends(get_db)) -> dict[str, bool]:
     db.delete(record)
     db.commit()
     return {"ok": True}
-
-
-@router.get("/weather", response_model=WeatherPageOut)
-def weather_page(date: str | None = None, db: Session = Depends(get_db)) -> WeatherPageOut:
-    """
-    指定日の時別気象を返す。
-
-    Args:
-        date: 表示する日付（YYYY-MM-DD）。
-        db: DB セッション。
-
-    Returns:
-        概要と時別値。
-    """
-    summary = _weather_summary(db)
-    selected = date
-    if not selected and summary.last:
-        selected = summary.last[:10]
-    rows: list[WeatherRow] = []
-    if selected:
-        day = datetime.strptime(selected, "%Y-%m-%d")
-        day_end = day.replace(hour=23, minute=59, second=59)
-        observations = db.scalars(
-            select(WeatherObservation)
-            .where(WeatherObservation.observed_at >= day)
-            .where(WeatherObservation.observed_at <= day_end)
-            .order_by(WeatherObservation.observed_at.asc())
-        ).all()
-        rows = [
-            WeatherRow(
-                observed_at=row.observed_at.strftime("%Y-%m-%d %H:%M"),
-                temperature_c=row.temperature_c,
-                humidity_pct=row.humidity_pct,
-                temperature_quality=row.temperature_quality,
-                humidity_quality=row.humidity_quality,
-                wind_ms=row.wind_ms,
-                solar_wm2=row.solar_wm2,
-                wbgt_c=row.wbgt_c,
-            )
-            for row in observations
-        ]
-    return WeatherPageOut(summary=summary, selected_date=selected or "", rows=rows)
-
-
-@router.post("/weather/import", response_model=ImportOut)
-def weather_import(
-    db: Session = Depends(get_db),
-    csv_file: UploadFile | None = File(default=None),
-) -> ImportOut:
-    """
-    気象 CSV を取り込む。
-
-    Args:
-        db: DB セッション。
-        csv_file: アップロード。空なら既定ファイル。
-
-    Returns:
-        結果メッセージ。
-    """
-    try:
-        uploaded = csv_file.file.read() if csv_file and csv_file.filename else None
-        if uploaded:
-            result = import_weather_csv(db, raw_bytes=uploaded, source="csv-upload")
-        else:
-            result = import_weather_csv(db)
-        relink_all_runs(db)
-        backfill_run_wbgt(db)
-        notice = f"{result.location}の気象を取り込みました（追加{result.inserted}件 / 更新{result.updated}件）"
-    except (OSError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=f"取り込みに失敗しました: {exc}") from exc
-    return ImportOut(notice=notice)
 
 
 @router.get("/profile", response_model=ProfileOut)

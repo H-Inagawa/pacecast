@@ -133,7 +133,7 @@ def migrate_schema(bind=None) -> None:
 
 def _fill_legacy_station_ids(connection) -> None:
     """
-    地点が空の気象・走行に、サンプル CSV の練馬を入れる。
+    地点が空の気象・走行に、既存テストデータの練馬を入れる。
 
     設定の未指定既定（東京）は上書きしない。
 

@@ -7,7 +7,7 @@
 | 層 | 選択 | 理由 |
 | --- | --- | --- |
 | 言語 | Python 3.11+ | データ処理と将来の分析・ML への接続が容易 |
-| API | FastAPI | JSON API。予測・取り込み・永続化を担当 |
+| API | FastAPI | JSON API。予測・気象取得・永続化を担当 |
 | 画面 | Next.js（App Router） | 画面追加と入力制御をフロントに閉じる |
 | DB | SQLite | セットアップ不要で履歴をファイルとして残せる |
 | ORM | SQLAlchemy 2.0 | スキーマ変更とテスト用 DB 切り替えがしやすい |
@@ -22,7 +22,6 @@
     v
 [Next.js / web]  --rewrite /api/*-->  [FastAPI :8000]
                                           |
-                                          +-- services/weather_import
                                           +-- services/matching
                                           +-- services/intensity
                                           +-- services/prediction
@@ -45,12 +44,11 @@ pacecast/           API と業務ロジック
   services/
   routers/api.py
 tests/
-data/weather/
 docs/
 ```
 
 ## 4. 起動時の動き
 
 1. FastAPI が SQLite を初期化
-2. 気象テーブルが空で既定 CSV があれば自動取り込み
-3. Next.js が画面を提供し、`/api` を FastAPI へ転送
+2. Next.js が画面を提供し、`/api` を FastAPI へ転送
+3. 走行の保存時に、アメダスと Open-Meteo から過去気象を取得する

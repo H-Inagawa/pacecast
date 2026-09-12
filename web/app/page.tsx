@@ -14,9 +14,6 @@ export default function HomePage() {
           パフォーマンスを予測
         </Link>
       </div>
-      <Link className="button secondary" href="/weather">
-        気象データを追加する
-      </Link>
     </section>
   );
 }

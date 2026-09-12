@@ -5,7 +5,6 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 DB_PATH = DATA_DIR / "pacecast.db"
-DEFAULT_WEATHER_CSV = DATA_DIR / "weather" / "data.csv"
 
 DEFAULT_LOCATION = "練馬"
 DEFAULT_LATITUDE = 35.6917
@@ -16,7 +15,7 @@ DEFAULT_TIMEZONE = "Asia/Tokyo"
 DEFAULT_AMEDAS_STATION_ID = "44132"
 DEFAULT_AMEDAS_STATION_NAME = "東京"
 
-# サンプル CSV・既存テストデータは練馬のまま
+# 既存のテストデータは練馬のまま
 SAMPLE_AMEDAS_STATION_ID = "44071"
 SAMPLE_AMEDAS_STATION_NAME = "練馬"
 

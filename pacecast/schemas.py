@@ -54,43 +54,6 @@ class HomeOut(BaseModel):
     color_rows: bool = False
 
 
-class WeatherRow(BaseModel):
-    """1時間の観測。"""
-
-    observed_at: str
-    temperature_c: float
-    humidity_pct: float
-    temperature_quality: int | None
-    humidity_quality: int | None
-    wind_ms: float | None = None
-    solar_wm2: float | None = None
-    wbgt_c: float | None = None
-
-
-class WeatherSummary(BaseModel):
-    """気象データの概要。"""
-
-    count: int
-    first: str | None
-    last: str | None
-    location: str
-    default_csv: str
-
-
-class WeatherPageOut(BaseModel):
-    """気象画面用。"""
-
-    summary: WeatherSummary
-    selected_date: str
-    rows: list[WeatherRow]
-
-
-class ImportOut(BaseModel):
-    """取り込み結果。"""
-
-    notice: str
-
-
 class IntensityOut(BaseModel):
     """走行強度の定義。"""
 

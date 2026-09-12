@@ -39,15 +39,3 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
   }
   return response.json() as Promise<T>;
 }
-
-export async function apiUpload<T>(path: string, file?: File): Promise<T> {
-  const data = new FormData();
-  if (file) {
-    data.append("csv_file", file);
-  }
-  const response = await fetch(apiUrl(path), { method: "POST", body: data });
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  return response.json() as Promise<T>;
-}

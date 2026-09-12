@@ -106,24 +106,3 @@ export type PredictResult = {
   } | null;
   weather_distance_help: string;
 };
-
-export type WeatherPage = {
-  summary: {
-    count: number;
-    first: string | null;
-    last: string | null;
-    location: string;
-    default_csv: string;
-  };
-  selected_date: string;
-  rows: {
-    observed_at: string;
-    temperature_c: number;
-    humidity_pct: number;
-    temperature_quality: number | null;
-    humidity_quality: number | null;
-    wind_ms: number | null;
-    solar_wm2: number | null;
-    wbgt_c: number | null;
-  }[];
-};
