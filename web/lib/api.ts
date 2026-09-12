@@ -1,3 +1,5 @@
+import { beginLoading, endLoading } from "./loading";
+
 function apiUrl(path: string): string {
   if (typeof window === "undefined") {
     return `http://127.0.0.1:8000${path}`;
@@ -20,22 +22,40 @@ async function readError(response: Response): Promise<string> {
   return "リクエストに失敗しました";
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(apiUrl(path), { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(await readError(response));
+async function withLoading<T>(task: () => Promise<T>): Promise<T> {
+  const track = typeof window !== "undefined";
+  if (track) {
+    beginLoading();
   }
-  return response.json() as Promise<T>;
+  try {
+    return await task();
+  } finally {
+    if (track) {
+      endLoading();
+    }
+  }
+}
+
+export async function apiGet<T>(path: string): Promise<T> {
+  return withLoading(async () => {
+    const response = await fetch(apiUrl(path), { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    return response.json() as Promise<T>;
+  });
 }
 
 export async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
-  const response = await fetch(apiUrl(path), {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
+  return withLoading(async () => {
+    const response = await fetch(apiUrl(path), {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    return response.json() as Promise<T>;
   });
-  if (!response.ok) {
-    throw new Error(await readError(response));
-  }
-  return response.json() as Promise<T>;
 }
