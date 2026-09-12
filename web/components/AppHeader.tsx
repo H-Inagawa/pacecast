@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DrawerMenu } from "./DrawerMenu";
 import { apiGet } from "../lib/api";
 import type { Profile } from "../lib/types";
 
@@ -13,9 +14,12 @@ export async function AppHeader() {
 
   return (
     <header className="site-header">
-      <Link className="brand" href="/">
-        PaceCast
-      </Link>
+      <div className="header-start">
+        <DrawerMenu />
+        <Link className="brand" href="/">
+          PaceCast
+        </Link>
+      </div>
       <p className="header-user">{displayName ? `${displayName} さん` : ""}</p>
       <Link className="settings-icon" href="/settings" aria-label="設定" title="設定">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">

@@ -37,6 +37,88 @@ a { color: var(--accent); }
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
 }
 
+.header-start {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  justify-self: start;
+}
+
+.drawer-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #f7f1e8;
+}
+
+.drawer-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(28, 36, 48, 0.42);
+}
+
+.drawer-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(18rem, 86vw);
+  background: #1b2430;
+  color: #f7f1e8;
+  padding: 1.2rem 0.9rem 1.5rem;
+  box-shadow: 0.4rem 0 1.6rem rgba(0, 0, 0, 0.28);
+  animation: drawer-in 0.2s ease-out;
+}
+
+@keyframes drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.drawer-title {
+  margin: 0 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  color: #c9c2b6;
+}
+
+.drawer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.drawer-item {
+  display: block;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.6rem;
+  color: #f7f1e8;
+  text-decoration: none;
+}
+
+a.drawer-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.drawer-item.current {
+  background: rgba(196, 92, 38, 0.28);
+  color: #fff7ee;
+  font-weight: 700;
+  cursor: default;
+}
+
 .header-user {
   margin: 0;
   text-align: center;
