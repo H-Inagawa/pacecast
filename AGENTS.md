@@ -78,4 +78,5 @@
   - 登録・コメントの冒頭に `【Cursor自動入力】` を付ける
   - Issue は close しない。終了は開発者がプッシュ後に行う
   - `future` ラベルは後でやる。今は実装しない
+  - [#8](https://github.com/H-Inagawa/pacecast/issues/8)（仕様とドキュメント）と [#38](https://github.com/H-Inagawa/pacecast/issues/38)（チーム手順）も close しない。ずれたら都度直す
 - 別 PC での起動・`gh` ログイン・DB / Git の進め方は `docs/06_dev/team-setup.md`

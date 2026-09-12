@@ -9,4 +9,7 @@ alwaysApply: true
 
 - Issue の登録・コメントの冒頭に `【Cursor自動入力】` を付ける
 - 実装後も Issue を close しない。終了は開発者がプッシュ後に行う
-- [#31](https://github.com/H-Inagawa/pacecast/issues/31) 自身も close しない
+- 次の運用チケットは close しない。足りない・ずれたときに都度直す
+  - [#31](https://github.com/H-Inagawa/pacecast/issues/31) Issue 管理
+  - [#8](https://github.com/H-Inagawa/pacecast/issues/8) 現行仕様とドキュメント
+  - [#38](https://github.com/H-Inagawa/pacecast/issues/38) チーム作業の手順
