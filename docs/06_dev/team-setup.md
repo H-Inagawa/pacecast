@@ -107,7 +107,7 @@ GitHub Projects や Milestone は使わず、ラベルで分けます。
 | 見え方 | 意味 |
 | --- | --- |
 | `future` が付いている | 後でやる。今は実装しない |
-| `excalidraw` / `figma` | 見た目のラフ / 本番。実装 Issue とは別 |
+| `figma` | 見た目の本番。実装 Issue とは別。ラフ（Excalidraw）はしない |
 | それ以外の Open | 着手してよい |
 
 今やるものだけ見るとき:
@@ -116,4 +116,4 @@ GitHub Projects や Milestone は使わず、ラベルで分けます。
 gh issue list --search "is:open -label:future"
 ```
 
-デザインの実ファイル（Excalidraw / Figma）の URL は、各子 Issue（[#18](https://github.com/H-Inagawa/pacecast/issues/18) の表）の本文に貼ります。未作成なら「未」のままです。
+デザインの実ファイル（Figma）の URL は、各子 Issue（[#18](https://github.com/H-Inagawa/pacecast/issues/18) の表）の本文に貼ります。未作成なら「未」のままです。画面はすでに動いているので、ラフスケッチはしません。
