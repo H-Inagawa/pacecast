@@ -7,6 +7,7 @@ export const profileFixture: Profile = {
   max_heart_rate: 189,
   color_rows: true,
   color_rows_effective: true,
+  row_color_mode: "hr",
   intensities: {
     low: 123,
     medium: 142,

@@ -18,6 +18,7 @@ export type Run = {
   pace_sec_per_km: number;
   weather: WeatherBrief | null;
   hr_zone: "low" | "medium" | "high" | null;
+  weather_zone: "too_cold" | "cold" | "comfort" | "hot" | "too_hot" | "none" | null;
   amedas_station_id: string | null;
   amedas_station_name: string | null;
 };
@@ -46,6 +47,7 @@ export type Profile = {
   max_heart_rate: number | null;
   color_rows: boolean;
   color_rows_effective: boolean;
+  row_color_mode: "hr" | "wbgt" | "off";
   intensities: IntensityHrs;
   suggested: IntensityHrs;
   custom_intensities: Intensity[];

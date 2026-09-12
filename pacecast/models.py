@@ -79,6 +79,7 @@ class UserProfile(Base):
     birthday: Mapped[date | None] = mapped_column(Date, nullable=True)
     max_heart_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)
     color_rows: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    row_color_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="hr")
     hr_low: Mapped[int | None] = mapped_column(Integer, nullable=True)
     hr_medium: Mapped[int | None] = mapped_column(Integer, nullable=True)
     hr_high: Mapped[int | None] = mapped_column(Integer, nullable=True)

@@ -107,6 +107,7 @@ def migrate_schema(bind=None) -> None:
         "user_profiles": (
             ("amedas_station_id", "TEXT"),
             ("amedas_station_name", "TEXT"),
+            ("row_color_mode", "TEXT"),
         ),
         "running_records": (
             ("amedas_station_id", "TEXT"),
@@ -127,8 +128,36 @@ def migrate_schema(bind=None) -> None:
                 connection.execute(
                     text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}")
                 )
+        _fill_legacy_color_mode(connection)
         _fill_legacy_station_ids(connection)
     _rebuild_weather_unique_if_needed(target)
+
+
+def _fill_legacy_color_mode(connection) -> None:
+    """
+    色分け方式が空のプロフィールに、旧 color_rows から値を入れる。
+
+    Args:
+        connection: 開いている DB 接続。
+
+    Returns:
+        なし。
+    """
+    cols = {row[1] for row in connection.execute(text("PRAGMA table_info(user_profiles)")).fetchall()}
+    if "row_color_mode" not in cols:
+        return
+    connection.execute(
+        text(
+            "UPDATE user_profiles SET row_color_mode = 'hr' "
+            "WHERE (row_color_mode IS NULL OR row_color_mode = '') AND color_rows = 1"
+        )
+    )
+    connection.execute(
+        text(
+            "UPDATE user_profiles SET row_color_mode = 'off' "
+            "WHERE (row_color_mode IS NULL OR row_color_mode = '')"
+        )
+    )
 
 
 def _fill_legacy_station_ids(connection) -> None:

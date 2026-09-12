@@ -330,6 +330,16 @@ th { color: var(--muted); font-weight: 600; }
 tr.zone-low td { background: #e7f1fb; }
 tr.zone-medium td { background: #fff6d6; }
 tr.zone-high td { background: #fde8e8; }
+tr.wbgt-too_cold td { background: #8eacd8; }
+tr.wbgt-cold td { background: #dce8f8; }
+tr.wbgt-comfort td { background: #d8efd4; }
+tr.wbgt-hot td { background: #fff3c4; }
+tr.wbgt-too_hot td { background: #f7c8c8; }
+tr.wbgt-none td { background: #dcdcdc; color: #5c6674; }
+
+.weather-legend {
+  margin-top: -0.4rem;
+}
 
 .month-block { margin: 1.6rem 0 2rem; }
 .month-block h2 { margin-bottom: 0.2rem; }

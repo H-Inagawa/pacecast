@@ -58,7 +58,8 @@ DB: SQLite（`data/pacecast.db`）
 | display_name | TEXT | NULL | ユーザー名 |
 | birthday | DATE | NULL | 誕生日 |
 | max_heart_rate | INTEGER | NULL | 最大心拍数 |
-| color_rows | INTEGER | NOT NULL | 行の色分け（0/1）。最大心拍が空なら無効 |
+| color_rows | INTEGER | NOT NULL | 心拍色分けするか（互換。`row_color_mode=hr` のとき 1） |
+| row_color_mode | TEXT | NOT NULL | `hr` / `wbgt` / `off`。心拍は最大心拍が空なら off |
 | hr_low / hr_medium / hr_high | INTEGER | NULL | 低・中・高の目標心拍 |
 | hr_race_5k / hr_race_10k / hr_race_half / hr_race_full | INTEGER | NULL | レース種目の目標心拍 |
 | amedas_station_id | TEXT | NULL | アメダス観測所 ID（未設定時は東京 44132） |

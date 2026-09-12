@@ -14,6 +14,9 @@ from pacecast.services.intensity import (
     classify_run_zone,
     suggested_intensity_hrs,
 )
+from pacecast.services.weather_zone import classify_wbgt_zone
+
+ROW_COLOR_MODES = ("hr", "wbgt", "off")
 
 
 def get_or_create_profile(db: Session) -> UserProfile:
@@ -31,6 +34,7 @@ def get_or_create_profile(db: Session) -> UserProfile:
         profile = UserProfile(
             id=1,
             color_rows=True,
+            row_color_mode="hr",
             amedas_station_id=DEFAULT_AMEDAS_STATION_ID,
             amedas_station_name=DEFAULT_AMEDAS_STATION_NAME,
             updated_at=datetime.now(),
@@ -76,31 +80,82 @@ def apply_suggested_hrs(profile: UserProfile, max_heart_rate: int) -> None:
         setattr(profile, field, suggested[key])
 
 
-def effective_color_rows(profile: UserProfile) -> bool:
+def normalize_row_color_mode(mode: str | None, color_rows: bool | None = None) -> str:
     """
-    実際に行を色分けするか。
+    行の色分け方式を正規化する。
+
+    Args:
+        mode: `hr` / `wbgt` / `off`。
+        color_rows: 旧設定。mode が空のとき使う。
+
+    Returns:
+        正規化した方式。
+    """
+    if mode in ROW_COLOR_MODES:
+        return mode
+    return "hr" if color_rows else "off"
+
+
+def effective_row_color_mode(profile: UserProfile) -> str:
+    """
+    実際に使う色分け方式を返す。
 
     Args:
         profile: プロフィール。
 
     Returns:
-        最大心拍があり、設定がオンのとき True。
+        `hr` / `wbgt` / `off`。心拍色分けは最大心拍が無いとオフ。
     """
-    return bool(profile.color_rows and profile.max_heart_rate)
+    mode = normalize_row_color_mode(getattr(profile, "row_color_mode", None), profile.color_rows)
+    if mode == "hr" and not profile.max_heart_rate:
+        return "off"
+    return mode
+
+
+def effective_color_rows(profile: UserProfile) -> bool:
+    """
+    心拍ゾーンで行を色分けするか。
+
+    Args:
+        profile: プロフィール。
+
+    Returns:
+        方式が心拍で、最大心拍があるとき True。
+    """
+    return effective_row_color_mode(profile) == "hr"
 
 
 def run_zone(profile: UserProfile, avg_heart_rate: int | None) -> str | None:
     """
-    1件の走行の色分けゾーンを返す。
+    1件の走行の心拍色分けゾーンを返す。
 
     Args:
         profile: プロフィール。
         avg_heart_rate: 平均心拍。
 
     Returns:
-        ゾーン。色分けしない場合は None。
+        ゾーン。心拍色分けしない場合は None。
     """
     return classify_run_zone(avg_heart_rate, profile.max_heart_rate, effective_color_rows(profile))
+
+
+def run_weather_zone(profile: UserProfile, wbgt_c: float | None, has_weather: bool) -> str | None:
+    """
+    1件の走行の気象色分けゾーンを返す。
+
+    Args:
+        profile: プロフィール。
+        wbgt_c: 推定 WBGT。
+        has_weather: 気象が付いているか。
+
+    Returns:
+        ゾーン。気象色分けしない場合は None。未関連や WBGT 無しは `none`。
+    """
+    if effective_row_color_mode(profile) != "wbgt":
+        return None
+    if not has_weather or wbgt_c is None:
+        return "none"
+    return classify_wbgt_zone(wbgt_c)
 
 
 def resolve_target_hr(profile: UserProfile, intensity_key: str) -> int | None:
@@ -149,8 +204,11 @@ def save_profile(db: Session, profile: UserProfile) -> UserProfile:
     Returns:
         保存後のプロフィール。
     """
-    if profile.max_heart_rate is None:
-        profile.color_rows = False
+    mode = normalize_row_color_mode(getattr(profile, "row_color_mode", None), profile.color_rows)
+    if profile.max_heart_rate is None and mode == "hr":
+        mode = "off"
+    profile.row_color_mode = mode
+    profile.color_rows = mode == "hr"
     profile.updated_at = datetime.now()
     db.add(profile)
     db.commit()

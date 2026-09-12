@@ -24,6 +24,7 @@ const readyRun: Run = {
   pace_sec_per_km: 340,
   weather: { temperature_c: 24, humidity_pct: 70, observed_at: "2026-09-03 07:00", wbgt_c: 22.1 },
   hr_zone: null,
+  weather_zone: null,
   amedas_station_id: "44071",
   amedas_station_name: "練馬",
 };

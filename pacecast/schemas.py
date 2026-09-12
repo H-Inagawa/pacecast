@@ -27,6 +27,7 @@ class RunOut(BaseModel):
     pace_sec_per_km: float
     weather: WeatherBrief | None
     hr_zone: str | None = None
+    weather_zone: str | None = None
     amedas_station_id: str | None = None
     amedas_station_name: str | None = None
 
@@ -74,6 +75,7 @@ class ProfileOut(BaseModel):
     max_heart_rate: int | None
     color_rows: bool
     color_rows_effective: bool
+    row_color_mode: str = "hr"
     intensities: IntensityHrs
     suggested: IntensityHrs
     custom_intensities: list[IntensityOut]
@@ -91,6 +93,7 @@ class ProfileWrite(BaseModel):
     birthday: str | None = None
     max_heart_rate: int | None = None
     color_rows: bool = True
+    row_color_mode: str | None = None
     intensities: IntensityHrs = IntensityHrs()
     amedas_station_id: str | None = None
 

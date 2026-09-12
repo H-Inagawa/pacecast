@@ -8,6 +8,7 @@ import { RunFormModal } from "../../components/RunFormModal";
 import { StickyActions } from "../../components/StickyActions";
 import { apiGet, apiSend } from "../../lib/api";
 import { formatDateTime, formatDistanceKm, formatDuration, formatPace, formatRunSummary, formatWeatherBrief, groupRunsByMonth } from "../../lib/format";
+import { runRowClass, WBGT_ZONE_LABELS } from "../../lib/weatherZone";
 import type { Run } from "../../lib/types";
 
 type Props = {
@@ -54,6 +55,7 @@ export function RunsView({ initialEditId }: Props) {
   const groups = groupRunsByMonth(runs);
   const formOpen = formRunId !== undefined;
   const totalDistance = runs.reduce((sum, run) => sum + run.distance_km, 0);
+  const wbgtColoring = runs.some((run) => run.weather_zone != null);
 
   return (
     <>
@@ -62,6 +64,12 @@ export function RunsView({ initialEditId }: Props) {
         {loaded ? <p className="meta">{formatRunSummary(runs.length, totalDistance)}</p> : null}
       </header>
       {error ? <p className="error">{error}</p> : null}
+      {wbgtColoring ? (
+        <p className="meta weather-legend">
+          行の色は推定 WBGT。{WBGT_ZONE_LABELS.too_cold} / {WBGT_ZONE_LABELS.cold} / {WBGT_ZONE_LABELS.comfort} /{" "}
+          {WBGT_ZONE_LABELS.hot} / {WBGT_ZONE_LABELS.too_hot}。{WBGT_ZONE_LABELS.none}はグレー。
+        </p>
+      ) : null}
       {!loaded ? (
         <p className="empty">読み込み中...</p>
       ) : groups.length ? (
@@ -85,7 +93,7 @@ export function RunsView({ initialEditId }: Props) {
               </thead>
               <tbody>
                 {group.runs.map((run) => (
-                  <tr key={run.id} className={run.hr_zone ? `zone-${run.hr_zone}` : undefined}>
+                  <tr key={run.id} className={runRowClass(run)}>
                     <td>{formatDateTime(run.started_at)}</td>
                     <td>{formatDistanceKm(run.distance_km)}</td>
                     <td>{formatDuration(run.duration_sec)}</td>

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -37,10 +37,13 @@ from pacecast.services.intensity import (
 from pacecast.services.prediction import predict_performance
 from pacecast.services.profile import (
     effective_color_rows,
+    effective_row_color_mode,
     get_or_create_profile,
+    normalize_row_color_mode,
     profile_age,
     profile_target_hrs,
     resolve_target_hr,
+    run_weather_zone,
     run_zone,
     save_profile,
 )
@@ -123,6 +126,7 @@ def _profile_out(profile: UserProfile, db: Session) -> ProfileOut:
         max_heart_rate=profile.max_heart_rate,
         color_rows=profile.color_rows,
         color_rows_effective=effective_color_rows(profile),
+        row_color_mode=effective_row_color_mode(profile),
         intensities=_intensity_hrs(stored),
         suggested=_intensity_hrs({key: suggested.get(key) for key in stored}),
         custom_intensities=[
@@ -172,6 +176,11 @@ def _run_out(record: RunningRecord, profile: UserProfile | None = None) -> RunOu
         pace_sec_per_km=record.pace_sec_per_km,
         weather=weather,
         hr_zone=run_zone(profile, record.avg_heart_rate) if profile is not None else None,
+        weather_zone=(
+            run_weather_zone(profile, record.weather.wbgt_c if record.weather else None, record.weather is not None)
+            if profile is not None
+            else None
+        ),
         amedas_station_id=record.amedas_station_id,
         amedas_station_name=record.amedas_station_name,
     )
@@ -388,7 +397,11 @@ def update_profile(payload: ProfileWrite, db: Session = Depends(get_db)) -> Prof
     if max_hr is not None and (max_hr < 80 or max_hr > 230):
         raise HTTPException(status_code=400, detail="最大心拍数は 80〜230 の範囲で入力してください")
     profile.max_heart_rate = max_hr
-    profile.color_rows = False if max_hr is None else payload.color_rows
+    mode = normalize_row_color_mode(payload.row_color_mode, payload.color_rows)
+    if max_hr is None and mode == "hr":
+        mode = "off"
+    profile.row_color_mode = mode
+    profile.color_rows = mode == "hr"
 
     intensities = payload.intensities
     profile.hr_low = intensities.low

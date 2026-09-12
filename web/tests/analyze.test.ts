@@ -13,6 +13,7 @@ function run(partial: Partial<Run> & Pick<Run, "id" | "started_at" | "distance_k
     pace_sec_per_km: 360,
     weather: null,
     hr_zone: null,
+    weather_zone: null,
     amedas_station_id: "44071",
     amedas_station_name: "練馬",
     ...partial,

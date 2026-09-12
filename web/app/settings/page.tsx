@@ -8,6 +8,7 @@ import { apiGet, apiSend } from "../../lib/api";
 import { ageFromBirthday, emptyHrs, maxHrFromAge, suggestedHrs } from "../../lib/heartRate";
 import { StationPicker } from "../../components/StationPicker";
 import type { AmedasStation, IntensityHrs, Profile } from "../../lib/types";
+import { normalizeRowColorMode, type RowColorMode } from "../../lib/weatherZone";
 
 function fieldValue(value: number | null): string {
   return value == null ? "" : String(value);
@@ -21,7 +22,7 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [birthday, setBirthday] = useState("");
   const [maxHr, setMaxHr] = useState("");
-  const [colorRows, setColorRows] = useState(false);
+  const [colorMode, setColorMode] = useState<RowColorMode>("hr");
   const [hrs, setHrs] = useState<IntensityHrs>(emptyHrs());
   const [raceOpen, setRaceOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export default function SettingsPage() {
         setOriginalBirthday(profile.birthday ?? "");
         setMaxHr(profile.max_heart_rate == null ? "" : String(profile.max_heart_rate));
         setOriginalMaxHr(profile.max_heart_rate == null ? "" : String(profile.max_heart_rate));
-        setColorRows(profile.color_rows);
+        setColorMode(normalizeRowColorMode(profile.row_color_mode, profile.color_rows ? "hr" : "off"));
         setHrs(profile.intensities);
         setAge(profile.age);
         setStationId(profile.amedas_station_id);
@@ -64,8 +65,9 @@ export default function SettingsPage() {
     const nextMax = maxHr ? Number(maxHr) : null;
     const nextHrs = { ...hrs };
 
-    if (nextMax == null) {
-      setColorRows(false);
+    const nextMode: RowColorMode = nextMax == null && colorMode === "hr" ? "off" : colorMode;
+    if (nextMode !== colorMode) {
+      setColorMode(nextMode);
     }
 
     try {
@@ -73,14 +75,15 @@ export default function SettingsPage() {
         display_name: name,
         birthday: birthday || null,
         max_heart_rate: nextMax,
-        color_rows: nextMax == null ? false : colorRows,
+        row_color_mode: nextMode,
+        color_rows: nextMode === "hr",
         intensities: nextHrs,
         amedas_station_id: stationId,
       });
       setMaxHr(saved.max_heart_rate == null ? "" : String(saved.max_heart_rate));
       setOriginalMaxHr(saved.max_heart_rate == null ? "" : String(saved.max_heart_rate));
       setOriginalBirthday(saved.birthday ?? "");
-      setColorRows(saved.color_rows);
+      setColorMode(normalizeRowColorMode(saved.row_color_mode, saved.color_rows ? "hr" : "off"));
       setHrs(saved.intensities);
       setAge(saved.age);
       setStationId(saved.amedas_station_id);
@@ -102,7 +105,7 @@ export default function SettingsPage() {
   return (
     <>
       <h1>設定</h1>
-      <p className="lede">ユーザー情報と、予測・記録色分けに使う心拍数を保存します。</p>
+      <p className="lede">ユーザー情報と、予測・記録色分けに使う設定を保存します。</p>
       {notice ? <p className="notice">{notice}</p> : null}
       {error ? <p className="error">{error}</p> : null}
       {loaded ? (
@@ -150,8 +153,8 @@ export default function SettingsPage() {
               value={maxHr}
               onChange={(event) => {
                 setMaxHr(event.target.value);
-                if (!event.target.value) {
-                  setColorRows(false);
+                if (!event.target.value && colorMode === "hr") {
+                  setColorMode("off");
                 }
               }}
               onBlur={() => {
@@ -161,14 +164,34 @@ export default function SettingsPage() {
               }}
             />
           </label>
+          <p className="meta">走行記録の色分け</p>
           <label className="choice">
             <input
-              type="checkbox"
-              checked={colorLocked ? false : colorRows}
+              type="radio"
+              name="row-color-mode"
+              checked={colorMode === "hr"}
               disabled={colorLocked}
-              onChange={(event) => setColorRows(event.target.checked)}
+              onChange={() => setColorMode("hr")}
             />
-            走行記録を心拍ゾーンで色分けする{colorLocked ? "（最大心拍数が未入力のため「しない」固定）" : ""}
+            心拍{colorLocked ? "（最大心拍数が未入力のため選べません）" : ""}
+          </label>
+          <label className="choice">
+            <input
+              type="radio"
+              name="row-color-mode"
+              checked={colorMode === "wbgt"}
+              onChange={() => setColorMode("wbgt")}
+            />
+            気象条件（WBGT）
+          </label>
+          <label className="choice">
+            <input
+              type="radio"
+              name="row-color-mode"
+              checked={colorMode === "off"}
+              onChange={() => setColorMode("off")}
+            />
+            色分けしない
           </label>
 
           <h2>強度別心拍数</h2>
