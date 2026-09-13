@@ -299,23 +299,23 @@ def enrich_run_weather(
 
 def backfill_run_wbgt(db: Session, profile: UserProfile | None = None) -> BackfillResult:
     """
-    すべての走行にアメダス／再解析と推定 WBGT を付ける。
+    そのランナーの走行にアメダス／再解析と推定 WBGT を付ける。
 
     Args:
         db: DB セッション。
-        profile: 地点の入った設定。省略時は DB から読む。
+        profile: 地点の入った設定。省略時は何もしない。
 
     Returns:
         付与できた件数と、付かなかった開始日時。
     """
     if profile is None:
-        from pacecast.services.profile import get_or_create_profile
-
-        profile = get_or_create_profile(db)
+        db.commit()
+        return BackfillResult(0, 0, 0, [])
     station = ensure_profile_station(profile)
-    records = db.scalars(
-        select(RunningRecord).options(joinedload(RunningRecord.weather)).order_by(RunningRecord.started_at.asc())
-    ).all()
+    query = select(RunningRecord).options(joinedload(RunningRecord.weather)).order_by(RunningRecord.started_at.asc())
+    if profile.auth_user_id is not None:
+        query = query.where(RunningRecord.auth_user_id == profile.auth_user_id)
+    records = db.scalars(query).all()
     if not records:
         db.commit()
         return BackfillResult(0, 0, 0, [])

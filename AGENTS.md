@@ -36,7 +36,7 @@
 - 下部の主要ボタンとホーム戻りは高さを揃え、横幅は 3:1 で画面幅いっぱい。走行記録だけ「表示項目設定」「記録を追加」「ホームへ戻る」を 1:3:1。本文も画面幅を使う
 - 走行記録の列は「表示項目設定」で選べる。日時と距離は必ず出す。気象は気温・湿度・WBGTを個別に選ぶ。選択は端末に残す
 - 画面遷移と API 通信の待ち中は、半透明のローディングスピナーを出す（ごく短い待ちは出さない）
-- 未ログインはログイン画面。メール＋パスワード。新規登録は入力したメールへ確認リンクを送る。開発者は `dev@pacecast.local` / `pacecast-dev` で登録なしに進める。ドロワーからログアウトする
+- 未ログインはログイン画面。メール＋パスワード。新規登録は Gmail SMTP（`smtp.gmail.com` / 587 / STARTTLS）で確認リンクを送る。認証はアプリパスワード。設定はリポジトリ直下の `.env`（`.env.example` をコピー）。未設定時は画面に確認リンクを出す。開発者は `dev@pacecast.local` / `pacecast-dev`（開発テスト１）で登録なしに進める。ドロワーからログアウトする
 
 ## 業務ルール
 
@@ -50,7 +50,7 @@
 - 推定 WBGT は気象行に保存する。入力の風速・日射も残す。式の版は `wbgt_method=ono2014`
 - 平均心拍数は記録時は任意。予測時、心拍が無い走はペナルティ付きで使う
 - 気象の再取得は `(observed_at, station_id)` で upsert する
-- ログインは入口だけ。走行・設定・予測は従来どおり単一プロフィール（id = 1）。ランナーごとのデータ分離は [#15](https://github.com/H-Inagawa/pacecast/issues/15)
+- 走行・設定・予測はログイン中のアカウント単位。気象観測は地点で共有する。既存の単一プロフィールは `dev@pacecast.local` と `hinagawa1417@gmail.com` にコピーした。他の新規ユーザーは空の設定から始まる
 
 ## ドキュメント
 
@@ -84,4 +84,5 @@
   - `figma` は見た目。実装依頼が来るまで実装しない
   - [#8](https://github.com/H-Inagawa/pacecast/issues/8)（仕様とドキュメント）と [#38](https://github.com/H-Inagawa/pacecast/issues/38)（チーム手順）も close しない。ずれたら都度直す
   - 今やる実装は `is:open -label:future -label:figma -label:rules`
-- 別 PC での起動・`gh` ログイン・DB / Git の進め方は `docs/06_dev/team-setup.md`
+- 別 PC での起動・`gh` ログイン・DB / Git・確認メール（Gmail）の進め方は `docs/06_dev/team-setup.md`
+- Cursor からの画面動作確認は `dev@pacecast.local` / `pacecast-dev`（開発テスト１）で行う。テスト用の走行データは自由に登録してよい。私用メール（`hinagawa1417@gmail.com`）では確認しない

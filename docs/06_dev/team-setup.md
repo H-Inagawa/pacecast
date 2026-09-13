@@ -71,12 +71,25 @@ cd web
 npm run dev
 ```
 
-ブラウザは http://127.0.0.1:3000 です。ログイン画面では、登録なしで次を入れます。
+ブラウザは http://127.0.0.1:3000 です。ログイン画面では、登録なしで次を入れます（開発テスト１）。
 
 - メール: `dev@pacecast.local`
 - パスワード: `pacecast-dev`
 
-SMTP を置いていなければ、新規登録後に画面へ確認リンクが出ます。メールを送るときは `PACECAST_SMTP_HOST` などを設定します。停止とポート解放は `README.md` を見てください。
+Cursor からの画面動作確認もこのアカウントで行います。テスト用の走行は自由に登録してよいです。私用メールでは確認しません。
+
+停止とポート解放は `README.md` を見てください。
+
+## 3.1 確認メール（Gmail）
+
+新規登録の確認メールは `smtp.gmail.com`（ポート 587、STARTTLS）で送ります。Gmail の通常のログインパスワードは使えません。2段階認証を有効にしたうえで、[アプリパスワード](https://myaccount.google.com/apppasswords) を発行します。
+
+1. リポジトリ直下の `.env.example` を `.env` にコピーする
+2. `PACECAST_SMTP_USER` と `PACECAST_SMTP_FROM` に送信用の Gmail アドレスを入れる
+3. `PACECAST_SMTP_PASSWORD` にアプリパスワードを入れる（表示の空白はそのままでよい。送信時に除く）
+4. API（uvicorn）を起動し直す
+
+`.env` は Git に載せません。値が無いときは、新規登録後に画面へ確認リンクが出ます。テストは実 SMTP に繋がりません。
 
 ```powershell
 pytest
@@ -86,7 +99,7 @@ npm test
 
 ## 4. 走行データの扱い
 
-`data/pacecast.db` は Git に載せません。各 PC の DB は独立です。clone した直後は空で起動します。空でも画面は壊れません。
+`data/pacecast.db` は Git に載せません。各 PC の DB は独立です。clone した直後は空で起動します。空でも画面は壊れません。走行と設定はログイン中のアカウント単位です。
 
 共有したいときだけ、API を止めてからファイルをコピーします。どちらを正にするかは、コピーした人が決めます。定期バックアップは [#17](https://github.com/H-Inagawa/pacecast/issues/17)（`future`）。
 

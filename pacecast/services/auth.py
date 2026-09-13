@@ -14,6 +14,7 @@ from email.message import EmailMessage
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from pacecast.config import smtp_settings
 from pacecast.models import AuthUser, EmailVerification
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,10 @@ PBKDF2_ITERATIONS = 120_000
 TOKEN_HOURS = 24
 DEV_EMAIL = os.environ.get("PACECAST_DEV_EMAIL", "dev@pacecast.local").strip().lower()
 DEV_PASSWORD = os.environ.get("PACECAST_DEV_PASSWORD", "pacecast-dev")
+
+
+class EmailSendError(Exception):
+    """確認メールを SMTP で送れなかったとき。"""
 
 
 def _secret() -> str:
@@ -305,23 +310,26 @@ def verification_url(token: str) -> str:
 
 def send_verification_email(to_email: str, url: str) -> bool:
     """
-    確認リンクをメールで送る。SMTP が無ければログに残す。
+    確認リンクを Gmail SMTP（または指定ホスト）で送る。未設定ならログに残す。
 
     Args:
         to_email: 宛先。
         url: 確認画面の URL。
 
     Returns:
-        メールを送れたとき True。送れずログだけなら False。
+        メールを送れたとき True。SMTP 未設定でログだけなら False。
+
+    Raises:
+        EmailSendError: SMTP は設定済みだが送信に失敗したとき。
     """
-    host = os.environ.get("PACECAST_SMTP_HOST", "").strip()
-    if not host:
+    settings = smtp_settings()
+    if not settings.enabled:
         logger.info("確認リンク（SMTP 未設定）: %s", url)
         return False
 
     message = EmailMessage()
     message["Subject"] = "PaceCast のメール確認"
-    message["From"] = os.environ.get("PACECAST_SMTP_FROM", "noreply@pacecast.local")
+    message["From"] = settings.from_addr
     message["To"] = to_email
     message.set_content(
         "PaceCast の登録を確認してください。\n\n"
@@ -329,14 +337,19 @@ def send_verification_email(to_email: str, url: str) -> bool:
         f"{url}\n\n"
         "このリンクは 24 時間有効です。覚えのない登録なら、このメールは無視してください。\n"
     )
-    port = int(os.environ.get("PACECAST_SMTP_PORT", "587"))
-    user = os.environ.get("PACECAST_SMTP_USER", "")
-    password = os.environ.get("PACECAST_SMTP_PASSWORD", "")
-    with smtplib.SMTP(host, port, timeout=20) as smtp:
-        smtp.starttls()
-        if user:
-            smtp.login(user, password)
-        smtp.send_message(message)
+    try:
+        with smtplib.SMTP(settings.host, settings.port, timeout=20) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.ehlo()
+            if settings.user:
+                smtp.login(settings.user, settings.password)
+            smtp.send_message(message)
+    except (OSError, smtplib.SMTPException) as exc:
+        logger.exception("確認メールの送信に失敗しました")
+        raise EmailSendError(
+            "確認メールを送れませんでした。Gmail のアプリパスワードと .env を確認してください"
+        ) from exc
     return True
 
 

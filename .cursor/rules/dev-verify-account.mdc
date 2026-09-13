@@ -1,0 +1,10 @@
+---
+description: Cursor からの画面動作確認は開発テスト１で行う
+alwaysApply: true
+---
+
+# 動作確認アカウント
+
+Cursor からブラウザで動作確認するときは、`dev@pacecast.local` / `pacecast-dev`（開発テスト１）でログインする。テスト用の走行データは自由に登録してよい。
+
+私用メール（`hinagawa1417@gmail.com`）では確認しない。

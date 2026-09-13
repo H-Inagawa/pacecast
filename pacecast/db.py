@@ -87,8 +87,10 @@ def init_db(bind=None) -> None:
     session = factory()
     try:
         from pacecast.services.auth import ensure_dev_user
+        from pacecast.services.profile import copy_legacy_runner_data
 
         ensure_dev_user(session)
+        copy_legacy_runner_data(session)
         session.commit()
     finally:
         session.close()
@@ -117,10 +119,12 @@ def migrate_schema(bind=None) -> None:
             ("amedas_station_id", "TEXT"),
             ("amedas_station_name", "TEXT"),
             ("row_color_mode", "TEXT"),
+            ("auth_user_id", "INTEGER"),
         ),
         "running_records": (
             ("amedas_station_id", "TEXT"),
             ("amedas_station_name", "TEXT"),
+            ("auth_user_id", "INTEGER"),
         ),
     }
     with target.begin() as connection:
@@ -139,7 +143,36 @@ def migrate_schema(bind=None) -> None:
                 )
         _fill_legacy_color_mode(connection)
         _fill_legacy_station_ids(connection)
+        _ensure_runner_owner_indexes(connection)
     _rebuild_weather_unique_if_needed(target)
+
+
+def _ensure_runner_owner_indexes(connection) -> None:
+    """
+    ランナー紐付け列の索引を足す。
+
+    Args:
+        connection: 開いている DB 接続。
+
+    Returns:
+        なし。
+    """
+    profile_cols = {row[1] for row in connection.execute(text("PRAGMA table_info(user_profiles)")).fetchall()}
+    if "auth_user_id" in profile_cols:
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_user_profiles_auth_user_id "
+                "ON user_profiles(auth_user_id)"
+            )
+        )
+    run_cols = {row[1] for row in connection.execute(text("PRAGMA table_info(running_records)")).fetchall()}
+    if "auth_user_id" in run_cols:
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_running_records_auth_user_id "
+                "ON running_records(auth_user_id)"
+            )
+        )
 
 
 def _fill_legacy_color_mode(connection) -> None:

@@ -52,4 +52,20 @@ describe("新規登録", () => {
       "http://127.0.0.1:3000/verify?token=abc",
     );
   });
+
+  it("メールを送れたときは画面にリンクを出さない", async () => {
+    mockedSend.mockResolvedValue({
+      message: "確認メールを送りました。届いたリンクを開いてください。",
+    });
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    await user.type(screen.getByLabelText("メールアドレス"), "runner@example.com");
+    await user.type(screen.getByLabelText("パスワード（8文字以上）"), "secret123");
+    await user.type(screen.getByLabelText("パスワード（確認）"), "secret123");
+    await user.click(screen.getByRole("button", { name: "登録する" }));
+
+    expect(await screen.findByText("確認メールを送りました。届いたリンクを開いてください。")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "メール確認のリンクを開く" })).not.toBeInTheDocument();
+  });
 });

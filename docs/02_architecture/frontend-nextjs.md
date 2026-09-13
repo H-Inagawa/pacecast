@@ -25,7 +25,7 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 - `GET /api/intensities` 走行強度の定義
 - `POST /api/predict`
 
-認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` 以外は未ログインならログインへ戻す。
+認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` 以外は未ログインならログインへ戻す。走行・設定・予測はそのセッションのユーザーだけを対象にする。確認メールは FastAPI が `smtp.gmail.com` へ送る。SMTP 未設定なら登録 API が `verification_url` を返し、画面にリンクを出す。
 
 走行時間は DB 上は従来どおり `duration_sec`。API の入出力は時・分・秒に分解し、既存記録と互換を保つ。
 

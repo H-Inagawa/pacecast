@@ -84,6 +84,7 @@ def predict_performance(
     intensity_key: str = "medium",
     intensity_label: str = "中強度",
     target_hr: int | None = None,
+    auth_user_id: int | None = None,
 ) -> PredictionResult | None:
     """
     指定した推定 WBGT・距離・走行強度に対するパフォーマンスを予測する。
@@ -95,15 +96,19 @@ def predict_performance(
         intensity_key: 走行強度キー。
         intensity_label: 画面表示用の強度名。
         target_hr: 目標心拍。無ければ気象のみで重み付けする。
+        auth_user_id: 対象ランナー。省略時は全走行を使う（テスト用）。
 
     Returns:
         予測結果。WBGT 付きの過去走が無ければ None。
     """
-    records = db.scalars(
+    query = (
         select(RunningRecord)
         .options(joinedload(RunningRecord.weather))
         .where(RunningRecord.weather_observation_id.is_not(None))
-    ).all()
+    )
+    if auth_user_id is not None:
+        query = query.where(RunningRecord.auth_user_id == auth_user_id)
+    records = db.scalars(query).all()
     if not records:
         return None
 

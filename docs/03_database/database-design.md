@@ -42,19 +42,21 @@ DB: SQLite（`data/pacecast.db`）
 | notes | TEXT | NULL | 任意メモ |
 | amedas_station_id | TEXT | NULL | その走のアメダス地点 |
 | amedas_station_name | TEXT | NULL | 地点名 |
+| auth_user_id | INTEGER | FK, NULL | 所有者。`auth_users.id` |
 | weather_observation_id | INTEGER | FK, NULL | 紐付いた気象 |
 | created_at | DATETIME | NOT NULL | 登録日時 |
 | updated_at | DATETIME | NOT NULL | 更新日時 |
 
-外部キー: `weather_observation_id` → `weather_observations.id`（気象削除時は NULL）
+外部キー: `weather_observation_id` → `weather_observations.id`（気象削除時は NULL）。`auth_user_id` → `auth_users.id`
 
 ### user_profiles
 
-単一行（id = 1）。強度別心拍は上書き可能なので列として持つ。
+ログインアカウントごとに 1 行。強度別心拍は上書き可能なので列として持つ。
 
 | 列 | 型 | 制約 | 説明 |
 | --- | --- | --- | --- |
-| id | INTEGER | PK | 常に 1 |
+| id | INTEGER | PK | 内部 ID |
+| auth_user_id | INTEGER | UNIQUE, NULL | `auth_users.id`。起動時に未割当の既存行を指定アカウントへ移す |
 | display_name | TEXT | NULL | ユーザー名 |
 | birthday | DATE | NULL | 誕生日 |
 | max_heart_rate | INTEGER | NULL | 最大心拍数 |
@@ -66,7 +68,7 @@ DB: SQLite（`data/pacecast.db`）
 | amedas_station_name | TEXT | NULL | 地点名（例: 東京） |
 | updated_at | DATETIME | NOT NULL | 更新日時 |
 
-ログインアカウントは別テーブル。走行・設定はこれまでどおり `user_profiles` の 1 行を共有する。
+走行・設定は `auth_user_id` でアカウントに紐づく。気象行は地点単位で共有する。
 
 ### auth_users
 
@@ -97,6 +99,8 @@ DB: SQLite（`data/pacecast.db`）
 - `weather_observations.observed_at`
 - `running_records.started_at`
 - `running_records.weather_observation_id`
+- `running_records.auth_user_id`
+- `user_profiles.auth_user_id`（UNIQUE）
 - `auth_users.email`（UNIQUE）
 - `email_verifications.token`（UNIQUE）
 - `email_verifications.user_id`

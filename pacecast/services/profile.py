@@ -1,13 +1,14 @@
-"""単一ユーザーのプロフィール読み書き。"""
+"""ランナーごとのプロフィール読み書き。"""
 
 from __future__ import annotations
 
 from datetime import date, datetime
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from pacecast.config import DEFAULT_AMEDAS_STATION_ID, DEFAULT_AMEDAS_STATION_NAME
-from pacecast.models import UserProfile
+from pacecast.models import AuthUser, RunningRecord, UserProfile
 from pacecast.services.intensity import (
     PROFILE_HR_FIELDS,
     age_from_birthday,
@@ -17,22 +18,24 @@ from pacecast.services.intensity import (
 from pacecast.services.weather_zone import classify_wbgt_zone
 
 ROW_COLOR_MODES = ("hr", "wbgt", "off")
+SHARED_LEGACY_EMAILS = ("dev@pacecast.local", "hinagawa1417@gmail.com")
 
 
-def get_or_create_profile(db: Session) -> UserProfile:
+def get_or_create_profile(db: Session, user: AuthUser) -> UserProfile:
     """
-    プロフィール行を返す。無ければ空の 1 行を作る。
+    ログイン中ユーザーのプロフィールを返す。無ければ空の 1 行を作る。
 
     Args:
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
-        id=1 のプロフィール。
+        そのユーザーのプロフィール。
     """
-    profile = db.get(UserProfile, 1)
+    profile = db.scalar(select(UserProfile).where(UserProfile.auth_user_id == user.id))
     if profile is None:
         profile = UserProfile(
-            id=1,
+            auth_user_id=user.id,
             color_rows=True,
             row_color_mode="hr",
             amedas_station_id=DEFAULT_AMEDAS_STATION_ID,
@@ -49,6 +52,116 @@ def get_or_create_profile(db: Session) -> UserProfile:
         db.commit()
         db.refresh(profile)
     return profile
+
+
+def _clone_profile(source: UserProfile, auth_user_id: int) -> UserProfile:
+    """
+    設定を別ユーザー向けに複製する。
+
+    Args:
+        source: コピー元。
+        auth_user_id: コピー先のユーザー ID。
+
+    Returns:
+        未保存の複製。
+    """
+    return UserProfile(
+        auth_user_id=auth_user_id,
+        display_name=source.display_name,
+        birthday=source.birthday,
+        max_heart_rate=source.max_heart_rate,
+        color_rows=source.color_rows,
+        row_color_mode=source.row_color_mode,
+        hr_low=source.hr_low,
+        hr_medium=source.hr_medium,
+        hr_high=source.hr_high,
+        hr_race_5k=source.hr_race_5k,
+        hr_race_10k=source.hr_race_10k,
+        hr_race_half=source.hr_race_half,
+        hr_race_full=source.hr_race_full,
+        amedas_station_id=source.amedas_station_id,
+        amedas_station_name=source.amedas_station_name,
+        updated_at=datetime.now(),
+    )
+
+
+def _clone_run(source: RunningRecord, auth_user_id: int) -> RunningRecord:
+    """
+    走行記録を別ユーザー向けに複製する。気象行は共有する。
+
+    Args:
+        source: コピー元。
+        auth_user_id: コピー先のユーザー ID。
+
+    Returns:
+        未保存の複製。
+    """
+    return RunningRecord(
+        started_at=source.started_at,
+        distance_km=source.distance_km,
+        duration_sec=source.duration_sec,
+        avg_heart_rate=source.avg_heart_rate,
+        notes=source.notes,
+        amedas_station_id=source.amedas_station_id,
+        amedas_station_name=source.amedas_station_name,
+        auth_user_id=auth_user_id,
+        weather_observation_id=source.weather_observation_id,
+        created_at=source.created_at,
+        updated_at=source.updated_at,
+    )
+
+
+def copy_legacy_runner_data(db: Session) -> None:
+    """
+    ユーザー未割当の既存設定・走行を、指定アカウントへ割り当て／コピーする。
+
+    Args:
+        db: DB セッション。
+
+    Returns:
+        なし。
+    """
+    users = [
+        user
+        for email in SHARED_LEGACY_EMAILS
+        if (user := db.scalar(select(AuthUser).where(AuthUser.email == email))) is not None
+    ]
+    if not users:
+        return
+
+    source_profile = db.scalar(select(UserProfile).order_by(UserProfile.id.asc()))
+    for user in users:
+        existing = db.scalar(select(UserProfile).where(UserProfile.auth_user_id == user.id))
+        if existing is not None:
+            continue
+        if source_profile is not None and source_profile.auth_user_id is None:
+            source_profile.auth_user_id = user.id
+            db.add(source_profile)
+            db.flush()
+        elif source_profile is not None:
+            db.add(_clone_profile(source_profile, user.id))
+            db.flush()
+
+    unassigned_runs = db.scalars(
+        select(RunningRecord).where(RunningRecord.auth_user_id.is_(None)).order_by(RunningRecord.id.asc())
+    ).all()
+    if not unassigned_runs:
+        return
+
+    owner = users[0]
+    for run in unassigned_runs:
+        run.auth_user_id = owner.id
+        db.add(run)
+    db.flush()
+    for user in users[1:]:
+        has_runs = db.scalar(
+            select(func.count()).select_from(RunningRecord).where(RunningRecord.auth_user_id == user.id)
+        )
+        if has_runs:
+            continue
+        for run in unassigned_runs:
+            db.add(_clone_run(run, user.id))
+    db.flush()
 
 
 def profile_target_hrs(profile: UserProfile) -> dict[str, int | None]:

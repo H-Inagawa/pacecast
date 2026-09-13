@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from pacecast.config import DEFAULT_SMTP_HOST, smtp_settings
 from pacecast.db import get_db
 from pacecast.routers.api import router as api_router
 from pacecast.routers.auth import router as auth_router
@@ -127,3 +128,94 @@ def test_verify_token_marks_user(db) -> None:
     assert user.email_verified is False
     verified = verify_email_token(db, verification.token)
     assert verified.email_verified is True
+
+
+class _FakeSMTP:
+    """Gmail SMTP の代わりに、渡された内容だけ覚える。"""
+
+    last: dict = {}
+
+    def __init__(self, host: str, port: int, timeout: int | None = None) -> None:
+        self.__class__.last = {"host": host, "port": port, "timeout": timeout}
+
+    def __enter__(self) -> "_FakeSMTP":
+        return self
+
+    def __exit__(self, *_args: object) -> bool:
+        return False
+
+    def ehlo(self) -> None:
+        self.__class__.last["ehlo"] = self.__class__.last.get("ehlo", 0) + 1
+
+    def starttls(self) -> None:
+        self.__class__.last["starttls"] = True
+
+    def login(self, user: str, password: str) -> None:
+        self.__class__.last["user"] = user
+        self.__class__.last["password"] = password
+
+    def send_message(self, message) -> None:
+        self.__class__.last["to"] = message["To"]
+        self.__class__.last["from"] = message["From"]
+        self.__class__.last["body"] = message.get_content()
+
+
+def test_smtp_settings_use_gmail_when_credentials_set(monkeypatch) -> None:
+    """ユーザーとアプリパスワードがあればホスト未指定でも Gmail を使う。"""
+    monkeypatch.setenv("PACECAST_SMTP_USER", "sender@gmail.com")
+    monkeypatch.setenv("PACECAST_SMTP_PASSWORD", "abcd efgh ijkl mnop")
+    settings = smtp_settings()
+    assert settings.enabled
+    assert settings.host == DEFAULT_SMTP_HOST
+    assert settings.port == 587
+    assert settings.password == "abcdefghijklmnop"
+    assert settings.from_addr == "sender@gmail.com"
+
+
+def test_smtp_settings_disabled_without_credentials() -> None:
+    """資格情報が無いときは送らない。"""
+    assert smtp_settings().enabled is False
+
+
+def test_register_sends_gmail_when_credentials_set(db, monkeypatch) -> None:
+    """Gmail のアプリパスワードがあれば smtp.gmail.com へ送る。"""
+    monkeypatch.setenv("PACECAST_SMTP_USER", "sender@gmail.com")
+    monkeypatch.setenv("PACECAST_SMTP_PASSWORD", "abcd efgh ijkl mnop")
+    monkeypatch.setattr("pacecast.services.auth.smtplib.SMTP", _FakeSMTP)
+
+    client = _client(db)
+    created = client.post(
+        "/api/auth/register",
+        json={"email": "runner@example.com", "password": "secret123"},
+    )
+    assert created.status_code == 200
+    payload = created.json()
+    assert payload.get("verification_url") is None
+    assert "確認メールを送りました" in payload["message"]
+    assert _FakeSMTP.last["host"] == "smtp.gmail.com"
+    assert _FakeSMTP.last["port"] == 587
+    assert _FakeSMTP.last["starttls"] is True
+    assert _FakeSMTP.last["user"] == "sender@gmail.com"
+    assert _FakeSMTP.last["password"] == "abcdefghijklmnop"
+    assert _FakeSMTP.last["from"] == "sender@gmail.com"
+    assert _FakeSMTP.last["to"] == "runner@example.com"
+    assert "token=" in _FakeSMTP.last["body"]
+
+
+def test_register_reports_smtp_failure(db, monkeypatch) -> None:
+    """SMTP が設定済みで送れないと、画面に分かるエラーを返す。"""
+    monkeypatch.setenv("PACECAST_SMTP_USER", "sender@gmail.com")
+    monkeypatch.setenv("PACECAST_SMTP_PASSWORD", "bad-password")
+
+    class _FailSMTP:
+        def __init__(self, *_args, **_kwargs) -> None:
+            raise OSError("connection refused")
+
+    monkeypatch.setattr("pacecast.services.auth.smtplib.SMTP", _FailSMTP)
+    client = _client(db)
+    created = client.post(
+        "/api/auth/register",
+        json={"email": "runner@example.com", "password": "secret123"},
+    )
+    assert created.status_code == 502
+    assert "確認メールを送れませんでした" in created.json()["detail"]

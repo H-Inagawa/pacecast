@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 from pacecast.db import get_db
 from pacecast.routers.deps import require_user
 from pacecast.formatting import duration_from_hms, parse_datetime_local, split_duration
-from pacecast.models import RunningRecord, UserProfile, WeatherObservation
+from pacecast.models import AuthUser, RunningRecord, UserProfile, WeatherObservation
 from pacecast.schemas import (
     AmedasStationOut,
     ForecastOut,
@@ -85,24 +85,51 @@ def _intensity_hrs(values: dict[str, int | None]) -> IntensityHrs:
     )
 
 
-def _wbgt_counts(db: Session) -> tuple[int, int]:
+def _wbgt_counts(db: Session, auth_user_id: int | None) -> tuple[int, int]:
     """
-    走行件数と WBGT 付き件数を返す。
+    そのランナーの走行件数と WBGT 付き件数を返す。
 
     Args:
         db: DB セッション。
+        auth_user_id: 対象ユーザー。
 
     Returns:
         `(全走行件数, WBGT 付き件数)`。
     """
-    run_count = db.scalar(select(func.count()).select_from(RunningRecord)) or 0
+    if auth_user_id is None:
+        return 0, 0
+    run_count = db.scalar(
+        select(func.count()).select_from(RunningRecord).where(RunningRecord.auth_user_id == auth_user_id)
+    ) or 0
     ready = db.scalar(
         select(func.count())
         .select_from(RunningRecord)
         .join(WeatherObservation, RunningRecord.weather_observation_id == WeatherObservation.id)
+        .where(RunningRecord.auth_user_id == auth_user_id)
         .where(WeatherObservation.wbgt_c.is_not(None))
     ) or 0
     return int(run_count), int(ready)
+
+
+def _own_run(db: Session, user: AuthUser, run_id: int) -> RunningRecord:
+    """
+    ログイン中ユーザーの走行記録を返す。
+
+    Args:
+        db: DB セッション。
+        user: ログイン中のユーザー。
+        run_id: 記録 ID。
+
+    Returns:
+        そのユーザーの走行記録。
+
+    Raises:
+        HTTPException: 無い、または他人の記録のとき。
+    """
+    record = db.get(RunningRecord, run_id)
+    if record is None or record.auth_user_id != user.id:
+        raise HTTPException(status_code=404, detail="記録が見つかりません")
+    return record
 
 
 def _profile_out(profile: UserProfile, db: Session) -> ProfileOut:
@@ -119,7 +146,7 @@ def _profile_out(profile: UserProfile, db: Session) -> ProfileOut:
     stored = profile_target_hrs(profile)
     suggested = suggested_intensity_hrs(profile.max_heart_rate) if profile.max_heart_rate else {}
     station = profile_station(profile)
-    run_count, ready = _wbgt_counts(db)
+    run_count, ready = _wbgt_counts(db, profile.auth_user_id)
     return ProfileOut(
         display_name=profile.display_name,
         birthday=profile.birthday.isoformat() if profile.birthday else None,
@@ -224,12 +251,13 @@ def _apply_write(record: RunningRecord, payload: RunWrite) -> RunningRecord:
 
 
 @router.get("/runs", response_model=list[RunOut])
-def list_runs(db: Session = Depends(get_db)) -> list[RunOut]:
+def list_runs(db: Session = Depends(get_db), user: AuthUser = Depends(require_user)) -> list[RunOut]:
     """
-    走行記録を新しい順で返す。
+    ログイン中ユーザーの走行記録を新しい順で返す。
 
     Args:
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
         走行記録のリスト。
@@ -237,38 +265,41 @@ def list_runs(db: Session = Depends(get_db)) -> list[RunOut]:
     runs = db.scalars(
         select(RunningRecord)
         .options(joinedload(RunningRecord.weather))
+        .where(RunningRecord.auth_user_id == user.id)
         .order_by(RunningRecord.started_at.desc())
     ).all()
-    profile = get_or_create_profile(db)
+    profile = get_or_create_profile(db, user)
     return [_run_out(run, profile) for run in runs]
 
 
 @router.get("/runs/{run_id}", response_model=RunOut)
-def get_run(run_id: int, db: Session = Depends(get_db)) -> RunOut:
+def get_run(run_id: int, db: Session = Depends(get_db), user: AuthUser = Depends(require_user)) -> RunOut:
     """
     1件の走行記録を返す。
 
     Args:
         run_id: 記録 ID。
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
         走行記録。
     """
-    record = db.get(RunningRecord, run_id)
-    if record is None:
-        raise HTTPException(status_code=404, detail="記録が見つかりません")
-    return _run_out(record, get_or_create_profile(db))
+    record = _own_run(db, user, run_id)
+    return _run_out(record, get_or_create_profile(db, user))
 
 
 @router.post("/runs", response_model=RunOut)
-def create_run(payload: RunWrite, db: Session = Depends(get_db)) -> RunOut:
+def create_run(
+    payload: RunWrite, db: Session = Depends(get_db), user: AuthUser = Depends(require_user)
+) -> RunOut:
     """
     走行記録を新規保存する。
 
     Args:
         payload: 入力。
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
         保存した走行記録。
@@ -277,11 +308,12 @@ def create_run(payload: RunWrite, db: Session = Depends(get_db)) -> RunOut:
         started_at=datetime.now(),
         distance_km=payload.distance_km,
         duration_sec=1,
+        auth_user_id=user.id,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
     _apply_write(record, payload)
-    profile = get_or_create_profile(db)
+    profile = get_or_create_profile(db, user)
     station = resolve_station(payload.amedas_station_id or profile.amedas_station_id)
     record.amedas_station_id = station.station_id
     record.amedas_station_name = station.name
@@ -293,7 +325,12 @@ def create_run(payload: RunWrite, db: Session = Depends(get_db)) -> RunOut:
 
 
 @router.put("/runs/{run_id}", response_model=RunOut)
-def update_run(run_id: int, payload: RunWrite, db: Session = Depends(get_db)) -> RunOut:
+def update_run(
+    run_id: int,
+    payload: RunWrite,
+    db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_user),
+) -> RunOut:
     """
     走行記録を更新する。
 
@@ -301,15 +338,14 @@ def update_run(run_id: int, payload: RunWrite, db: Session = Depends(get_db)) ->
         run_id: 記録 ID。
         payload: 入力。
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
         更新後の走行記録。
     """
-    record = db.get(RunningRecord, run_id)
-    if record is None:
-        raise HTTPException(status_code=404, detail="記録が見つかりません")
+    record = _own_run(db, user, run_id)
     _apply_write(record, payload)
-    profile = get_or_create_profile(db)
+    profile = get_or_create_profile(db, user)
     station = resolve_station(payload.amedas_station_id or record.amedas_station_id or profile.amedas_station_id)
     record.amedas_station_id = station.station_id
     record.amedas_station_name = station.name
@@ -320,37 +356,39 @@ def update_run(run_id: int, payload: RunWrite, db: Session = Depends(get_db)) ->
 
 
 @router.delete("/runs/{run_id}")
-def delete_run(run_id: int, db: Session = Depends(get_db)) -> dict[str, bool]:
+def delete_run(
+    run_id: int, db: Session = Depends(get_db), user: AuthUser = Depends(require_user)
+) -> dict[str, bool]:
     """
     走行記録を削除する。
 
     Args:
         run_id: 記録 ID。
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
         成功フラグ。
     """
-    record = db.get(RunningRecord, run_id)
-    if record is None:
-        raise HTTPException(status_code=404, detail="記録が見つかりません")
+    record = _own_run(db, user, run_id)
     db.delete(record)
     db.commit()
     return {"ok": True}
 
 
 @router.get("/profile", response_model=ProfileOut)
-def get_profile(db: Session = Depends(get_db)) -> ProfileOut:
+def get_profile(db: Session = Depends(get_db), user: AuthUser = Depends(require_user)) -> ProfileOut:
     """
     設定を返す。
 
     Args:
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
         プロフィール。
     """
-    return _profile_out(get_or_create_profile(db), db)
+    return _profile_out(get_or_create_profile(db, user), db)
 
 
 @router.get("/amedas/stations", response_model=list[AmedasStationOut])
@@ -373,18 +411,21 @@ def amedas_stations() -> list[AmedasStationOut]:
 
 
 @router.put("/profile", response_model=ProfileOut)
-def update_profile(payload: ProfileWrite, db: Session = Depends(get_db)) -> ProfileOut:
+def update_profile(
+    payload: ProfileWrite, db: Session = Depends(get_db), user: AuthUser = Depends(require_user)
+) -> ProfileOut:
     """
     設定を保存する。確認ダイアログ後の確定値を受け取る。
 
     Args:
         payload: 設定値。
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
         保存後のプロフィール。
     """
-    profile = get_or_create_profile(db)
+    profile = get_or_create_profile(db, user)
     profile.display_name = (payload.display_name or "").strip() or None
     if payload.birthday:
         try:
@@ -427,34 +468,38 @@ def update_profile(payload: ProfileWrite, db: Session = Depends(get_db)) -> Prof
 
 
 @router.get("/intensities", response_model=ProfileOut)
-def intensities(db: Session = Depends(get_db)) -> ProfileOut:
+def intensities(db: Session = Depends(get_db), user: AuthUser = Depends(require_user)) -> ProfileOut:
     """
     予測画面用の強度定義を返す。
 
     Args:
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
         プロフィールに紐づく強度。
     """
-    return _profile_out(get_or_create_profile(db), db)
+    return _profile_out(get_or_create_profile(db, user), db)
 
 
 @router.post("/predict", response_model=PredictOut)
-def predict(payload: PredictIn, db: Session = Depends(get_db)) -> PredictOut:
+def predict(
+    payload: PredictIn, db: Session = Depends(get_db), user: AuthUser = Depends(require_user)
+) -> PredictOut:
     """
     パフォーマンスを予測する。
 
     Args:
         payload: 距離・気象の与え方・強度。
         db: DB セッション。
+        user: ログイン中のユーザー。
 
     Returns:
         予測結果。
     """
     condition = None
     try:
-        profile = get_or_create_profile(db)
+        profile = get_or_create_profile(db, user)
         station = resolve_station(payload.amedas_station_id or profile.amedas_station_id)
         if payload.mode == "forecast":
             if not payload.forecast_at:
@@ -513,6 +558,7 @@ def predict(payload: PredictIn, db: Session = Depends(get_db)) -> PredictOut:
             intensity_key=intensity_key,
             intensity_label=intensity_label,
             target_hr=target_hr,
+            auth_user_id=user.id,
         )
     except (ValueError, ForecastError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -13,6 +13,7 @@
 | ORM | SQLAlchemy 2.0 | スキーマ変更とテスト用 DB 切り替えがしやすい |
 | 予報・再解析 | Open-Meteo | API キー不要。気温・湿度に加え風速・日射を取り、推定 WBGT に使う |
 | アメダス | 気象庁 bosai JSON | 地点マスタと、直近数日の気温・湿度・風 |
+| 確認メール | Gmail SMTP（`smtp.gmail.com:587` / STARTTLS） | API キー不要。アプリパスワードを `.env` に置く |
 
 ## 2. 構成図
 
@@ -33,6 +34,8 @@
                                           |
                                           v
                                      [SQLite] data/pacecast.db
+                                          |
+                                          +-- smtp.gmail.com:587
 ```
 
 詳細は `frontend-nextjs.md` と `intensity-prediction.md` を参照。

@@ -47,6 +47,11 @@ class RunningRecord(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     amedas_station_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
     amedas_station_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    auth_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("auth_users.id"),
+        nullable=True,
+        index=True,
+    )
     weather_observation_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("weather_observations.id", ondelete="SET NULL"),
@@ -70,11 +75,17 @@ class RunningRecord(Base):
 
 
 class UserProfile(Base):
-    """単一ユーザーの設定。"""
+    """ログインアカウントごとの設定。"""
 
     __tablename__ = "user_profiles"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    auth_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("auth_users.id"),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
     display_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     birthday: Mapped[date | None] = mapped_column(Date, nullable=True)
     max_heart_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -93,7 +104,7 @@ class UserProfile(Base):
 
 
 class AuthUser(Base):
-    """ログイン用のアカウント。走行データは user_profiles の単一行を共有する。"""
+    """ログイン用のアカウント。走行と設定はこのユーザー単位で持つ。"""
 
     __tablename__ = "auth_users"
 

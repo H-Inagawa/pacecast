@@ -8,6 +8,7 @@ from pacecast.schemas import AuthCredentials, AuthUserOut, MeOut, MessageOut, Re
 from pacecast.services.auth import (
     SESSION_COOKIE,
     SESSION_DAYS,
+    EmailSendError,
     authenticate,
     make_session_token,
     register_user,
@@ -58,7 +59,11 @@ def register(body: AuthCredentials, db: Session = Depends(get_db)) -> RegisterOu
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     url = verification_url(verification.token)
-    sent = send_verification_email(user.email, url)
+    try:
+        sent = send_verification_email(user.email, url)
+    except EmailSendError as exc:
+        db.commit()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     db.commit()
     if sent:
         return RegisterOut(message="確認メールを送りました。届いたリンクを開いてください。")
