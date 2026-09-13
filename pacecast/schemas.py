@@ -123,6 +123,24 @@ class SimilarRunOut(BaseModel):
     wbgt_delta: float
 
 
+class ChartPointOut(BaseModel):
+    """関係グラフの1点。"""
+
+    x: float
+    pace_sec_per_km: float
+
+
+class RelationChartOut(BaseModel):
+    """1変数とペースの関係。"""
+
+    key: str
+    title: str
+    x_label: str
+    note: str
+    observed: list[ChartPointOut]
+    curve: list[ChartPointOut]
+
+
 class ForecastOut(BaseModel):
     """使った予報。"""
 
@@ -163,6 +181,11 @@ class PredictOut(BaseModel):
     used_runs: list[SimilarRunOut]
     condition: ForecastOut | None = None
     weather_distance_help: str
+    r_squared: float
+    rmse_sec_per_km: float
+    model_formula: str
+    uses_hr: bool
+    relation_charts: list[RelationChartOut]
 
 
 class AuthCredentials(BaseModel):

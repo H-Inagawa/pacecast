@@ -14,6 +14,7 @@ from pacecast.formatting import duration_from_hms, parse_datetime_local, split_d
 from pacecast.models import AuthUser, RunningRecord, UserProfile, WeatherObservation
 from pacecast.schemas import (
     AmedasStationOut,
+    ChartPointOut,
     ForecastOut,
     IntensityHrs,
     IntensityOut,
@@ -21,6 +22,7 @@ from pacecast.schemas import (
     PredictOut,
     ProfileOut,
     ProfileWrite,
+    RelationChartOut,
     RunOut,
     RunWrite,
     SimilarRunOut,
@@ -593,4 +595,19 @@ def predict(
         ],
         condition=condition,
         weather_distance_help=WEATHER_DISTANCE_HELP,
+        r_squared=result.r_squared,
+        rmse_sec_per_km=result.rmse_sec_per_km,
+        model_formula=result.model_formula,
+        uses_hr=result.uses_hr,
+        relation_charts=[
+            RelationChartOut(
+                key=chart.key,
+                title=chart.title,
+                x_label=chart.x_label,
+                note=chart.note,
+                observed=[ChartPointOut(x=point.x, pace_sec_per_km=point.pace_sec_per_km) for point in chart.observed],
+                curve=[ChartPointOut(x=point.x, pace_sec_per_km=point.pace_sec_per_km) for point in chart.curve],
+            )
+            for chart in result.relation_charts
+        ],
     )

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { BackHome } from "../../components/BackHome";
+import { PredictHelpModal } from "../../components/PredictHelpModal";
+import { RelationChart } from "../../components/RelationChart";
 import { StickyActions } from "../../components/StickyActions";
 import { StationPicker } from "../../components/StationPicker";
 import { WeatherDistanceHelp } from "../../components/WeatherDistanceHelp";
@@ -30,6 +32,7 @@ export default function PredictPage() {
   const [intensity, setIntensity] = useState("medium");
   const [result, setResult] = useState<PredictResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
@@ -78,8 +81,14 @@ export default function PredictPage() {
 
   return (
     <>
-      <h1>パフォーマンス予測</h1>
+      <header className="page-heading">
+        <h1>パフォーマンス予測</h1>
+        <button type="button" className="heading-help" onClick={() => setHelpOpen(true)}>
+          予測の見方
+        </button>
+      </header>
       <p className="lede">気象条件と走行強度を指定して、過去走からペース・タイムを見積もります。</p>
+      <PredictHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       {error ? <p className="error">{error}</p> : null}
       <form id="predict-form" className="stack" onSubmit={(event) => void onSubmit(event)}>
         <p className="meta">距離の指定方法</p>
@@ -197,10 +206,26 @@ export default function PredictPage() {
               <h2>予想タイム</h2>
               <p className="stat">{formatDuration(result.predicted_duration_sec)}</p>
             </article>
+            <article className="card">
+              <h2>誤差の目安（RMSE）</h2>
+              <p className="stat">±{formatPace(result.rmse_sec_per_km)}</p>
+            </article>
+            <article className="card">
+              <h2>当てはまり（R²）</h2>
+              <p className="stat">{result.r_squared.toFixed(2)}</p>
+            </article>
           </section>
           <p className="meta">
-            信頼度: {confidenceLabel(result.confidence)} / 使用した過去走 {result.sample_count} 件（近い条件 {result.near_count} 件）
+            信頼度: {confidenceLabel(result.confidence)}（R² {result.r_squared.toFixed(2)}） / 使用した過去走 {result.sample_count}{" "}
+            件（近い条件 {result.near_count} 件）
           </p>
+          <p className="meta">{result.model_formula}</p>
+          <h2>関係グラフ</h2>
+          <div className="relation-grid">
+            {result.relation_charts.map((chart) => (
+              <RelationChart key={chart.key} chart={chart} />
+            ))}
+          </div>
           <h2>根拠にした過去走</h2>
           <table>
             <thead>

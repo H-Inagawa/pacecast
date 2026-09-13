@@ -79,6 +79,20 @@ export type SimilarRun = {
   wbgt_delta: number;
 };
 
+export type ChartPoint = {
+  x: number;
+  pace_sec_per_km: number;
+};
+
+export type RelationChart = {
+  key: string;
+  title: string;
+  x_label: string;
+  note: string;
+  observed: ChartPoint[];
+  curve: ChartPoint[];
+};
+
 export type PredictResult = {
   predicted_pace_sec_per_km: number;
   predicted_duration_sec: number;
@@ -99,4 +113,9 @@ export type PredictResult = {
     wbgt_c?: number | null;
   } | null;
   weather_distance_help: string;
+  r_squared: number;
+  rmse_sec_per_km: number;
+  model_formula: string;
+  uses_hr: boolean;
+  relation_charts: RelationChart[];
 };

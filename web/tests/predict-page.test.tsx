@@ -90,5 +90,18 @@ describe("予測フォーム", () => {
     });
     expect(screen.getByText("5'29\"/km")).toBeInTheDocument();
     expect(screen.getByText("27:24")).toBeInTheDocument();
+    expect(screen.getByText("±0'12\"/km")).toBeInTheDocument();
+    expect(screen.getByText("0.72")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "WBGT とペース" })).toBeInTheDocument();
+  });
+
+  it("タイトル横から予測の見方を開ける", async () => {
+    const user = userEvent.setup();
+    render(<PredictPage />);
+    await user.click(await screen.findByRole("button", { name: "予測の見方" }));
+    expect(screen.getByRole("dialog", { name: "予測の見方" })).toBeInTheDocument();
+    expect(screen.getByText("RMSE", { exact: false })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.queryByRole("dialog", { name: "予測の見方" })).not.toBeInTheDocument();
   });
 });

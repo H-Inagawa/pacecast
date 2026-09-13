@@ -197,6 +197,16 @@ button.drawer-logout:hover {
   margin: 0;
 }
 
+.heading-help {
+  align-self: center;
+  height: 2.1rem;
+  padding: 0 0.85rem;
+  font-size: 0.88rem;
+  background: #fff;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
 .eyebrow {
   letter-spacing: 0.14em;
   color: var(--accent);
@@ -582,6 +592,29 @@ button.text-link { background: none; color: var(--accent); padding: 0; border-ra
 
 .chart-dot {
   fill: var(--accent);
+}
+
+.chart-line {
+  stroke: var(--navy);
+  stroke-width: 2;
+}
+
+.chart-frame figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+  margin: 0 0.6rem 0.4rem;
+}
+
+.chart-frame figcaption .meta {
+  margin: 0;
+}
+
+.relation-grid {
+  display: grid;
+  gap: 1.25rem;
+  margin: 0 0 1.5rem;
 }
 
 .loading-overlay {

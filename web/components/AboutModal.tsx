@@ -55,7 +55,7 @@ export function AboutModal({ open, onClose }: Props) {
           </li>
           <li>
             <strong>パフォーマンスを予測</strong>
-            気温・湿度、または予報の日時と地点を指定して、似た過去走からペースとタイムを出します。
+            気温・湿度、または予報の日時と地点を指定して、式モデルからペースとタイムを出します。誤差の目安と関係グラフも結果に出します。
           </li>
           <li>
             <strong>分析結果</strong>

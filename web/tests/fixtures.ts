@@ -56,4 +56,43 @@ export const predictResultFixture: PredictResult = {
   used_runs: [],
   condition: null,
   weather_distance_help: "差の説明",
+  r_squared: 0.72,
+  rmse_sec_per_km: 12,
+  model_formula: "ペース(km/h) = 定数 + WBGT + 距離 + 心拍（各変数は標準化）",
+  uses_hr: true,
+  relation_charts: [
+    {
+      key: "wbgt",
+      title: "WBGT とペース",
+      x_label: "推定 WBGT（℃）",
+      note: "距離と心拍は予測条件で固定",
+      observed: [{ x: 20, pace_sec_per_km: 330 }],
+      curve: [
+        { x: 18, pace_sec_per_km: 320 },
+        { x: 22, pace_sec_per_km: 340 },
+      ],
+    },
+    {
+      key: "heart_rate",
+      title: "心拍 とペース",
+      x_label: "平均心拍（bpm）",
+      note: "WBGT と距離は予測条件で固定",
+      observed: [{ x: 142, pace_sec_per_km: 329 }],
+      curve: [
+        { x: 130, pace_sec_per_km: 340 },
+        { x: 160, pace_sec_per_km: 310 },
+      ],
+    },
+    {
+      key: "distance",
+      title: "距離 とペース",
+      x_label: "距離（km）",
+      note: "WBGT と心拍は予測条件で固定",
+      observed: [{ x: 5, pace_sec_per_km: 329 }],
+      curve: [
+        { x: 3, pace_sec_per_km: 320 },
+        { x: 10, pace_sec_per_km: 345 },
+      ],
+    },
+  ],
 };
