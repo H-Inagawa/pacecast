@@ -1,6 +1,6 @@
 # システム構成
 
-更新日: 2026-09-15
+更新日: 2026-09-16
 
 ## 1. 構成と選定理由
 
@@ -18,10 +18,11 @@
 ## 2. 構成図
 
 ```
-[Browser] http://127.0.0.1:3000
+[Browser]  ローカル http://127.0.0.1:3000
+           公開     https://….vercel.app
     |
     v
-[Next.js / web]
+[Next.js / web]   ローカル、または Vercel（Root Directory = web）
     +-- app/            画面
     +-- app/api         認証・走行・設定・予測・気象
     +-- lib/server      予測・WBGT・アメダス・Open-Meteo
@@ -34,9 +35,9 @@
     +-- weather_observations（地点で共有）
 ```
 
-pytest 用に `pacecast/`（FastAPI + SQLite）は残るが、画面は rewrite しない。
+pytest 用に `pacecast/`（FastAPI + SQLite）は残るが、画面は rewrite しない。Vercel には Python を載せない。
 
-詳細は `frontend-nextjs.md` と `docs/06_dev/supabase-setup.md` を参照。
+詳細は `frontend-nextjs.md`、`docs/06_dev/supabase-setup.md`、`docs/06_dev/vercel-setup.md` を参照。
 
 ## 3. ディレクトリ
 
@@ -54,6 +55,6 @@ docs/
 ## 4. 起動時の動き
 
 1. Next.js が画面と `/api` を提供する
-2. 接続情報は `.env`（または `web/.env.local`）の `SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY`
+2. 接続情報は `.env`（または `web/.env.local`、公開時は Vercel の Environment Variables）の `SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY`
 3. 走行の保存時に、アメダスと Open-Meteo から過去気象を取得する
 4. 未ログインはログイン画面。開発テスト１は確認なしで入れる

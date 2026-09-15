@@ -7,6 +7,7 @@ import { backfillRunWbgt } from "../../../lib/server/weather";
 import type { IntensityHrs } from "../../../lib/types";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET() {
   try {

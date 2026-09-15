@@ -23,7 +23,7 @@
 - 降水など、WBGT 以外の気象要素をいつ入れるか
 - 予測結果をどの期間・どの距離帯まで信頼するかの、R² 以外の定量基準（記録外の外挿は #44）
 - データのバックアップ方針
-- デプロイ先: 公開は Vercel（[#45](https://github.com/H-Inagawa/pacecast/issues/45)）。データは Supabase（[#46](https://github.com/H-Inagawa/pacecast/issues/46)）。画面の API は Next.js が service_role で Postgres を読む。FastAPI + SQLite は pytest 用
+- デプロイ先: 公開は Vercel Hobby（[#45](https://github.com/H-Inagawa/pacecast/issues/45)、`*.vercel.app`。独自ドメインは買わない）。データは Supabase（[#46](https://github.com/H-Inagawa/pacecast/issues/46)）。画面の API は Next.js が service_role で Postgres を読む。FastAPI + SQLite は pytest 用
 
 ## 構想にあって初期実装に含めない理由
 

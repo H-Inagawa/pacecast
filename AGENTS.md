@@ -11,6 +11,7 @@
 - 言語: TypeScript（画面と API）と Python 3.11+（pytest 用の計算コード）
 - 画面と API: Next.js App Router（`web/`、`http://127.0.0.1:3000`）。JSON API は `web/app/api`。画面テストは Vitest（`web/` で `npm test`）
 - DB: Supabase PostgreSQL。接続はサーバだけが `SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` で行う。手順は `docs/06_dev/supabase-setup.md`
+- 公開: Vercel（`web/` が Root Directory）。手順は `docs/06_dev/vercel-setup.md`。独自ドメインは買わない
 - FastAPI（`pacecast/`、`http://127.0.0.1:8000`）と SQLite（`data/pacecast.db`）はローカルの pytest 用に残す。ブラウザは Next.js だけを開く
 - 天気予報: Open-Meteo（API キー不要）。地点は設定のアメダス観測所（未設定時は東京 44132）。テスト用の既存設定は練馬（44071）のまま
 - 過去気象: Open-Meteo 再解析。直近数日の気温・湿度・風はアメダス map JSON も使う。手動 CSV は使わない
@@ -72,9 +73,11 @@
 | `docs/02_architecture/decisions-2026-09-12.md` | WBGT 導入時の判断 |
 | `docs/02_architecture/decisions-2026-09-13.md` | 予測を式モデルにした判断 |
 | `docs/02_architecture/decisions-2026-09-15.md` | Next.js が Supabase を直接叩く判断 |
+| `docs/02_architecture/decisions-2026-09-16.md` | Vercel へ画面と API を載せる判断 |
 | `docs/03_database/database-design.md` | DB 設計 |
 | `docs/06_dev/team-setup.md` | 別 PC での環境構築・Git・DB |
 | `docs/06_dev/supabase-setup.md` | Supabase プロジェクト作成と接続 |
+| `docs/06_dev/vercel-setup.md` | Vercel への公開 |
 
 ## 開発時の約束
 

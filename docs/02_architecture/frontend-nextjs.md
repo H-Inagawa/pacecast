@@ -51,7 +51,7 @@ supabase/schema.sql  Postgres 定義
 2. `npm run dev`（`web/`）
 3. ブラウザは http://127.0.0.1:3000
 
-pytest を回すときだけ `uvicorn` と SQLite を使う。
+pytest を回すときだけ `uvicorn` と SQLite を使う。公開は `docs/06_dev/vercel-setup.md`。
 
 ## 6. 自動テスト
 

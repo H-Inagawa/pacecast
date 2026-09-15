@@ -7,6 +7,9 @@
     "start": "next start",
     "test": "vitest run"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
     "next": "^15.5.2",

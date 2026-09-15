@@ -5,6 +5,7 @@ import { deleteRun, getOwnRun, serializeRun, updateRun, type RunWrite } from "..
 import { getOrCreateProfile } from "../../../../lib/server/profile";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function parseRunId(value: string): number {
   const id = Number(value);

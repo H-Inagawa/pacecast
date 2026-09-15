@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { loadEnv } from "./env";
 import { ApiError } from "./errors";
+import { cookieSecure, resolveAppOrigin } from "./origin";
 import { getServiceClient, requireData } from "./supabase";
 import { parseDbTimestamp, toDbTimestamp } from "./datetime";
 import type { AuthUserRow, EmailVerificationRow } from "./types";
@@ -20,12 +21,19 @@ export type PublicUser = {
 
 function secret(): string {
   loadEnv();
-  return process.env.PACECAST_SECRET || "pacecast-local-secret";
+  const value = process.env.PACECAST_SECRET || "pacecast-local-secret";
+  if (process.env.VERCEL === "1" && (!process.env.PACECAST_SECRET || value === "pacecast-local-secret")) {
+    throw new ApiError(
+      503,
+      "本番のセッション署名が未設定です。Vercel の Environment Variables に PACECAST_SECRET を入れてください",
+    );
+  }
+  return value;
 }
 
 function appOrigin(): string {
   loadEnv();
-  return (process.env.PACECAST_APP_ORIGIN || "http://127.0.0.1:3000").replace(/\/$/, "");
+  return resolveAppOrigin();
 }
 
 function devEmail(): string {
@@ -151,7 +159,7 @@ export function attachSessionCookie(response: NextResponse, userId: number): Nex
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_DAYS * 24 * 60 * 60,
-    secure: process.env.VERCEL === "1",
+    secure: cookieSecure(),
   });
   return response;
 }
@@ -164,7 +172,7 @@ export function clearSessionCookie(response: NextResponse): NextResponse {
     sameSite: "lax",
     path: "/",
     maxAge: 0,
-    secure: process.env.VERCEL === "1",
+    secure: cookieSecure(),
   });
   return response;
 }

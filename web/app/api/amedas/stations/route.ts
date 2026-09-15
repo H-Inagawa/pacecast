@@ -4,6 +4,7 @@ import { toErrorResponse } from "../../../../lib/server/errors";
 import { listStations } from "../../../../lib/server/amedas";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET() {
   try {

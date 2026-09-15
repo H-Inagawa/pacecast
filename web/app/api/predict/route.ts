@@ -11,6 +11,7 @@ import { resolveStation } from "../../../lib/server/amedas";
 import { targetWbgt } from "../../../lib/server/weather";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const WEATHER_DISTANCE_HELP =
   "予測対象の推定 WBGT と、その走の推定 WBGT の差です。" +

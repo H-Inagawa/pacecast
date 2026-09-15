@@ -23,7 +23,7 @@ winget install --id GitHub.cli
 ```powershell
 git clone https://github.com/H-Inagawa/pacecast.git
 cd pacecast
-git checkout develop/v0.1
+git checkout develop/v0.2
 ```
 
 ## 2. GitHub にログインする
@@ -100,14 +100,14 @@ npm test
 
 本番相当のデータは Supabase 上の PostgreSQL です。別 PC からは同じプロジェクトへ接続します。`data/pacecast.db` は pytest と移行元用で、Git に載せません。ローカル SQLite をクラウドへ一度コピーするときは `python scripts/migrate_sqlite_to_supabase.py` です。
 
-定期バックアップは [#17](https://github.com/H-Inagawa/pacecast/issues/17)（`future`）。
+定期バックアップは [#17](https://github.com/H-Inagawa/pacecast/issues/17)（`future`）。インターネット公開は `docs/06_dev/vercel-setup.md`（[#45](https://github.com/H-Inagawa/pacecast/issues/45)）。
 
 ## 5. Git の進め方
 
-- 日常の作業は `develop/v0.1`
+- 日常の作業は、いまの `develop/v0.x`（現在は `develop/v0.2`。区切りがついたら `v0.3` へ進む）
 - `master` は区切りの安定版
 - 2 台で同じブランチへ同時に push しない
-- 別作業なら `feature/...` を切り、`develop/v0.1` へ PR してマージする
+- 別作業なら `feature/...` を切り、いまの `develop/v0.x` へ PR してマージする
 - 片方がそのブランチを編集しているあいだ、もう片方は `git pull` して読むだけ
 - Cursor は依頼されない限り commit / push しない
 - Issue の close は、開発者が push したあと行う

@@ -4,7 +4,7 @@
 
 構想は `docs/00_concept/initial-request.md`、現行仕様は `AGENTS.md` を参照してください。
 
-別の PC で clone したあとの手順（GitHub CLI のログイン、DB の扱い、Git の進め方）は `docs/06_dev/team-setup.md` です。
+別の PC で clone したあとの手順（GitHub CLI のログイン、DB の扱い、Git の進め方）は `docs/06_dev/team-setup.md` です。公開（Vercel）は `docs/06_dev/vercel-setup.md` です。
 
 ## 必要環境
 

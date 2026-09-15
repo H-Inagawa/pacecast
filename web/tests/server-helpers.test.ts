@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatDateTimeLocalValue, formatDateTimeSpace, parseDateTimeLocal, toDbTimestamp } from "../lib/server/datetime";
 import { durationFromHms, splitDuration } from "../lib/server/duration";
 import { findNearestWeatherRow } from "../lib/server/matching";
+import { cookieSecure, resolveAppOrigin } from "../lib/server/origin";
 import type { WeatherRow } from "../lib/server/types";
 
 function weather(partial: Partial<WeatherRow> & Pick<WeatherRow, "id" | "observed_at">): WeatherRow {
@@ -57,5 +58,28 @@ describe("matching", () => {
     ];
     expect(findNearestWeatherRow(rows, started, "44071")?.id).toBe(1);
     expect(findNearestWeatherRow(rows, started, "44132")).toBeNull();
+  });
+});
+
+describe("origin", () => {
+  it("明示した origin を優先する", () => {
+    expect(
+      resolveAppOrigin({
+        PACECAST_APP_ORIGIN: "https://pacecast.vercel.app/",
+        VERCEL_URL: "ignored.vercel.app",
+      }),
+    ).toBe("https://pacecast.vercel.app");
+  });
+
+  it("未設定なら Vercel の URL を https で使う", () => {
+    expect(resolveAppOrigin({ VERCEL_URL: "pacecast-abc.vercel.app" })).toBe(
+      "https://pacecast-abc.vercel.app",
+    );
+  });
+
+  it("本番では Cookie を secure にする", () => {
+    expect(cookieSecure({ VERCEL: "1" })).toBe(true);
+    expect(cookieSecure({ NODE_ENV: "production" })).toBe(true);
+    expect(cookieSecure({})).toBe(false);
   });
 });

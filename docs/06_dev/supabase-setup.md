@@ -83,4 +83,4 @@ npm run dev
 - ブラウザから見える `NEXT_PUBLIC_*` に service_role を置く
 - この作業の確認を私用 Gmail で行う（開発テスト１を使う）
 
-Vercel への公開は [#45](https://github.com/H-Inagawa/pacecast/issues/45)。環境変数は Vercel 側にも同じキーを入れる。
+Vercel への公開は [#45](https://github.com/H-Inagawa/pacecast/issues/45)。手順は `docs/06_dev/vercel-setup.md`。環境変数は Vercel 側にも入れる。
