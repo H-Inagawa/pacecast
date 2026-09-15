@@ -1,13 +1,17 @@
 # データベース設計
 
 作成日: 2026-09-06  
-DB: SQLite（`data/pacecast.db`）
+更新日: 2026-09-15  
+DB: Supabase PostgreSQL（画面）。pytest 用に SQLite（`data/pacecast.db`）も残す。  
+DDL: `supabase/schema.sql`
 
 ## 1. 方針
 
 - 気象と走行は別テーブルにし、走行側が気象を参照する
 - ペースは保存せず、距離と時間から都度計算する
 - 将来の地点追加に備え、気象行に地点名を持つ
+- 画面は Next.js が service_role で読む。anon は RLS で拒否する
+- 日時は timestamptz（東京 +09:00）で保存する
 
 ## 2. テーブル
 
@@ -80,7 +84,7 @@ DB: SQLite（`data/pacecast.db`）
 | email_verified | INTEGER | NOT NULL | 確認リンクを開いたか |
 | created_at | DATETIME | NOT NULL | 登録日時 |
 
-開発者用 `dev@pacecast.local` は起動時に確認済みで用意する。
+開発者用 `dev@pacecast.local` は、そのメールでログインしたときに確認済みで用意する。
 
 ### email_verifications
 

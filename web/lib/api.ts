@@ -2,7 +2,8 @@ import { beginLoading, endLoading } from "./loading";
 
 function apiUrl(path: string): string {
   if (typeof window === "undefined") {
-    return `http://127.0.0.1:8000${path}`;
+    const origin = (process.env.PACECAST_APP_ORIGIN || "http://127.0.0.1:3000").replace(/\/$/, "");
+    return `${origin}${path}`;
   }
   return path;
 }

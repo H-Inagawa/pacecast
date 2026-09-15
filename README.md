@@ -24,22 +24,20 @@ npm install
 
 ## 起動
 
-API と画面を別プロセスで起動します。
-
-```bash
-uvicorn pacecast.main:app --reload --host 127.0.0.1 --port 8000
-```
+データベースは Supabase です。プロジェクトの作り方は `docs/06_dev/supabase-setup.md` です。画面は Next.js だけ起動します。
 
 ```bash
 cd web
 npm run dev
 ```
 
-ブラウザで http://127.0.0.1:3000 を開きます。開発者はログイン画面で `dev@pacecast.local` / `pacecast-dev` を入れると、登録なしでメイン画面に進めます。新規登録の確認メールは Gmail（`smtp.gmail.com`）で送ります。`.env.example` を `.env` にコピーし、アプリパスワードを入れてください。手順は `docs/06_dev/team-setup.md` です。未設定のときは登録後に画面へ確認リンクが出ます。過去気象は走行の保存時に、アメダスと Open-Meteo から自動取得します。
+ブラウザで http://127.0.0.1:3000 を開きます。開発者はログイン画面で `dev@pacecast.local` / `pacecast-dev` を入れると、登録なしでメイン画面に進めます。新規登録の確認メールは Gmail（`smtp.gmail.com`）で送ります。`.env.example` を `.env` にコピーし、Supabase の URL・service_role とアプリパスワードを入れてください。手順は `docs/06_dev/team-setup.md` です。SMTP 未設定のときは登録後に画面へ確認リンクが出ます。過去気象は走行の保存時に、アメダスと Open-Meteo から自動取得します。
+
+FastAPI（ポート 8000）は pytest 用です。画面確認には不要です。
 
 ## 停止
 
-使い終わったら、API（8000）と画面（3000）の各ターミナルで `Ctrl+C` を押します。ターミナルを閉じるだけでは、プロセスが残ることがあります。
+使い終わったら、画面（3000）のターミナルで `Ctrl+C` を押します。ターミナルを閉じるだけでは、プロセスが残ることがあります。
 
 ポートが使用中のまま（`EADDRINUSE`）で再起動できないときは、PowerShell で次を実行して強制終了します。
 

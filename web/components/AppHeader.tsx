@@ -1,13 +1,18 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { DrawerMenu } from "./DrawerMenu";
-import { apiGet } from "../lib/api";
-import type { Profile } from "../lib/types";
+import { SESSION_COOKIE, userFromSession } from "../lib/server/auth";
+import { getOrCreateProfile } from "../lib/server/profile";
 
 export async function AppHeader() {
   let displayName: string | null = null;
   try {
-    const profile = await apiGet<Profile>("/api/profile");
-    displayName = profile.display_name;
+    const store = await cookies();
+    const user = await userFromSession(store.get(SESSION_COOKIE)?.value);
+    if (user) {
+      const profile = await getOrCreateProfile(user);
+      displayName = profile.display_name;
+    }
   } catch {
     displayName = null;
   }

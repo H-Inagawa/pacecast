@@ -1,20 +1,21 @@
 # フロントエンド移行方針（Next.js）
 
 作成日: 2026-09-06  
-根拠: `docs/05_improvements/second-request.md`
+更新日: 2026-09-15  
+根拠: `docs/05_improvements/second-request.md`、[Issue #46](https://github.com/H-Inagawa/pacecast/issues/46)
 
 ## 1. 現状
 
-MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが同じプロセスにあった。学習初期の一周には向いていたが、画面改善と今後の画面追加を続けるとテンプレートが肥大しやすい。
+MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが同じプロセスにあった。その後 JSON API を FastAPI、画面を Next.js に分けた。#46 以降、画面の API は Next.js の Route Handlers が Supabase を直接読む。FastAPI は pytest 用に残す。
 
 ## 2. 責務分離
 
 | 層 | 担当 | 置かないもの |
 | --- | --- | --- |
-| Next.js（`web/`） | 画面、入力制御、一覧の月別整形、ツールチップ | 予測計算、DB アクセス |
-| FastAPI（`pacecast/`） | JSON API、SQLite、気象取得・紐付け・予測 | 見た目のレイアウト |
+| Next.js（`web/`） | 画面、JSON API、Supabase アクセス、気象取得・予測 | service_role をブラウザへ出すこと |
+| FastAPI（`pacecast/`） | pytest 用の同等ロジックと SQLite | ブラウザ向け HTML / 本番 API |
 
-ブラウザは Next.js（開発時はポート 3000）を開く。API は FastAPI（ポート 8000）。開発中は Next.js の rewrite で `/api/*` を FastAPI に転送する。
+ブラウザは Next.js（開発時はポート 3000）を開く。`/api/*` は Next.js が処理する。FastAPI へ rewrite しない。
 
 ## 3. API
 
@@ -25,7 +26,7 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 - `GET /api/intensities` 走行強度の定義
 - `POST /api/predict`
 
-認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` 以外は未ログインならログインへ戻す。走行・設定・予測はそのセッションのユーザーだけを対象にする。確認メールは FastAPI が `smtp.gmail.com` へ送る。SMTP 未設定なら登録 API が `verification_url` を返し、画面にリンクを出す。
+認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` 以外は未ログインならログインへ戻す。走行・設定・予測はそのセッションのユーザーだけを対象にする。確認メールは Next.js が `smtp.gmail.com` へ送る。SMTP 未設定なら登録 API が `verification_url` を返し、画面にリンクを出す。
 
 走行時間は DB 上は従来どおり `duration_sec`。API の入出力は時・分・秒に分解し、既存記録と互換を保つ。
 
@@ -34,18 +35,23 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 ```
 web/                 Next.js App Router
   app/               画面（分析は `/analyze`）
+  app/api/           Route Handlers
   components/        共通 UI
   lib/               API クライアントと表示整形
+  lib/server/        Supabase・予測・気象（サーバのみ）
 pacecast/
-  routers/api.py     JSON API
-  services/          業務ロジック（変更をここに閉じる）
+  routers/api.py     pytest 用 JSON API
+  services/          pytest 用の業務ロジック
+supabase/schema.sql  Postgres 定義
 ```
 
 ## 5. 起動
 
-1. `uvicorn pacecast.main:app --reload --host 127.0.0.1 --port 8000`
+1. `docs/06_dev/supabase-setup.md` のとおりプロジェクトと `.env` を用意する
 2. `npm run dev`（`web/`）
 3. ブラウザは http://127.0.0.1:3000
+
+pytest を回すときだけ `uvicorn` と SQLite を使う。
 
 ## 6. 自動テスト
 
@@ -53,7 +59,8 @@ pacecast/
 
 | 層 | 道具 | 見るもの |
 | --- | --- | --- |
-| API・計算 | pytest | 紐付け、予測、WBGT、アメダス |
+| 計算（Python） | pytest | 紐付け、予測、WBGT、アメダス |
+| 計算・API ヘルパ（TS） | Vitest | 回帰、日時、気象の最近傍 |
 | 画面の入力と表示 | Vitest + Testing Library | 予測フォーム、地点選択、日付・気象の整形 |
 
 画面の主要操作（記録追加・予測・設定保存）は、まずコンポーネント／ページ単体で確認する。API とブラウザを同時に立てる E2E は、画面単体では足りない操作が出てから足す。

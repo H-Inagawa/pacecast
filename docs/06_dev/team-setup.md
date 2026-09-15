@@ -60,11 +60,7 @@ cd web
 npm install
 ```
 
-API と画面は別のターミナルで起動します。
-
-```powershell
-uvicorn pacecast.main:app --reload --host 127.0.0.1 --port 8000
-```
+画面は Next.js だけ起動します。データベースは Supabase です。プロジェクト作成と `.env` の入れ方は `docs/06_dev/supabase-setup.md` です。
 
 ```powershell
 cd web
@@ -78,6 +74,8 @@ npm run dev
 
 Cursor からの画面動作確認もこのアカウントで行います。テスト用の走行は自由に登録してよいです。私用メールでは確認しません。
 
+FastAPI（ポート 8000）と SQLite は pytest 用です。画面確認には不要です。
+
 停止とポート解放は `README.md` を見てください。
 
 ## 3.1 確認メール（Gmail）
@@ -85,11 +83,12 @@ Cursor からの画面動作確認もこのアカウントで行います。テ�
 新規登録の確認メールは `smtp.gmail.com`（ポート 587、STARTTLS）で送ります。Gmail の通常のログインパスワードは使えません。2段階認証を有効にしたうえで、[アプリパスワード](https://myaccount.google.com/apppasswords) を発行します。
 
 1. リポジトリ直下の `.env.example` を `.env` にコピーする
-2. `PACECAST_SMTP_USER` と `PACECAST_SMTP_FROM` に送信用の Gmail アドレスを入れる
-3. `PACECAST_SMTP_PASSWORD` にアプリパスワードを入れる（表示の空白はそのままでよい。送信時に除く）
-4. API（uvicorn）を起動し直す
+2. `SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を入れる（`docs/06_dev/supabase-setup.md`）
+3. `PACECAST_SMTP_USER` と `PACECAST_SMTP_FROM` に送信用の Gmail アドレスを入れる
+4. `PACECAST_SMTP_PASSWORD` にアプリパスワードを入れる（表示の空白はそのままでよい。送信時に除く）
+5. Next.js（`npm run dev`）を起動し直す
 
-`.env` は Git に載せません。値が無いときは、新規登録後に画面へ確認リンクが出ます。テストは実 SMTP に繋がりません。
+`.env` は Git に載せません。SMTP の値が無いときは、新規登録後に画面へ確認リンクが出ます。テストは実 SMTP に繋がりません。
 
 ```powershell
 pytest
@@ -99,9 +98,9 @@ npm test
 
 ## 4. 走行データの扱い
 
-`data/pacecast.db` は Git に載せません。各 PC の DB は独立です。clone した直後は空で起動します。空でも画面は壊れません。走行と設定はログイン中のアカウント単位です。
+本番相当のデータは Supabase 上の PostgreSQL です。別 PC からは同じプロジェクトへ接続します。`data/pacecast.db` は pytest と移行元用で、Git に載せません。ローカル SQLite をクラウドへ一度コピーするときは `python scripts/migrate_sqlite_to_supabase.py` です。
 
-共有したいときだけ、API を止めてからファイルをコピーします。どちらを正にするかは、コピーした人が決めます。定期バックアップは [#17](https://github.com/H-Inagawa/pacecast/issues/17)（`future`）。
+定期バックアップは [#17](https://github.com/H-Inagawa/pacecast/issues/17)（`future`）。
 
 ## 5. Git の進め方
 
