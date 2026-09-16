@@ -11,10 +11,6 @@ export class ApiError extends Error {
   }
 }
 
-export function json(data: unknown, init?: ResponseInit): NextResponse {
-  return NextResponse.json(data, init);
-}
-
 export function toErrorResponse(error: unknown): NextResponse {
   if (error instanceof ApiError) {
     return NextResponse.json({ detail: error.message }, { status: error.status });

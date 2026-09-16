@@ -5,10 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-# 心拍が無い過去走に足す距離。10 bpm = 1 なので、約 30 bpm 相当の遠さ。
-MISSING_HR_PENALTY = 3.0
-HR_DISTANCE_PER_BPM = 10.0
-
 INTENSITY_RATIOS: dict[str, float] = {
     "low": 0.65,
     "medium": 0.75,
@@ -176,17 +172,3 @@ def race_options(target_hrs: dict[str, int | None]) -> list[IntensityPreset]:
         )
         for key in ("race_5k", "race_10k", "race_half", "race_full")
     ]
-
-
-def heart_rate_distance(actual_hr: int, target_hr: int) -> float:
-    """
-    記録心拍と目標心拍の距離を返す。
-
-    Args:
-        actual_hr: 過去走の平均心拍。
-        target_hr: 指定した強度の目標心拍。
-
-    Returns:
-        10 bpm を距離 1 とした値。
-    """
-    return abs(actual_hr - target_hr) / HR_DISTANCE_PER_BPM

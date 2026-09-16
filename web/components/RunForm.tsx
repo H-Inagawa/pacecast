@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { BackHome } from "./BackHome";
 import { DurationFields } from "./DurationFields";
 import { StationPicker } from "./StationPicker";
 import { apiGet, apiSend } from "../lib/api";
@@ -12,9 +10,8 @@ import type { AmedasStation, Profile, Run } from "../lib/types";
 type Props = {
   title: string;
   runId?: number;
-  variant?: "page" | "modal";
-  onCancel?: () => void;
-  onSuccess?: () => void;
+  onCancel: () => void;
+  onSuccess: () => void;
 };
 
 type FormState = {
@@ -37,8 +34,7 @@ const emptyForm: FormState = {
   notes: "",
 };
 
-export function RunForm({ title, runId, variant = "page", onCancel, onSuccess }: Props) {
-  const router = useRouter();
+export function RunForm({ title, runId, onCancel, onSuccess }: Props) {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [stations, setStations] = useState<AmedasStation[]>([]);
@@ -92,23 +88,15 @@ export function RunForm({ title, runId, variant = "page", onCancel, onSuccess }:
       } else {
         await apiSend("/api/runs", "POST", payload);
       }
-      if (onSuccess) {
-        onSuccess();
-      } else {
-        router.push("/runs");
-        router.refresh();
-      }
+      onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
     }
   }
 
-  const Heading = variant === "modal" ? "h2" : "h1";
-
   return (
     <>
-      {variant === "page" ? <BackHome /> : null}
-      <Heading id={variant === "modal" ? "run-form-title" : undefined}>{title}</Heading>
+      <h2 id="run-form-title">{title}</h2>
       {error ? <p className="error">{error}</p> : null}
       <form className="stack" onSubmit={(event) => void onSubmit(event)}>
         <StationPicker stations={stations} value={stationId} onChange={setStationId} label="走行地点" />
@@ -157,7 +145,7 @@ export function RunForm({ title, runId, variant = "page", onCancel, onSuccess }:
           <button
             type="button"
             className="button ghost"
-            onClick={() => (onCancel ? onCancel() : router.push("/runs"))}
+            onClick={onCancel}
           >
             キャンセル
           </button>

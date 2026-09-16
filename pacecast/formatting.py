@@ -140,16 +140,3 @@ def parse_datetime_local(text: str) -> datetime:
         except ValueError:
             continue
     raise ValueError("日時の形式が正しくありません")
-
-
-def to_datetime_local_value(value: datetime) -> str:
-    """
-    datetime を画面表示と同じ日時文字列にする。
-
-    Args:
-        value: 変換する日時。
-
-    Returns:
-        `YYYY-MM-DD HH:MM` 形式の文字列。
-    """
-    return value.strftime("%Y-%m-%d %H:%M")

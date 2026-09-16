@@ -1,0 +1,20 @@
+---
+description: 画面に繋がらないときは、ブラウザを待たずに Next.js が応答しているか確認する
+alwaysApply: true
+---
+
+# 開発サーバの確認
+
+画面確認やブラウザ操作の前、および画面に数秒以上繋がらないときは、まず Next.js を確認する。ブラウザの再試行だけで待たない。
+
+- 見る先は `http://127.0.0.1:3000`（`localhost` は使わない）
+- ポート Listen だけでは足りない。HTTP が数秒以内に返るか見る
+- Listen なのに 0 バイトやタイムアウトならハング。`EADDRINUSE` は別プロセスが残っている合図
+
+```powershell
+Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue |
+  Select-Object OwningProcess
+curl.exe -sS -o NUL -w "%{http_code}\n" --max-time 8 http://127.0.0.1:3000/
+```
+
+ハング時は README の停止手順で PID を落とし、`web/` で `npm run dev` し直す。`Ready` のあと、同じ curl でコードが返ってからブラウザに進む。

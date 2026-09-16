@@ -469,21 +469,6 @@ def update_profile(
     return _profile_out(saved, db)
 
 
-@router.get("/intensities", response_model=ProfileOut)
-def intensities(db: Session = Depends(get_db), user: AuthUser = Depends(require_user)) -> ProfileOut:
-    """
-    予測画面用の強度定義を返す。
-
-    Args:
-        db: DB セッション。
-        user: ログイン中のユーザー。
-
-    Returns:
-        プロフィールに紐づく強度。
-    """
-    return _profile_out(get_or_create_profile(db, user), db)
-
-
 @router.post("/predict", response_model=PredictOut)
 def predict(
     payload: PredictIn, db: Session = Depends(get_db), user: AuthUser = Depends(require_user)

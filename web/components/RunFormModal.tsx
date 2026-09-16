@@ -50,7 +50,6 @@ export function RunFormModal({ open, runId, onClose, onSaved }: Props) {
           key={runId ?? "new"}
           title={title}
           runId={runId}
-          variant="modal"
           onCancel={onClose}
           onSuccess={() => {
             onClose();

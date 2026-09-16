@@ -91,4 +91,4 @@
   - [#8](https://github.com/H-Inagawa/pacecast/issues/8)（仕様とドキュメント）と [#38](https://github.com/H-Inagawa/pacecast/issues/38)（チーム手順）も close しない。ずれたら都度直す
   - 今やる実装は `is:open -label:future -label:figma -label:rules`
 - 別 PC での起動・`gh` ログイン・DB / Git・確認メール（Gmail）の進め方は `docs/06_dev/team-setup.md`
-- Cursor からの画面動作確認は `dev@pacecast.local` / `pacecast-dev`（開発テスト１）で行う。テスト用の走行データは自由に登録してよい。私用メール（`hinagawa1417@gmail.com`）では確認しない
+- Cursor からの画面動作確認は `dev@pacecast.local` / `pacecast-dev`（開発テスト１）で行う。テスト用の走行データは自由に登録してよい。私用メール（`hinagawa1417@gmail.com`）では確認しない。画面に繋がらないときはブラウザを待たず、`http://127.0.0.1:3000` が数秒以内に HTTP を返すかを確認する（ポート Listen だけでは足りない）。手順は `docs/06_dev/team-setup.md`

@@ -12,3 +12,5 @@
 | セッション署名 | 本番ではローカル既定値を拒否 | 公開 URL で既定秘密を使わない |
 | 確認メール origin | `PACECAST_APP_ORIGIN`。未設定時は `VERCEL_URL` | 確認リンクが公開 URL を指すようにする |
 | 自動デプロイ | GitHub 連携の既定。本番ブランチはいま公開したい `develop/v0.x`（現在は `v0.2`）。区切りで番号を上げる運用は可 | Issue の完了条件 |
+
+#46 / #45 のあと、画面から外れた重複を整理した。`GET /api/intensities`（内容は `GET /api/profile` と同じ）、未使用の `weather-zone.ts`、心拍距離の残骸、Jinja2 / テンプレート同梱を外した。FastAPI と SQLite は pytest 用に残す。

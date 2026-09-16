@@ -1,7 +1,7 @@
 # フロントエンド移行方針（Next.js）
 
 作成日: 2026-09-06  
-更新日: 2026-09-15  
+更新日: 2026-09-16  
 根拠: `docs/05_improvements/second-request.md`、[Issue #46](https://github.com/H-Inagawa/pacecast/issues/46)
 
 ## 1. 現状
@@ -23,7 +23,6 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 - `GET /api/runs` / `GET /api/runs/{id}` / `POST /api/runs` / `PUT /api/runs/{id}` / `DELETE /api/runs/{id}`
 - `GET /api/profile` / `PUT /api/profile`
 - `GET /api/amedas/stations`
-- `GET /api/intensities` 走行強度の定義
 - `POST /api/predict`
 
 認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` 以外は未ログインならログインへ戻す。走行・設定・予測はそのセッションのユーザーだけを対象にする。確認メールは Next.js が `smtp.gmail.com` へ送る。SMTP 未設定なら登録 API が `verification_url` を返し、画面にリンクを出す。
@@ -51,7 +50,7 @@ supabase/schema.sql  Postgres 定義
 2. `npm run dev`（`web/`）
 3. ブラウザは http://127.0.0.1:3000
 
-pytest を回すときだけ `uvicorn` と SQLite を使う。公開は `docs/06_dev/vercel-setup.md`。
+pytest は SQLite と TestClient を使う（ポート 8000 の起動は不要）。公開は `docs/06_dev/vercel-setup.md`。
 
 ## 6. 自動テスト
 

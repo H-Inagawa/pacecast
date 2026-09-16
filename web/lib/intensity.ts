@@ -1,6 +1,3 @@
-export const MISSING_HR_PENALTY = 3.0;
-export const HR_DISTANCE_PER_BPM = 10.0;
-
 export const INTENSITY_RATIOS: Record<string, number> = {
   low: 0.65,
   medium: 0.75,
@@ -44,22 +41,6 @@ export type IntensityPreset = {
   targetHr: number | null;
   distanceKm?: number | null;
 };
-
-export function ageFromBirthday(birthday: Date, today?: Date): number {
-  const current = today ?? new Date();
-  let years = current.getFullYear() - birthday.getFullYear();
-  if (
-    current.getMonth() < birthday.getMonth() ||
-    (current.getMonth() === birthday.getMonth() && current.getDate() < birthday.getDate())
-  ) {
-    years -= 1;
-  }
-  return Math.max(years, 0);
-}
-
-export function maxHrFromAge(age: number): number {
-  return Math.min(220, Math.max(80, 220 - age));
-}
 
 export function hrFromMax(maxHeartRate: number, ratio: number): number {
   return Math.round(maxHeartRate * ratio);
@@ -108,8 +89,4 @@ export function raceOptions(targetHrs: Record<string, number | null | undefined>
     targetHr: targetHrs[key] ?? null,
     distanceKm: RACE_DISTANCES_KM[key],
   }));
-}
-
-export function heartRateDistance(actualHr: number, targetHr: number): number {
-  return Math.abs(actualHr - targetHr) / HR_DISTANCE_PER_BPM;
 }

@@ -83,10 +83,6 @@ export function formatWbgtDelta(delta: number): string {
   return amount;
 }
 
-export function formatDate(value: string): string {
-  return formatDateTime(value).slice(0, 10);
-}
-
 export function formatDateTime(value: string): string {
   const normalized = value.trim().replace("T", " ").replaceAll("/", "-");
   const match = normalized.match(/^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2}))?/);

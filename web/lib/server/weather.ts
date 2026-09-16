@@ -333,10 +333,6 @@ export async function targetWbgt(
   return estimateWbgt(temperatureC, humidityPct, solar, wind);
 }
 
-export async function profileStation(profile: ProfileRow): Promise<AmedasStation> {
-  return resolveStation(profile.amedas_station_id);
-}
-
 export async function backfillRunWbgt(profile: ProfileRow): Promise<void> {
   const station = await resolveStation(profile.amedas_station_id);
   const client = getServiceClient();

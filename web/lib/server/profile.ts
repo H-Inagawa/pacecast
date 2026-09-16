@@ -10,7 +10,7 @@ import {
   raceOptions,
   suggestedIntensityHrs,
 } from "../intensity";
-import { classifyWbgtZone } from "../weather-zone";
+import { classifyWbgtZone } from "../weatherZone";
 import type { IntensityHrs, Profile } from "../types";
 import { ApiError } from "./errors";
 import { getServiceClient, requireData } from "./supabase";

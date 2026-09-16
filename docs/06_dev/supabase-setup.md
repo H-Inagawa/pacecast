@@ -62,7 +62,7 @@ python scripts/migrate_sqlite_to_supabase.py
 
 ## 6. 画面を起動する
 
-FastAPI（ポート 8000）は画面には不要。Python の pytest を回すときだけ使う。
+FastAPI（ポート 8000）は画面には不要。pytest は TestClient で呼ぶので、`:8000` を起動しなくてよい。
 
 ```powershell
 cd web
