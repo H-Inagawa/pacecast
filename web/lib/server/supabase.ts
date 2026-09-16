@@ -12,10 +12,11 @@ export function getServiceClient(): SupabaseClient {
   const url = (process.env.SUPABASE_URL ?? "").trim();
   const key = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
   if (!url || !key) {
-    throw new ApiError(
-      503,
-      "Supabase の接続設定がありません。web/.env.local に SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を入れてください",
-    );
+    const hint =
+      process.env.VERCEL === "1"
+        ? "Vercel の Settings → Environment Variables に SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を入れ、Redeploy してください"
+        : "web/.env またはリポジトリ直下の .env に SUPABASE_URL と SUPABASE_SERVICE_ROLE_KEY を入れてください";
+    throw new ApiError(503, `Supabase の接続設定がありません。${hint}`);
   }
   cached = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },

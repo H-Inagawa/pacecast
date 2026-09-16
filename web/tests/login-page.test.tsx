@@ -19,10 +19,11 @@ describe("ログイン", () => {
     mockedSend.mockResolvedValue({ id: 1, email: DEV_LOGIN_EMAIL });
   });
 
-  it("開発者用の固定情報を案内する", () => {
+  it("新規登録への導線があり、開発アカウントは出さない", () => {
     render(<LoginPage />);
-    expect(screen.getByText(DEV_LOGIN_EMAIL)).toBeInTheDocument();
-    expect(screen.getByText(DEV_LOGIN_PASSWORD)).toBeInTheDocument();
+    expect(screen.queryByText(DEV_LOGIN_EMAIL)).not.toBeInTheDocument();
+    expect(screen.queryByText(DEV_LOGIN_PASSWORD)).not.toBeInTheDocument();
+    expect(screen.queryByText(/開発者は登録なし/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "新規登録" })).toHaveAttribute("href", "/register");
   });
 

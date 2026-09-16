@@ -30,10 +30,13 @@ Vercel は GitHub の内容をビルドします。#46 の Next.js API と、こ
 | Framework Preset | Next.js（自動検出） |
 | Root Directory | `web`（Edit を開いて選ぶ） |
 | Build Command | `npm run build`（既定のまま） |
+| Output Directory | **空のまま**（`public` にしない。Next.js が自分で出す） |
 | Install Command | `npm install`（既定のまま） |
 | Node.js Version | 20.x |
 
 4. まだ Deploy しない。先に環境変数を入れる（**Environment Variables** を開く）
+
+ローカルの `web/.env` やリポジトリ直下の `.env` は Git に載らないので、Vercel には届きません。公開用はダッシュボードに同じキーを手で入れます。
 
 ## 3. 環境変数を入れる
 
@@ -89,7 +92,7 @@ python -c "import secrets; print(secrets.token_hex(32))"
 5. 設定が保存できる
 6. 別の PC やスマホのブラウザから同じ URL で開ける
 
-ログインできないときは、Root Directory が `web` か、`PACECAST_SECRET` と `SUPABASE_*` が入っているかを見る。Vercel の **Deployments → 失敗したビルド・Runtime Logs** に詳細が出ます。
+ログインできないときは、Root Directory が `web` か、Vercel に `PACECAST_SECRET` と `SUPABASE_*` が入っているかを見る。ローカルの `.env` だけでは公開サイトは動きません。Vercel の **Deployments → 失敗したビルド・Runtime Logs** に詳細が出ます。
 
 ## 6. GitHub への push で自動デプロイ
 
@@ -109,7 +112,15 @@ GitHub 連携時の既定です。追加作業は不要です。プロジェク�
 
 A を続けるなら、新しい `develop/v0.x` を切ったあと、Vercel の Production Branch を忘れず移す。移すまでは本番 URL は前のブランチの最後のデプロイのままです。Preview は新しいブランチへの push で自動的に出ます。
 
-## 7. やってはいけないこと
+## 7. ビルドが落ちたとき
+
+`next build` まで成功したあと、`No Output Directory named "public" found` と出るときは、Next.js の失敗ではなく **Vercel の Output Directory が `public` になっている** ことが多いです。Settings → General → Build & Development Settings で Output Directory の Override を外し、空に戻して Redeploy します。
+
+ログの `Cloning ... (Branch: master, ...)` は、Production Branch がまだ `master` です。Settings → Git を `develop/v0.2` にしてから Deployments で Redeploy します（Use existing Build Cache は外す）。`master` には #46 以降の API が入っていません。
+
+ログイン画面で「Supabase の接続設定がありません」と出るときは、Vercel 側に `SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` が無い（または Production にチェックが無い）です。Settings → Environment Variables に入れてから、キャッシュなしで Redeploy します。ローカルの `web/.env` を直しても公開 URL には反映されません。
+
+## 8. やってはいけないこと
 
 - `service_role` と `PACECAST_SECRET` を Issue・チャット・Git に貼る
 - ブラウザ向けの `NEXT_PUBLIC_*` に秘密を置く

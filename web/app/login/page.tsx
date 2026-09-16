@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { apiSend } from "../../lib/api";
-import { DEV_LOGIN_EMAIL, DEV_LOGIN_PASSWORD, type AuthUser } from "../../lib/auth";
+import type { AuthUser } from "../../lib/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -56,10 +56,6 @@ export default function LoginPage() {
       </form>
       <p>
         初めての方は <Link href="/register">新規登録</Link>
-      </p>
-      <p className="meta">
-        開発者は登録なしで <code>{DEV_LOGIN_EMAIL}</code> / <code>{DEV_LOGIN_PASSWORD}</code>{" "}
-        から入れます。
       </p>
     </section>
   );
