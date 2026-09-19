@@ -120,6 +120,7 @@ def migrate_schema(bind=None) -> None:
             ("amedas_station_name", "TEXT"),
             ("row_color_mode", "TEXT"),
             ("auth_user_id", "INTEGER"),
+            ("run_station_init", "TEXT"),
         ),
         "running_records": (
             ("amedas_station_id", "TEXT"),

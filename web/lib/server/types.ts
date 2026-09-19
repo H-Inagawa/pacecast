@@ -58,6 +58,7 @@ export type ProfileRow = {
   hr_race_full: number | null;
   amedas_station_id: string | null;
   amedas_station_name: string | null;
+  run_station_init?: string | null;
   updated_at: string;
 };
 

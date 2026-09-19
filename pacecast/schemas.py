@@ -82,6 +82,7 @@ class ProfileOut(BaseModel):
     race_options: list[IntensityOut]
     amedas_station_id: str
     amedas_station_name: str
+    run_station_init: str = "profile"
     wbgt_ready_count: int = 0
     run_count: int = 0
 
@@ -96,6 +97,7 @@ class ProfileWrite(BaseModel):
     row_color_mode: str | None = None
     intensities: IntensityHrs = IntensityHrs()
     amedas_station_id: str | None = None
+    run_station_init: str | None = None
 
 
 class AmedasStationOut(BaseModel):

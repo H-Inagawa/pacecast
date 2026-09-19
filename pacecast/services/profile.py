@@ -21,6 +21,19 @@ ROW_COLOR_MODES = ("hr", "wbgt", "off")
 SHARED_LEGACY_EMAILS = ("dev@pacecast.local", "hinagawa1417@gmail.com")
 
 
+def normalize_run_station_init(value: str | None) -> str:
+    """
+    走行追加の初期地点方式を正規化する。
+
+    Args:
+        value: `profile` または `gps`。
+
+    Returns:
+        正規化した方式。不明な値は `profile`。
+    """
+    return "gps" if value == "gps" else "profile"
+
+
 def get_or_create_profile(db: Session, user: AuthUser) -> UserProfile:
     """
     ログイン中ユーザーのプロフィールを返す。無ければ空の 1 行を作る。
@@ -40,6 +53,7 @@ def get_or_create_profile(db: Session, user: AuthUser) -> UserProfile:
             row_color_mode="hr",
             amedas_station_id=DEFAULT_AMEDAS_STATION_ID,
             amedas_station_name=DEFAULT_AMEDAS_STATION_NAME,
+            run_station_init="profile",
             updated_at=datetime.now(),
         )
         db.add(profile)
@@ -48,6 +62,11 @@ def get_or_create_profile(db: Session, user: AuthUser) -> UserProfile:
     if not profile.amedas_station_id:
         profile.amedas_station_id = DEFAULT_AMEDAS_STATION_ID
         profile.amedas_station_name = profile.amedas_station_name or DEFAULT_AMEDAS_STATION_NAME
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+    if not getattr(profile, "run_station_init", None):
+        profile.run_station_init = "profile"
         db.add(profile)
         db.commit()
         db.refresh(profile)
@@ -81,6 +100,7 @@ def _clone_profile(source: UserProfile, auth_user_id: int) -> UserProfile:
         hr_race_full=source.hr_race_full,
         amedas_station_id=source.amedas_station_id,
         amedas_station_name=source.amedas_station_name,
+        run_station_init=normalize_run_station_init(getattr(source, "run_station_init", None)),
         updated_at=datetime.now(),
     )
 

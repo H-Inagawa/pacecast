@@ -12,6 +12,7 @@ import {
 } from "../intensity";
 import { classifyWbgtZone } from "../weatherZone";
 import { profileNeedsOnboarding } from "../onboarding";
+import { normalizeRunStationInit } from "../run-station-init";
 import type { IntensityHrs, Profile } from "../types";
 import { ApiError } from "./errors";
 import { getServiceClient, requireData } from "./supabase";
@@ -158,10 +159,16 @@ export async function serializeProfile(profile: ProfileRow): Promise<Profile> {
     })),
     amedas_station_id: station.stationId,
     amedas_station_name: station.name,
+    run_station_init: normalizeRunStationInit(profile.run_station_init),
     wbgt_ready_count: ready,
     run_count: runCount,
     onboarding_complete: Boolean(profile.display_name?.trim()),
   };
+}
+
+function isMissingColumn(message: string, column: string): boolean {
+  const text = message.toLowerCase();
+  return text.includes(column.toLowerCase()) && (text.includes("schema cache") || text.includes("does not exist"));
 }
 
 export async function getOrCreateProfile(user: AuthUserRow): Promise<ProfileRow> {
@@ -187,18 +194,23 @@ export async function getOrCreateProfile(user: AuthUserRow): Promise<ProfileRow>
       .single();
     return (await requireData(updated)) as ProfileRow;
   }
+  const baseInsert = {
+    auth_user_id: user.id,
+    color_rows: true,
+    row_color_mode: "hr",
+    amedas_station_id: DEFAULT_AMEDAS_STATION_ID,
+    amedas_station_name: DEFAULT_AMEDAS_STATION_NAME,
+    updated_at: toDbTimestamp(new Date()),
+  };
   const inserted = await client
     .from("user_profiles")
-    .insert({
-      auth_user_id: user.id,
-      color_rows: true,
-      row_color_mode: "hr",
-      amedas_station_id: DEFAULT_AMEDAS_STATION_ID,
-      amedas_station_name: DEFAULT_AMEDAS_STATION_NAME,
-      updated_at: toDbTimestamp(new Date()),
-    })
+    .insert({ ...baseInsert, run_station_init: "profile" })
     .select("*")
     .single();
+  if (inserted.error && isMissingColumn(inserted.error.message, "run_station_init")) {
+    const fallback = await client.from("user_profiles").insert(baseInsert).select("*").single();
+    return (await requireData(fallback)) as ProfileRow;
+  }
   return (await requireData(inserted)) as ProfileRow;
 }
 
@@ -208,28 +220,30 @@ export async function saveProfile(profile: ProfileRow): Promise<ProfileRow> {
     mode = "off";
   }
   const client = getServiceClient();
-  const updated = await client
-    .from("user_profiles")
-    .update({
-      display_name: profile.display_name,
-      birthday: profile.birthday,
-      max_heart_rate: profile.max_heart_rate,
-      color_rows: mode === "hr",
-      row_color_mode: mode,
-      hr_low: profile.hr_low,
-      hr_medium: profile.hr_medium,
-      hr_high: profile.hr_high,
-      hr_race_5k: profile.hr_race_5k,
-      hr_race_10k: profile.hr_race_10k,
-      hr_race_half: profile.hr_race_half,
-      hr_race_full: profile.hr_race_full,
-      amedas_station_id: profile.amedas_station_id,
-      amedas_station_name: profile.amedas_station_name,
-      updated_at: toDbTimestamp(new Date()),
-    })
-    .eq("id", profile.id)
-    .select("*")
-    .single();
+  const values = {
+    display_name: profile.display_name,
+    birthday: profile.birthday,
+    max_heart_rate: profile.max_heart_rate,
+    color_rows: mode === "hr",
+    row_color_mode: mode,
+    hr_low: profile.hr_low,
+    hr_medium: profile.hr_medium,
+    hr_high: profile.hr_high,
+    hr_race_5k: profile.hr_race_5k,
+    hr_race_10k: profile.hr_race_10k,
+    hr_race_half: profile.hr_race_half,
+    hr_race_full: profile.hr_race_full,
+    amedas_station_id: profile.amedas_station_id,
+    amedas_station_name: profile.amedas_station_name,
+    run_station_init: normalizeRunStationInit(profile.run_station_init),
+    updated_at: toDbTimestamp(new Date()),
+  };
+  const updated = await client.from("user_profiles").update(values).eq("id", profile.id).select("*").single();
+  if (updated.error && isMissingColumn(updated.error.message, "run_station_init")) {
+    const { run_station_init: _ignored, ...withoutInit } = values;
+    const fallback = await client.from("user_profiles").update(withoutInit).eq("id", profile.id).select("*").single();
+    return (await requireData(fallback)) as ProfileRow;
+  }
   return (await requireData(updated)) as ProfileRow;
 }
 

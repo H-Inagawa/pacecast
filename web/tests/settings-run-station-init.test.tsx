@@ -18,7 +18,7 @@ import { apiGet, apiSend } from "../lib/api";
 const mockedGet = vi.mocked(apiGet);
 const mockedSend = vi.mocked(apiSend);
 
-describe("設定の色分け", () => {
+describe("走行追加の初期地点設定", () => {
   beforeEach(() => {
     mockedGet.mockImplementation(async (path: string) => {
       if (path === "/api/profile") {
@@ -29,23 +29,21 @@ describe("設定の色分け", () => {
       }
       throw new Error(`unexpected ${path}`);
     });
-    mockedSend.mockResolvedValue({ ...profileFixture, row_color_mode: "wbgt" });
+    mockedSend.mockResolvedValue({ ...profileFixture, run_station_init: "gps" });
   });
 
-  it("心拍・気象・しないを選べる", async () => {
+  it("GPS 初期地点を保存できる", async () => {
     const user = userEvent.setup();
     render(<SettingsPage />);
 
-    const weather = await screen.findByLabelText("気象条件（WBGT）");
-    expect(screen.getByLabelText("心拍")).toBeEnabled();
-    expect(screen.getByLabelText("色分けしない")).toBeInTheDocument();
-
-    await user.click(weather);
+    const gps = await screen.findByLabelText("GPS で近くのアメダスを探す");
+    expect(screen.getByLabelText("設定どおりのアメダスを出す")).toBeChecked();
+    await user.click(gps);
     await user.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => {
       expect(mockedSend).toHaveBeenCalled();
     });
-    expect(mockedSend.mock.calls[0][2]).toMatchObject({ row_color_mode: "wbgt", run_station_init: "profile" });
+    expect(mockedSend.mock.calls[0][2]).toMatchObject({ run_station_init: "gps" });
   });
 });

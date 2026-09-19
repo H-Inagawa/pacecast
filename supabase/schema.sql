@@ -70,6 +70,7 @@ create table if not exists user_profiles (
   hr_race_full integer,
   amedas_station_id text,
   amedas_station_name text,
+  run_station_init text not null default 'profile',
   updated_at timestamptz not null
 );
 

@@ -43,6 +43,7 @@ from pacecast.services.profile import (
     effective_row_color_mode,
     get_or_create_profile,
     normalize_row_color_mode,
+    normalize_run_station_init,
     profile_age,
     profile_target_hrs,
     resolve_target_hr,
@@ -169,6 +170,7 @@ def _profile_out(profile: UserProfile, db: Session) -> ProfileOut:
         ],
         amedas_station_id=station.station_id,
         amedas_station_name=station.name,
+        run_station_init=normalize_run_station_init(getattr(profile, "run_station_init", None)),
         wbgt_ready_count=ready,
         run_count=run_count,
     )
@@ -462,6 +464,7 @@ def update_profile(
         station = resolve_station(payload.amedas_station_id)
         profile.amedas_station_id = station.station_id
         profile.amedas_station_name = station.name
+    profile.run_station_init = normalize_run_station_init(payload.run_station_init)
 
     saved = save_profile(db, profile)
     if payload.amedas_station_id and payload.amedas_station_id != previous_station:

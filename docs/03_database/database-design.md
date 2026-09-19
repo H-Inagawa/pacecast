@@ -1,7 +1,7 @@
 # データベース設計
 
 作成日: 2026-09-06  
-更新日: 2026-09-15  
+更新日: 2026-09-19  
 DB: Supabase PostgreSQL（画面）。pytest 用に SQLite（`data/pacecast.db`）も残す。  
 DDL: `supabase/schema.sql`
 
@@ -70,6 +70,7 @@ DDL: `supabase/schema.sql`
 | hr_race_5k / hr_race_10k / hr_race_half / hr_race_full | INTEGER | NULL | レース種目の目標心拍 |
 | amedas_station_id | TEXT | NULL | アメダス観測所 ID（未設定時は東京 44132） |
 | amedas_station_name | TEXT | NULL | 地点名（例: 東京） |
+| run_station_init | TEXT | NOT NULL | 記録追加の初期地点。`profile`（設定どおり）または `gps`（最寄り）。既定は `profile` |
 | updated_at | DATETIME | NOT NULL | 更新日時 |
 
 走行・設定は `auth_user_id` でアカウントに紐づく。気象行は地点単位で共有する。

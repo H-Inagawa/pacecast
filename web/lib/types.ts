@@ -54,6 +54,7 @@ export type Profile = {
   race_options: Intensity[];
   amedas_station_id: string;
   amedas_station_name: string;
+  run_station_init: "profile" | "gps";
   wbgt_ready_count: number;
   run_count: number;
   onboarding_complete: boolean;

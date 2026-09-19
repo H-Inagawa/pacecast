@@ -34,6 +34,7 @@ export const profileFixture: Profile = {
   race_options: [],
   amedas_station_id: "44071",
   amedas_station_name: "練馬",
+  run_station_init: "profile",
   wbgt_ready_count: 39,
   run_count: 39,
   onboarding_complete: true,

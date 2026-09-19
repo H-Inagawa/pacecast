@@ -7,6 +7,7 @@ import { StickyActions } from "../../components/StickyActions";
 import { apiGet, apiSend } from "../../lib/api";
 import { ageFromBirthday, emptyHrs, maxHrFromAge, suggestedHrs } from "../../lib/heartRate";
 import { StationPicker } from "../../components/StationPicker";
+import { normalizeRunStationInit, type RunStationInit } from "../../lib/run-station-init";
 import type { AmedasStation, IntensityHrs, Profile } from "../../lib/types";
 import { normalizeRowColorMode, type RowColorMode } from "../../lib/weatherZone";
 
@@ -30,6 +31,7 @@ export default function SettingsPage() {
   const [age, setAge] = useState<number | null>(null);
   const [stations, setStations] = useState<AmedasStation[]>([]);
   const [stationId, setStationId] = useState("44132");
+  const [runStationInit, setRunStationInit] = useState<RunStationInit>("profile");
   const [wbgtReady, setWbgtReady] = useState(0);
   const [runCount, setRunCount] = useState(0);
   const [onboarding, setOnboarding] = useState(false);
@@ -46,6 +48,7 @@ export default function SettingsPage() {
         setHrs(profile.intensities);
         setAge(profile.age);
         setStationId(profile.amedas_station_id);
+        setRunStationInit(normalizeRunStationInit(profile.run_station_init));
         setWbgtReady(profile.wbgt_ready_count);
         setRunCount(profile.run_count);
         setStations(amedasStations);
@@ -85,6 +88,7 @@ export default function SettingsPage() {
         color_rows: nextMode === "hr",
         intensities: nextHrs,
         amedas_station_id: stationId,
+        run_station_init: runStationInit,
       });
       setMaxHr(saved.max_heart_rate == null ? "" : String(saved.max_heart_rate));
       setOriginalMaxHr(saved.max_heart_rate == null ? "" : String(saved.max_heart_rate));
@@ -93,6 +97,7 @@ export default function SettingsPage() {
       setHrs(saved.intensities);
       setAge(saved.age);
       setStationId(saved.amedas_station_id);
+      setRunStationInit(normalizeRunStationInit(saved.run_station_init));
       setWbgtReady(saved.wbgt_ready_count);
       setRunCount(saved.run_count);
       setOnboarding(!saved.onboarding_complete);
@@ -149,6 +154,26 @@ export default function SettingsPage() {
             気象の取得と推定 WBGT に使います。未設定時は東京（44132）。都道府県で絞り、観測所番号順です。「GPSで探す」は HTTPS か http://127.0.0.1 で使えます。
             {runCount ? ` WBGT 付きの走行: ${wbgtReady} / ${runCount} 件` : ""}
           </p>
+          <p className="meta">走行記録を追加するときの初期地点</p>
+          <label className="choice">
+            <input
+              type="radio"
+              name="run-station-init"
+              checked={runStationInit === "profile"}
+              onChange={() => setRunStationInit("profile")}
+            />
+            設定どおりのアメダスを出す
+          </label>
+          <label className="choice">
+            <input
+              type="radio"
+              name="run-station-init"
+              checked={runStationInit === "gps"}
+              onChange={() => setRunStationInit("gps")}
+            />
+            GPS で近くのアメダスを探す
+          </label>
+          <p className="meta">許可が取れない・測位できないときは設定地点に戻します。GPS の測位は「GPSで探す」と同じです。</p>
           <label>
             誕生日
             <input

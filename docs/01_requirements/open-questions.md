@@ -7,7 +7,7 @@
 | 項目 | 仮決め | 見直し時期 |
 | --- | --- | --- |
 | 利用者 | メール＋パスワード。走行・設定はアカウント単位。既存データは開発者用と私用 Gmail にコピー | チーム利用や権限を足すとき |
-| 地点 | 設定のアメダス地点（未設定時は東京 44132）。走・予報でも上書き可。手動選択は都道府県で絞る（[#51](https://github.com/H-Inagawa/pacecast/issues/51)）。設定は GPS 最寄りも可（[#50](https://github.com/H-Inagawa/pacecast/issues/50)） | 走行追加の初期地点を GPS にするかは [#49](https://github.com/H-Inagawa/pacecast/issues/49) |
+| 地点 | 設定のアメダス地点（未設定時は東京 44132）。走・予報でも上書き可。手動選択は都道府県で絞る（[#51](https://github.com/H-Inagawa/pacecast/issues/51)）。設定は GPS 最寄りも可（[#50](https://github.com/H-Inagawa/pacecast/issues/50)）。記録追加の初期地点は設定で「設定どおり」か「GPS 最寄り」を選ぶ（[#49](https://github.com/H-Inagawa/pacecast/issues/49)） | GPS / Garmin など外部サービスからの取り込みは [#14](https://github.com/H-Inagawa/pacecast/issues/14) |
 | 紐付け時刻 | 走行開始時刻の最近傍1時間値。同距離なら早い方 | 長距離走の評価時 |
 | 長時間走の気象 | 開始時刻の1点のみ使う | 時間帯の平均（難しければ開始・終了の2点）は [#48](https://github.com/H-Inagawa/pacecast/issues/48) |
 | 走行強度 | 設定の最大心拍から強度別 bpm を算出（個別上書き可）。記録には強度列を持たない | 過去心拍の分位で個人化するとき |

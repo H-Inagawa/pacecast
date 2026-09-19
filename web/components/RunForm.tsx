@@ -5,6 +5,7 @@ import { DurationFields } from "./DurationFields";
 import { StationPicker } from "./StationPicker";
 import { apiGet, apiSend } from "../lib/api";
 import { defaultDateTimeLocal, toDateTimeLocalInput } from "../lib/format";
+import { initialRunStationId } from "../lib/run-station-init";
 import type { AmedasStation, Profile, Run } from "../lib/types";
 
 type Props = {
@@ -41,14 +42,32 @@ export function RunForm({ title, runId, onCancel, onSuccess }: Props) {
   const [stationId, setStationId] = useState("44132");
 
   useEffect(() => {
+    let cancelled = false;
     void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
-      ([profile, amedasStations]) => {
-        setStations(amedasStations);
-        if (!runId) {
-          setStationId(profile.amedas_station_id || "44132");
+      async ([profile, amedasStations]) => {
+        if (cancelled) {
+          return;
         }
+        setStations(amedasStations);
+        if (runId) {
+          return;
+        }
+        const profileStation = profile.amedas_station_id || "44132";
+        setStationId(profileStation);
+        const next = await initialRunStationId({
+          mode: profile.run_station_init,
+          profileStationId: profileStation,
+          stations: amedasStations,
+        });
+        if (cancelled) {
+          return;
+        }
+        setStationId((current) => (current === profileStation ? next : current));
       },
     );
+    return () => {
+      cancelled = true;
+    };
   }, [runId]);
 
   useEffect(() => {

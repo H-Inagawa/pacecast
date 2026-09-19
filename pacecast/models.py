@@ -100,6 +100,7 @@ class UserProfile(Base):
     hr_race_full: Mapped[int | None] = mapped_column(Integer, nullable=True)
     amedas_station_id: Mapped[str | None] = mapped_column(String(16), nullable=True)
     amedas_station_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    run_station_init: Mapped[str] = mapped_column(String(16), nullable=False, default="profile")
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
