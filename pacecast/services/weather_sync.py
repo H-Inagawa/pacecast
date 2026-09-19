@@ -18,7 +18,8 @@ from pacecast.services.forecast import (
     fetch_condition_for_time,
     nearest_condition,
 )
-from pacecast.services.matching import attach_weather
+from pacecast.services.matching import find_nearest_weather
+from pacecast.services.weather_span import record_weather, run_ended_at, should_average_weather_span
 from pacecast.services.wbgt import apply_wbgt, fallback_solar_wm2, fallback_wind_ms, estimate_wbgt
 
 
@@ -245,32 +246,31 @@ def enrich_weather_row(
     return apply_wbgt(row)
 
 
-def enrich_run_weather(
+def _ensure_weather_at(
     db: Session,
-    record: RunningRecord,
+    at: datetime,
     station: AmedasStation,
-    hourly: list[ForecastCondition] | None = None,
-) -> bool:
+    hourly: list[ForecastCondition] | None,
+) -> WeatherObservation | None:
     """
-    1件の走行に気象と WBGT を付ける。
+    指定時刻の最近傍観測を返し、無ければ再解析から作る。
 
     Args:
         db: DB セッション。
-        record: 走行記録。
+        at: 対象時刻。
         station: アメダス地点。
         hourly: 事前取得した再解析。
 
     Returns:
-        WBGT が付いたとき True。
+        観測。取れなければ None。
     """
-    attach_weather(db, record)
-    weather = record.weather
+    weather = find_nearest_weather(db, at, station_id=station.station_id)
     if weather is None:
-        condition = nearest_condition(hourly, record.started_at) if hourly else None
+        condition = nearest_condition(hourly, at) if hourly else None
         if condition is None:
             try:
                 condition = fetch_condition_for_time(
-                    record.started_at,
+                    at,
                     station.latitude,
                     station.longitude,
                     station.name,
@@ -278,7 +278,7 @@ def enrich_run_weather(
             except ForecastError:
                 condition = None
         if condition is None:
-            return False
+            return None
         weather = _upsert_weather(
             db,
             observed_at=condition.observed_at,
@@ -290,11 +290,43 @@ def enrich_run_weather(
             solar_wm2=condition.solar_wm2,
             source="open-meteo",
         )
-        record.weather_observation_id = weather.id
-        record.weather = weather
-        return weather.wbgt_c is not None
+    enrich_weather_row(db, weather, station, hourly)
+    return weather
 
-    return enrich_weather_row(db, weather, station, hourly)
+
+def enrich_run_weather(
+    db: Session,
+    record: RunningRecord,
+    station: AmedasStation,
+    hourly: list[ForecastCondition] | None = None,
+) -> bool:
+    """
+    1件の走行に気象と WBGT を付ける。長時間走は開始と終了の2点を持つ。
+
+    Args:
+        db: DB セッション。
+        record: 走行記録。
+        station: アメダス地点。
+        hourly: 事前取得した再解析。
+
+    Returns:
+        時間帯の推定 WBGT が付いたとき True。
+    """
+    start = _ensure_weather_at(db, record.started_at, station, hourly)
+    ended_at = run_ended_at(record.started_at, record.duration_sec)
+    end = (
+        _ensure_weather_at(db, ended_at, station, hourly) if should_average_weather_span(record.duration_sec) else None
+    )
+    record.weather_observation_id = start.id if start else None
+    record.weather = start
+    if start is not None and end is not None and end.id != start.id:
+        record.weather_end_observation_id = end.id
+        record.weather_end = end
+    else:
+        record.weather_end_observation_id = None
+        record.weather_end = None
+    effective = record_weather(record)
+    return effective is not None and effective.wbgt_c is not None
 
 
 def backfill_run_wbgt(db: Session, profile: UserProfile | None = None) -> BackfillResult:
@@ -312,7 +344,11 @@ def backfill_run_wbgt(db: Session, profile: UserProfile | None = None) -> Backfi
         db.commit()
         return BackfillResult(0, 0, 0, [])
     station = ensure_profile_station(profile)
-    query = select(RunningRecord).options(joinedload(RunningRecord.weather)).order_by(RunningRecord.started_at.asc())
+    query = (
+        select(RunningRecord)
+        .options(joinedload(RunningRecord.weather), joinedload(RunningRecord.weather_end))
+        .order_by(RunningRecord.started_at.asc())
+    )
     if profile.auth_user_id is not None:
         query = query.where(RunningRecord.auth_user_id == profile.auth_user_id)
     records = db.scalars(query).all()
@@ -322,7 +358,7 @@ def backfill_run_wbgt(db: Session, profile: UserProfile | None = None) -> Backfi
 
     hourly: list[ForecastCondition] = []
     start_day = min(item.started_at for item in records).date()
-    end_day = max(item.started_at for item in records).date()
+    end_day = max(run_ended_at(item.started_at, item.duration_sec) for item in records).date()
     try:
         hourly = fetch_archive_range(
             start_day,

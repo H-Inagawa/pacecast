@@ -35,7 +35,7 @@ Free プランでよい。
 3. **Run** する
 4. エラーが無く、`auth_users` などのテーブルが **Table Editor** に出れば成功
 
-同じ SQL を二度流してもよい（`if not exists`）。すでにプロジェクトがあるときに足りないテーブル・列だけ足す場合は、`supabase/password-resets.sql` と `supabase/run-station-init.sql` を貼る。
+同じ SQL を二度流してもよい（`if not exists`）。すでにプロジェクトがあるときに足りないテーブル・列だけ足す場合は、`supabase/password-resets.sql` と `supabase/run-station-init.sql` と `supabase/weather-end-observation.sql` を貼る。
 
 ## 4. 環境変数を入れる
 

@@ -51,6 +51,7 @@ from pacecast.services.profile import (
     run_zone,
     save_profile,
 )
+from pacecast.services.weather_span import record_weather
 from pacecast.services.weather_sync import (
     backfill_run_wbgt,
     enrich_run_weather,
@@ -187,13 +188,14 @@ def _run_out(record: RunningRecord, profile: UserProfile | None = None) -> RunOu
         フロント向けの走行記録。
     """
     hours, minutes, seconds = split_duration(record.duration_sec)
+    effective = record_weather(record)
     weather = None
-    if record.weather is not None:
+    if effective is not None:
         weather = WeatherBrief(
-            temperature_c=record.weather.temperature_c,
-            humidity_pct=record.weather.humidity_pct,
-            observed_at=record.weather.observed_at.strftime("%Y-%m-%d %H:%M"),
-            wbgt_c=record.weather.wbgt_c,
+            temperature_c=effective.temperature_c,
+            humidity_pct=effective.humidity_pct,
+            observed_at=effective.observed_at.strftime("%Y-%m-%d %H:%M"),
+            wbgt_c=effective.wbgt_c,
         )
     return RunOut(
         id=record.id,
@@ -209,7 +211,7 @@ def _run_out(record: RunningRecord, profile: UserProfile | None = None) -> RunOu
         weather=weather,
         hr_zone=run_zone(profile, record.avg_heart_rate) if profile is not None else None,
         weather_zone=(
-            run_weather_zone(profile, record.weather.wbgt_c if record.weather else None, record.weather is not None)
+            run_weather_zone(profile, effective.wbgt_c if effective else None, effective is not None)
             if profile is not None
             else None
         ),
@@ -268,7 +270,7 @@ def list_runs(db: Session = Depends(get_db), user: AuthUser = Depends(require_us
     """
     runs = db.scalars(
         select(RunningRecord)
-        .options(joinedload(RunningRecord.weather))
+        .options(joinedload(RunningRecord.weather), joinedload(RunningRecord.weather_end))
         .where(RunningRecord.auth_user_id == user.id)
         .order_by(RunningRecord.started_at.desc())
     ).all()

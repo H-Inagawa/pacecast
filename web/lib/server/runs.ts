@@ -6,7 +6,8 @@ import { resolveStation } from "./amedas";
 import { getOrCreateProfile, runWeatherZone, runZone } from "./profile";
 import { getServiceClient, requireData } from "./supabase";
 import type { AuthUserRow, ProfileRow, RunRow, WeatherRow } from "./types";
-import { enrichRunWeather } from "./weather";
+import { enrichRunWeather, fillMissingEndWeather } from "./weather";
+import { effectiveWeather } from "../weather-span";
 
 export type RunWrite = {
   started_at: string;
@@ -31,7 +32,7 @@ function nestedWeather(value: RunRow["weather"]): WeatherRow | null {
 
 export function serializeRun(record: RunRow, profile: ProfileRow | null = null): Run {
   const [hours, minutes, seconds] = splitDuration(record.duration_sec);
-  const weather = nestedWeather(record.weather);
+  const weather = effectiveWeather(nestedWeather(record.weather), nestedWeather(record.weather_end));
   return {
     id: record.id,
     started_at: formatDateTimeLocalValue(parseDbTimestamp(record.started_at)),
@@ -83,32 +84,48 @@ function applyWrite(payload: RunWrite): {
   };
 }
 
-const RUN_SELECT = "*, weather:weather_observations(*)";
+const RUN_SELECT =
+  "*, weather:weather_observations!running_records_weather_observation_id_fkey(*), weather_end:weather_observations!running_records_weather_end_observation_id_fkey(*)";
+const RUN_SELECT_LEGACY = "*, weather:weather_observations(*)";
 
-export async function listRuns(user: AuthUserRow): Promise<Run[]> {
-  const client = getServiceClient();
-  const result = await client
-    .from("running_records")
-    .select(RUN_SELECT)
-    .eq("auth_user_id", user.id)
-    .order("started_at", { ascending: false });
+function shouldUseLegacyRunSelect(message: string): boolean {
+  const text = message.toLowerCase();
+  return (
+    text.includes("weather_end_observation_id") ||
+    (text.includes("relationship") && text.includes("weather_observations"))
+  );
+}
+
+async function selectRuns(build: (columns: string) => Promise<{ data: unknown; error: { message: string } | null }>) {
+  let result = await build(RUN_SELECT);
+  if (result.error && shouldUseLegacyRunSelect(result.error.message)) {
+    result = await build(RUN_SELECT_LEGACY);
+  }
   if (result.error) {
     throw new ApiError(500, result.error.message);
   }
+  return result;
+}
+
+export async function listRuns(user: AuthUserRow): Promise<Run[]> {
+  const client = getServiceClient();
+  const result = await selectRuns((columns) =>
+    client.from("running_records").select(columns).eq("auth_user_id", user.id).order("started_at", { ascending: false }),
+  );
   const profile = await getOrCreateProfile(user);
-  return ((result.data as RunRow[]) ?? []).map((row) => serializeRun(row, profile));
+  const rows = (result.data as RunRow[]) ?? [];
+  await fillMissingEndWeather(rows);
+  return rows.map((row) => serializeRun(row, profile));
 }
 
 export async function getOwnRun(user: AuthUserRow, runId: number): Promise<RunRow> {
   const client = getServiceClient();
-  const result = await client.from("running_records").select(RUN_SELECT).eq("id", runId).maybeSingle();
-  if (result.error) {
-    throw new ApiError(500, result.error.message);
-  }
+  const result = await selectRuns((columns) => client.from("running_records").select(columns).eq("id", runId).maybeSingle());
   const record = result.data as RunRow | null;
   if (record == null || record.auth_user_id !== user.id) {
     throw new ApiError(404, "記録が見つかりません");
   }
+  await fillMissingEndWeather([record]);
   return record;
 }
 
@@ -132,11 +149,17 @@ export async function createRun(user: AuthUserRow, payload: RunWrite): Promise<R
       created_at: now,
       updated_at: now,
     })
-    .select(RUN_SELECT)
+    .select("*")
     .single();
   const record = (await requireData(inserted)) as RunRow;
   await enrichRunWeather(record, station);
   const refreshed = await getOwnRun(user, record.id);
+  if (!refreshed.weather) {
+    refreshed.weather = record.weather;
+  }
+  if (!refreshed.weather_end) {
+    refreshed.weather_end = record.weather_end;
+  }
   return serializeRun(refreshed, profile);
 }
 
@@ -161,11 +184,17 @@ export async function updateRun(user: AuthUserRow, runId: number, payload: RunWr
       updated_at: toDbTimestamp(new Date()),
     })
     .eq("id", existing.id)
-    .select(RUN_SELECT)
+    .select("*")
     .single();
   const record = (await requireData(updated)) as RunRow;
   await enrichRunWeather(record, station);
   const refreshed = await getOwnRun(user, record.id);
+  if (!refreshed.weather) {
+    refreshed.weather = record.weather;
+  }
+  if (!refreshed.weather_end) {
+    refreshed.weather_end = record.weather_end;
+  }
   return serializeRun(refreshed, profile);
 }
 
@@ -180,17 +209,14 @@ export async function deleteRun(user: AuthUserRow, runId: number): Promise<void>
 
 export async function loadPredictRuns(userId: number) {
   const client = getServiceClient();
-  const result = await client
-    .from("running_records")
-    .select(RUN_SELECT)
-    .eq("auth_user_id", userId)
-    .order("started_at", { ascending: true });
-  if (result.error) {
-    throw new ApiError(500, result.error.message);
-  }
-  return ((result.data as RunRow[]) ?? [])
+  const result = await selectRuns((columns) =>
+    client.from("running_records").select(columns).eq("auth_user_id", userId).order("started_at", { ascending: true }),
+  );
+  const rows = (result.data as RunRow[]) ?? [];
+  await fillMissingEndWeather(rows);
+  return rows
     .map((row) => {
-      const weather = nestedWeather(row.weather);
+      const weather = effectiveWeather(nestedWeather(row.weather), nestedWeather(row.weather_end));
       if (weather == null || weather.wbgt_c == null) {
         return null;
       }

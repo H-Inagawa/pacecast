@@ -126,6 +126,7 @@ def _clone_run(source: RunningRecord, auth_user_id: int) -> RunningRecord:
         amedas_station_name=source.amedas_station_name,
         auth_user_id=auth_user_id,
         weather_observation_id=source.weather_observation_id,
+        weather_end_observation_id=getattr(source, "weather_end_observation_id", None),
         created_at=source.created_at,
         updated_at=source.updated_at,
     )

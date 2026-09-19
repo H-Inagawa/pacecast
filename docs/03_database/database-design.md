@@ -47,7 +47,8 @@ DDL: `supabase/schema.sql`
 | amedas_station_id | TEXT | NULL | その走のアメダス地点 |
 | amedas_station_name | TEXT | NULL | 地点名 |
 | auth_user_id | INTEGER | FK, NULL | 所有者。`auth_users.id` |
-| weather_observation_id | INTEGER | FK, NULL | 紐付いた気象 |
+| weather_observation_id | INTEGER | FK, NULL | 開始時刻の最近傍気象 |
+| weather_end_observation_id | INTEGER | FK, NULL | 終了時刻の最近傍気象。開始と同じ1時間値なら NULL |
 | created_at | DATETIME | NOT NULL | 登録日時 |
 | updated_at | DATETIME | NOT NULL | 更新日時 |
 
@@ -133,5 +134,7 @@ DDL: `supabase/schema.sql`
 ## 5. 関連付け規則
 
 走行の `started_at` に対し、同じアメダス地点の `weather_observations.observed_at` との絶対差が最小の行を選ぶ。差が同じなら `observed_at` が早い行を選ぶ。候補が無い場合は `weather_observation_id` を NULL にする。
+
+走行終了（`started_at + duration_sec`）でも同じ規則で最近傍を探す。開始と異なる1時間値なら `weather_end_observation_id` に持つ。表示・予測は気温・湿度・風・日射の平均から推定 WBGT を付け直した値を使う。終了側だけ取れて開始が無いときは、従来どおり未関連のまま。
 
 許容差の上限は 90 分とする。それ以上離れた観測は「該当なし」とみなす。

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from pacecast.config import MATCH_MAX_DELTA_MINUTES, SAMPLE_AMEDAS_STATION_ID
 from pacecast.models import RunningRecord, WeatherObservation
+from pacecast.services.weather_span import run_ended_at, should_average_weather_span
 
 
 def find_nearest_weather(
@@ -75,8 +76,21 @@ def attach_weather(db: Session, record: RunningRecord) -> RunningRecord:
     Returns:
         気象 ID を更新した走行記録。
     """
-    weather = find_nearest_weather(db, record.started_at, station_id=record.amedas_station_id)
-    record.weather_observation_id = weather.id if weather else None
+    start = find_nearest_weather(db, record.started_at, station_id=record.amedas_station_id)
+    ended_at = run_ended_at(record.started_at, record.duration_sec)
+    end = (
+        find_nearest_weather(db, ended_at, station_id=record.amedas_station_id)
+        if should_average_weather_span(record.duration_sec)
+        else None
+    )
+    record.weather_observation_id = start.id if start else None
+    record.weather = start
+    if start is not None and end is not None and end.id != start.id:
+        record.weather_end_observation_id = end.id
+        record.weather_end = end
+    else:
+        record.weather_end_observation_id = None
+        record.weather_end = None
     return record
 
 

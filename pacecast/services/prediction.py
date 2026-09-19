@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from pacecast.config import NEAR_WEATHER_DISTANCE
 from pacecast.models import RunningRecord
+from pacecast.services.weather_span import record_weather
 from pacecast.services.regression import (
     FittedPaceModel,
     fit_pace_model,
@@ -183,9 +184,9 @@ def _relation_charts(
         3本の関係グラフ。
     """
     wbgt_obs = [
-        ChartPoint(x=record.weather.wbgt_c, pace_sec_per_km=record.pace_sec_per_km)
+        ChartPoint(x=weather.wbgt_c, pace_sec_per_km=record.pace_sec_per_km)
         for record in records
-        if record.weather is not None and record.weather.wbgt_c is not None
+        if (weather := record_weather(record)) is not None and weather.wbgt_c is not None
     ]
     hr_obs = [
         ChartPoint(x=float(record.avg_heart_rate), pace_sec_per_km=record.pace_sec_per_km)
@@ -247,7 +248,7 @@ def _to_similar(record: RunningRecord, target_wbgt: float, weight: float) -> Sim
     Returns:
         根拠行。
     """
-    weather = record.weather
+    weather = record_weather(record)
     assert weather is not None and weather.wbgt_c is not None
     return SimilarRun(
         record_id=record.id,
@@ -293,7 +294,7 @@ def predict_performance(
     """
     query = (
         select(RunningRecord)
-        .options(joinedload(RunningRecord.weather))
+        .options(joinedload(RunningRecord.weather), joinedload(RunningRecord.weather_end))
         .where(RunningRecord.weather_observation_id.is_not(None))
     )
     if auth_user_id is not None:
@@ -302,7 +303,7 @@ def predict_performance(
     eligible = [
         record
         for record in records
-        if record.weather is not None and record.weather.wbgt_c is not None
+        if (weather := record_weather(record)) is not None and weather.wbgt_c is not None
     ]
     if not eligible:
         return None
@@ -317,7 +318,11 @@ def predict_performance(
     model = fit_pace_model(
         heart_rates=[float(record.avg_heart_rate or 0) for record in fit_rows],
         distances=[record.distance_km for record in fit_rows],
-        wbgts=[record.weather.wbgt_c for record in fit_rows if record.weather is not None],
+        wbgts=[
+            weather.wbgt_c
+            for record in fit_rows
+            if (weather := record_weather(record)) is not None and weather.wbgt_c is not None
+        ],
         paces_sec=[record.pace_sec_per_km for record in fit_rows],
         weights=[recency_weight(record.started_at, as_of_dt) for record in fit_rows],
         uses_hr=uses_hr,
@@ -330,9 +335,9 @@ def predict_performance(
     near_count = sum(
         1
         for record in eligible
-        if record.weather is not None
-        and record.weather.wbgt_c is not None
-        and weather_distance(wbgt_c, record.weather.wbgt_c) <= NEAR_WEATHER_DISTANCE
+        if (weather := record_weather(record)) is not None
+        and weather.wbgt_c is not None
+        and weather_distance(wbgt_c, weather.wbgt_c) <= NEAR_WEATHER_DISTANCE
     )
     used_runs = [
         _to_similar(record, wbgt_c, recency_weight(record.started_at, as_of_dt))

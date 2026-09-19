@@ -31,7 +31,10 @@ class WeatherObservation(Base):
     source: Mapped[str] = mapped_column(String(32), nullable=False, default="open-meteo")
     imported_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
-    running_records: Mapped[list["RunningRecord"]] = relationship(back_populates="weather")
+    running_records: Mapped[list["RunningRecord"]] = relationship(
+        back_populates="weather",
+        foreign_keys="RunningRecord.weather_observation_id",
+    )
 
 
 class RunningRecord(Base):
@@ -58,10 +61,22 @@ class RunningRecord(Base):
         nullable=True,
         index=True,
     )
+    weather_end_observation_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("weather_observations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
-    weather: Mapped[WeatherObservation | None] = relationship(back_populates="running_records")
+    weather: Mapped[WeatherObservation | None] = relationship(
+        back_populates="running_records",
+        foreign_keys="RunningRecord.weather_observation_id",
+    )
+    weather_end: Mapped[WeatherObservation | None] = relationship(
+        foreign_keys="RunningRecord.weather_end_observation_id",
+    )
 
     @property
     def pace_sec_per_km(self) -> float:

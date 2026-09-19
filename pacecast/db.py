@@ -126,6 +126,7 @@ def migrate_schema(bind=None) -> None:
             ("amedas_station_id", "TEXT"),
             ("amedas_station_name", "TEXT"),
             ("auth_user_id", "INTEGER"),
+            ("weather_end_observation_id", "INTEGER"),
         ),
     }
     with target.begin() as connection:

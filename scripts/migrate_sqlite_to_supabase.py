@@ -278,6 +278,9 @@ def main() -> None:
                 "amedas_station_name": row["amedas_station_name"],
                 "auth_user_id": row["auth_user_id"],
                 "weather_observation_id": row["weather_observation_id"],
+                "weather_end_observation_id": (
+                    row["weather_end_observation_id"] if "weather_end_observation_id" in row.keys() else None
+                ),
                 "created_at": to_timestamptz(row["created_at"]),
                 "updated_at": to_timestamptz(row["updated_at"]),
             }

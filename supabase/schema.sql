@@ -85,6 +85,7 @@ create table if not exists running_records (
   amedas_station_name text,
   auth_user_id integer references auth_users (id) on delete cascade,
   weather_observation_id integer references weather_observations (id) on delete set null,
+  weather_end_observation_id integer references weather_observations (id) on delete set null,
   created_at timestamptz not null,
   updated_at timestamptz not null
 );
@@ -92,6 +93,7 @@ create table if not exists running_records (
 create index if not exists ix_runs_started_at on running_records (started_at);
 create index if not exists ix_runs_auth_user_id on running_records (auth_user_id);
 create index if not exists ix_runs_weather_id on running_records (weather_observation_id);
+create index if not exists ix_runs_weather_end_id on running_records (weather_end_observation_id);
 create index if not exists ix_verifications_user_id on email_verifications (user_id);
 create index if not exists ix_password_resets_user_id on password_resets (user_id);
 

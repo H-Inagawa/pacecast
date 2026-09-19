@@ -14,6 +14,7 @@ import {
 import { findNearestWeatherRow } from "./matching";
 import { getServiceClient, requireData } from "./supabase";
 import type { ProfileRow, RunRow, WeatherRow } from "./types";
+import { effectiveWeather, runEndedAt, shouldAverageWeatherSpan } from "../weather-span";
 
 function applyWbgt(row: WeatherRow): boolean {
   if (row.temperature_c == null || row.humidity_pct == null || row.wind_ms == null || row.solar_wm2 == null) {
@@ -26,10 +27,15 @@ function applyWbgt(row: WeatherRow): boolean {
   return true;
 }
 
-async function fetchWeatherWindow(startedAt: Date): Promise<WeatherRow[]> {
+function isMissingColumn(message: string, column: string): boolean {
+  const text = message.toLowerCase();
+  return text.includes(column.toLowerCase()) && (text.includes("schema cache") || text.includes("does not exist"));
+}
+
+async function fetchWeatherWindow(from: Date, to: Date = from): Promise<WeatherRow[]> {
   const client = getServiceClient();
-  const start = new Date(startedAt.getTime() - 90 * 60 * 1000);
-  const end = new Date(startedAt.getTime() + 90 * 60 * 1000);
+  const start = new Date(from.getTime() - 90 * 60 * 1000);
+  const end = new Date(to.getTime() + 90 * 60 * 1000);
   const result = await client
     .from("weather_observations")
     .select("*")
@@ -45,6 +51,64 @@ async function fetchWeatherWindow(startedAt: Date): Promise<WeatherRow[]> {
 export async function findNearestWeather(startedAt: Date, stationId?: string | null): Promise<WeatherRow | null> {
   const rows = await fetchWeatherWindow(startedAt);
   return findNearestWeatherRow(rows, startedAt, stationId);
+}
+
+function nestedWeather(value: RunRow["weather"] | RunRow["weather_end"]): WeatherRow | null {
+  if (!value) {
+    return null;
+  }
+  if (Array.isArray(value)) {
+    return (value[0] as WeatherRow | undefined) ?? null;
+  }
+  return value;
+}
+
+export async function fillMissingEndWeather(records: RunRow[]): Promise<void> {
+  const pending: Array<{ record: RunRow; endedAt: Date }> = [];
+  for (const record of records) {
+    if (nestedWeather(record.weather_end)) {
+      continue;
+    }
+    const startedAt = parseDbTimestamp(record.started_at);
+    const endedAt = runEndedAt(startedAt, record.duration_sec);
+    if (!shouldAverageWeatherSpan(record.duration_sec)) {
+      continue;
+    }
+    pending.push({ record, endedAt });
+  }
+  if (pending.length === 0) {
+    return;
+  }
+  const windows = new Map<string, WeatherRow[]>();
+  for (const { record, endedAt } of pending) {
+    const key = toDbTimestamp(endedAt);
+    let rows = windows.get(key);
+    if (!rows) {
+      rows = await fetchWeatherWindow(endedAt);
+      windows.set(key, rows);
+    }
+    const end = findNearestWeatherRow(rows, endedAt, record.amedas_station_id);
+    const start = nestedWeather(record.weather);
+    record.weather_end = start != null && end != null && end.id !== start.id ? end : null;
+  }
+}
+
+async function linkRunWeather(record: RunRow, start: WeatherRow | null, end: WeatherRow | null): Promise<void> {
+  const client = getServiceClient();
+  const values: Record<string, number | null> = {
+    weather_observation_id: start?.id ?? null,
+    weather_end_observation_id: start != null && end != null && end.id !== start.id ? end.id : null,
+  };
+  let updated = await client.from("running_records").update(values).eq("id", record.id).select("*").single();
+  if (updated.error && isMissingColumn(updated.error.message, "weather_end_observation_id")) {
+    const { weather_end_observation_id: _ignored, ...startOnly } = values;
+    updated = await client.from("running_records").update(startOnly).eq("id", record.id).select("*").single();
+  }
+  const saved = (await requireData(updated)) as RunRow;
+  record.weather_observation_id = saved.weather_observation_id;
+  record.weather_end_observation_id = saved.weather_end_observation_id ?? null;
+  record.weather = start;
+  record.weather_end = start != null && end != null && end.id !== start.id ? end : null;
 }
 
 async function upsertWeather(input: {
@@ -244,34 +308,17 @@ export async function enrichWeatherRow(
   return { row: await persistWeather(row), ok };
 }
 
-async function attachWeather(record: RunRow): Promise<WeatherRow | null> {
-  const startedAt = parseDbTimestamp(record.started_at);
-  const weather = await findNearestWeather(startedAt, record.amedas_station_id);
-  const client = getServiceClient();
-  const updated = await client
-    .from("running_records")
-    .update({ weather_observation_id: weather?.id ?? null })
-    .eq("id", record.id)
-    .select("*")
-    .single();
-  const saved = (await requireData(updated)) as RunRow;
-  record.weather_observation_id = saved.weather_observation_id;
-  record.weather = weather;
-  return weather;
-}
-
-export async function enrichRunWeather(
-  record: RunRow,
+async function ensureWeatherAt(
+  at: Date,
   station: AmedasStation,
-  hourly: ForecastCondition[] | null = null,
-): Promise<boolean> {
-  let weather = await attachWeather(record);
+  hourly: ForecastCondition[] | null,
+): Promise<WeatherRow | null> {
+  let weather = await findNearestWeather(at, station.stationId);
   if (weather == null) {
-    const startedAt = parseDbTimestamp(record.started_at);
-    let condition = hourly ? nearestCondition(hourly, startedAt) : null;
+    let condition = hourly ? nearestCondition(hourly, at) : null;
     if (condition == null) {
       try {
-        condition = await fetchConditionForTime(startedAt, station.latitude, station.longitude, station.name);
+        condition = await fetchConditionForTime(at, station.latitude, station.longitude, station.name);
       } catch (error) {
         if (!(error instanceof ForecastError)) {
           throw error;
@@ -280,7 +327,7 @@ export async function enrichRunWeather(
       }
     }
     if (condition == null) {
-      return false;
+      return null;
     }
     weather = await upsertWeather({
       observedAt: condition.observedAt,
@@ -292,15 +339,23 @@ export async function enrichRunWeather(
       solarWm2: condition.solarWm2,
       source: "open-meteo",
     });
-    const client = getServiceClient();
-    await client.from("running_records").update({ weather_observation_id: weather.id }).eq("id", record.id);
-    record.weather_observation_id = weather.id;
-    record.weather = weather;
-    return weather.wbgt_c != null;
   }
   const enriched = await enrichWeatherRow(weather, station, hourly);
-  record.weather = enriched.row;
-  return enriched.ok;
+  return enriched.row;
+}
+
+export async function enrichRunWeather(
+  record: RunRow,
+  station: AmedasStation,
+  hourly: ForecastCondition[] | null = null,
+): Promise<boolean> {
+  const startedAt = parseDbTimestamp(record.started_at);
+  const endedAt = runEndedAt(startedAt, record.duration_sec);
+  const start = await ensureWeatherAt(startedAt, station, hourly);
+  const end = shouldAverageWeatherSpan(record.duration_sec) ? await ensureWeatherAt(endedAt, station, hourly) : null;
+  await linkRunWeather(record, start, end);
+  const effective = effectiveWeather(start, end);
+  return effective != null && effective.wbgt_c != null;
 }
 
 export async function targetWbgt(
@@ -336,14 +391,24 @@ export async function targetWbgt(
 export async function backfillRunWbgt(profile: ProfileRow): Promise<void> {
   const station = await resolveStation(profile.amedas_station_id);
   const client = getServiceClient();
-  let query = client
-    .from("running_records")
-    .select("*, weather:weather_observations(*)")
-    .order("started_at", { ascending: true });
-  if (profile.auth_user_id != null) {
-    query = query.eq("auth_user_id", profile.auth_user_id);
+  const modern =
+    "*, weather:weather_observations!running_records_weather_observation_id_fkey(*), weather_end:weather_observations!running_records_weather_end_observation_id_fkey(*)";
+  const legacy = "*, weather:weather_observations(*)";
+  const fetchRows = async (columns: string) => {
+    let query = client.from("running_records").select(columns).order("started_at", { ascending: true });
+    if (profile.auth_user_id != null) {
+      query = query.eq("auth_user_id", profile.auth_user_id);
+    }
+    return query;
+  };
+  let result = await fetchRows(modern);
+  if (
+    result.error &&
+    (isMissingColumn(result.error.message, "weather_end_observation_id") ||
+      result.error.message.toLowerCase().includes("relationship"))
+  ) {
+    result = await fetchRows(legacy);
   }
-  const result = await query;
   if (result.error) {
     throw new ApiError(500, result.error.message);
   }
@@ -353,7 +418,10 @@ export async function backfillRunWbgt(profile: ProfileRow): Promise<void> {
   }
   let hourly: ForecastCondition[] = [];
   const startDay = parseDbTimestamp(records[0].started_at);
-  const endDay = parseDbTimestamp(records[records.length - 1].started_at);
+  const endDay = records.reduce((latest, record) => {
+    const ended = runEndedAt(parseDbTimestamp(record.started_at), record.duration_sec);
+    return ended.getTime() > latest.getTime() ? ended : latest;
+  }, parseDbTimestamp(records[records.length - 1].started_at));
   try {
     hourly = await fetchArchiveRange(
       startDay,

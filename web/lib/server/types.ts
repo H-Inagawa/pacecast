@@ -73,7 +73,9 @@ export type RunRow = {
   amedas_station_name: string | null;
   auth_user_id: number | null;
   weather_observation_id: number | null;
+  weather_end_observation_id?: number | null;
   created_at: string;
   updated_at: string;
   weather?: WeatherRow | null;
+  weather_end?: WeatherRow | null;
 };

@@ -110,10 +110,17 @@ async function wbgtCounts(authUserId: number | null): Promise<{ runCount: number
     return { runCount: 0, ready: 0 };
   }
   const client = getServiceClient();
-  const runs = await client
-    .from("running_records")
-    .select("id, weather:weather_observations(wbgt_c)", { count: "exact" })
-    .eq("auth_user_id", authUserId);
+  const modern =
+    "id, weather:weather_observations!running_records_weather_observation_id_fkey(wbgt_c), weather_end:weather_observations!running_records_weather_end_observation_id_fkey(wbgt_c)";
+  const legacy = "id, weather:weather_observations(wbgt_c)";
+  let runs = await client.from("running_records").select(modern, { count: "exact" }).eq("auth_user_id", authUserId);
+  if (
+    runs.error &&
+    (isMissingColumn(runs.error.message, "weather_end_observation_id") ||
+      runs.error.message.toLowerCase().includes("relationship"))
+  ) {
+    runs = await client.from("running_records").select(legacy, { count: "exact" }).eq("auth_user_id", authUserId);
+  }
   if (runs.error) {
     throw new ApiError(500, runs.error.message);
   }
