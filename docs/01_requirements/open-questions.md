@@ -22,7 +22,6 @@
 - 「全力走」と「余裕走」を予測対象からどう除外／分けるか
 - 降水など、WBGT 以外の気象要素をいつ入れるか
 - 予測結果をどの期間・どの距離帯まで信頼するかの、R² 以外の定量基準（記録外の外挿は #44）
-- パスワード再設定（[#47](https://github.com/H-Inagawa/pacecast/issues/47)）
 - データのバックアップ方針（[#17](https://github.com/H-Inagawa/pacecast/issues/17)。対象は Supabase）
 - デプロイ先: 公開は Vercel Hobby（[#45](https://github.com/H-Inagawa/pacecast/issues/45) 済み、`*.vercel.app`。独自ドメインは買わない）。データは Supabase（[#46](https://github.com/H-Inagawa/pacecast/issues/46)）。画面の API は Next.js が service_role で Postgres を読む。FastAPI + SQLite は pytest 用
 

@@ -7,7 +7,7 @@ import { ApiError } from "./errors";
 import { cookieSecure, resolveAppOrigin } from "./origin";
 import { getServiceClient, requireData } from "./supabase";
 import { parseDbTimestamp, toDbTimestamp } from "./datetime";
-import type { AuthUserRow, EmailVerificationRow } from "./types";
+import type { AuthUserRow, EmailVerificationRow, PasswordResetRow } from "./types";
 import { ONBOARDING_COOKIE } from "../onboarding";
 
 export const SESSION_COOKIE = "pacecast_session";
@@ -382,6 +382,124 @@ export async function verifyEmailToken(token: string): Promise<AuthUserRow> {
   const updated = await client
     .from("auth_users")
     .update({ email_verified: true })
+    .eq("id", user.id)
+    .select("*")
+    .single();
+  return (await requireData(updated)) as AuthUserRow;
+}
+
+export async function requestPasswordReset(email: string): Promise<{
+  reset: PasswordResetRow | null;
+  toEmail: string | null;
+}> {
+  const normalized = normalizeEmail(email);
+  if (!isPlausibleEmail(normalized) || normalized === devEmail()) {
+    return { reset: null, toEmail: null };
+  }
+  const client = getServiceClient();
+  const found = await client.from("auth_users").select("*").eq("email", normalized).maybeSingle();
+  if (found.error) {
+    throw new ApiError(500, found.error.message);
+  }
+  const user = found.data as AuthUserRow | null;
+  if (user == null || !user.email_verified) {
+    return { reset: null, toEmail: null };
+  }
+  const now = toDbTimestamp(new Date());
+  const pending = await client
+    .from("password_resets")
+    .update({ used_at: now })
+    .eq("user_id", user.id)
+    .is("used_at", null);
+  if (pending.error) {
+    throw new ApiError(500, pending.error.message);
+  }
+  const expires = new Date(Date.now() + TOKEN_HOURS * 60 * 60 * 1000);
+  const inserted = await client
+    .from("password_resets")
+    .insert({
+      user_id: user.id,
+      token: crypto.randomBytes(32).toString("base64url"),
+      expires_at: toDbTimestamp(expires),
+      used_at: null,
+      created_at: now,
+    })
+    .select("*")
+    .single();
+  return { reset: (await requireData(inserted)) as PasswordResetRow, toEmail: user.email };
+}
+
+export function resetPasswordUrl(token: string): string {
+  return `${appOrigin()}/reset-password?token=${token}`;
+}
+
+export async function sendPasswordResetEmail(toEmail: string, url: string): Promise<boolean> {
+  loadEnv();
+  const host = process.env.PACECAST_SMTP_HOST || "smtp.gmail.com";
+  const port = Number(process.env.PACECAST_SMTP_PORT || "587");
+  const user = (process.env.PACECAST_SMTP_USER || "").trim();
+  const password = (process.env.PACECAST_SMTP_PASSWORD || "").replace(/\s+/g, "");
+  const from = (process.env.PACECAST_SMTP_FROM || user).trim();
+  if (!user || !password) {
+    console.info("パスワード再設定リンク（SMTP 未設定）:", url);
+    return false;
+  }
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: false,
+    auth: { user, pass: password },
+  });
+  try {
+    await transporter.sendMail({
+      from,
+      to: toEmail,
+      subject: "PaceCast のパスワード再設定",
+      text:
+        "PaceCast のパスワードを再設定してください。\n\n" +
+        "次のリンクを開くと、新しいパスワードを入力できます。\n\n" +
+        `${url}\n\n` +
+        "このリンクは 24 時間有効です。覚えのない依頼なら、このメールは無視してください。\n",
+    });
+  } catch (error) {
+    console.error(error);
+    throw new ApiError(
+      502,
+      "再設定メールを送れませんでした。Gmail のアプリパスワードと .env を確認してください",
+    );
+  }
+  return true;
+}
+
+export async function consumePasswordResetToken(token: string, password: string): Promise<AuthUserRow> {
+  if (password.length < 8) {
+    throw new ApiError(400, "パスワードは8文字以上にしてください");
+  }
+  const client = getServiceClient();
+  const found = await client.from("password_resets").select("*").eq("token", token).maybeSingle();
+  if (found.error) {
+    throw new ApiError(500, found.error.message);
+  }
+  const reset = found.data as PasswordResetRow | null;
+  if (reset == null || reset.used_at != null) {
+    throw new ApiError(400, "再設定リンクが無効です");
+  }
+  if (parseDbTimestamp(reset.expires_at).getTime() < Date.now()) {
+    throw new ApiError(400, "再設定リンクの期限が切れています。もう一度依頼してください");
+  }
+  const userResult = await client.from("auth_users").select("*").eq("id", reset.user_id).maybeSingle();
+  if (userResult.error) {
+    throw new ApiError(500, userResult.error.message);
+  }
+  const user = userResult.data as AuthUserRow | null;
+  if (user == null) {
+    throw new ApiError(400, "再設定リンクが無効です");
+  }
+  const now = toDbTimestamp(new Date());
+  await client.from("password_resets").update({ used_at: now }).eq("id", reset.id);
+  const updated = await client
+    .from("auth_users")
+    .update({ password_hash: hashPassword(password) })
     .eq("id", user.id)
     .select("*")
     .single();

@@ -57,6 +57,9 @@ export default function LoginPage() {
       <p>
         初めての方は <Link href="/register">新規登録</Link>
       </p>
+      <p>
+        パスワードを忘れた方は <Link href="/forgot-password">再設定</Link>
+      </p>
     </section>
   );
 }

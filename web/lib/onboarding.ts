@@ -44,7 +44,12 @@ export function onboardingRedirectPath(
     return null;
   }
   if (needsOnboarding) {
-    if (pathname === "/settings" || pathname === "/verify") {
+    if (
+      pathname === "/settings" ||
+      pathname === "/verify" ||
+      pathname === "/forgot-password" ||
+      pathname === "/reset-password"
+    ) {
       return null;
     }
     return "/settings";

@@ -4,14 +4,27 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from pacecast.db import get_db
-from pacecast.schemas import AuthCredentials, AuthUserOut, MeOut, MessageOut, RegisterOut
+from pacecast.schemas import (
+    AuthCredentials,
+    AuthUserOut,
+    ForgotPasswordIn,
+    ForgotPasswordOut,
+    MeOut,
+    MessageOut,
+    RegisterOut,
+    ResetPasswordIn,
+)
 from pacecast.services.auth import (
     SESSION_COOKIE,
     SESSION_DAYS,
     EmailSendError,
     authenticate,
+    consume_password_reset_token,
     make_session_token,
     register_user,
+    request_password_reset,
+    reset_password_url,
+    send_password_reset_email,
     send_verification_email,
     user_from_session,
     verification_url,
@@ -126,6 +139,63 @@ def verify(token: str, response: Response, db: Session = Depends(get_db)) -> Aut
     """
     try:
         user = verify_email_token(db, token)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.commit()
+    _set_session(response, user.id)
+    return AuthUserOut(id=user.id, email=user.email)
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordOut)
+def forgot_password(body: ForgotPasswordIn, db: Session = Depends(get_db)) -> ForgotPasswordOut:
+    """
+    登録済みメールへパスワード再設定リンクを送る。
+
+    未登録でも同じ案内を返す。
+
+    Args:
+        body: メールアドレス。
+        db: DB セッション。
+
+    Returns:
+        案内文。SMTP が無いときは再設定 URL も返す。
+    """
+    generic = "入力したメールアドレスにアカウントがあれば、再設定用のリンクを送りました。"
+    issued = request_password_reset(db, body.email)
+    if issued is None:
+        db.commit()
+        return ForgotPasswordOut(message=generic)
+    reset, to_email = issued
+    url = reset_password_url(reset.token)
+    try:
+        sent = send_password_reset_email(to_email, url)
+    except EmailSendError as exc:
+        db.commit()
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    db.commit()
+    if sent:
+        return ForgotPasswordOut(message=generic)
+    return ForgotPasswordOut(
+        message="再設定メールの送信設定が無いので、下のリンクを開いてパスワードを変えてください。",
+        reset_url=url,
+    )
+
+
+@router.post("/reset-password", response_model=AuthUserOut)
+def reset_password(body: ResetPasswordIn, response: Response, db: Session = Depends(get_db)) -> AuthUserOut:
+    """
+    再設定トークンでパスワードを変え、そのままログインする。
+
+    Args:
+        body: トークンと新しいパスワード。
+        response: Cookie を付けるレスポンス。
+        db: DB セッション。
+
+    Returns:
+        ログインしたユーザー。
+    """
+    try:
+        user = consume_password_reset_token(db, body.token, body.password)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     db.commit()

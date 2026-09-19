@@ -48,6 +48,8 @@ describe("登録導線", () => {
     expect(onboardingRedirectPath("/login", true, true)).toBe("/settings");
     expect(onboardingRedirectPath("/settings", true, true)).toBeNull();
     expect(onboardingRedirectPath("/verify", true, true)).toBeNull();
+    expect(onboardingRedirectPath("/forgot-password", true, true)).toBeNull();
+    expect(onboardingRedirectPath("/reset-password", true, true)).toBeNull();
     expect(onboardingRedirectPath("/", true, false)).toBeNull();
     expect(onboardingRedirectPath("/login", true, false)).toBe("/");
   });

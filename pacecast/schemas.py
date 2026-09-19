@@ -202,6 +202,26 @@ class RegisterOut(BaseModel):
     verification_url: str | None = None
 
 
+class ForgotPasswordIn(BaseModel):
+    """パスワード再設定の依頼。"""
+
+    email: str
+
+
+class ForgotPasswordOut(BaseModel):
+    """再設定依頼の結果。SMTP 未設定時は再設定 URL を返す。"""
+
+    message: str
+    reset_url: str | None = None
+
+
+class ResetPasswordIn(BaseModel):
+    """再設定リンクからの新しいパスワード。"""
+
+    token: str
+    password: str
+
+
 class AuthUserOut(BaseModel):
     """ログイン中のアカウント。"""
 

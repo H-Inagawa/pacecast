@@ -2,9 +2,10 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { AUTH_PAGES, HEADERLESS_PAGES } from "../lib/auth-pages";
 
-const HEADERLESS = new Set(["/login"]);
-const OPEN_PATHS = new Set(["/login", "/register", "/verify", "/settings"]);
+const HEADERLESS = new Set<string>(HEADERLESS_PAGES);
+const OPEN_PATHS = new Set<string>([...AUTH_PAGES, "/settings"]);
 
 type MeResponse = {
   authenticated?: boolean;

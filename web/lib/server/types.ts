@@ -15,6 +15,15 @@ export type EmailVerificationRow = {
   created_at: string;
 };
 
+export type PasswordResetRow = {
+  id: number;
+  user_id: number;
+  token: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
+};
+
 export type WeatherRow = {
   id: number;
   observed_at: string;

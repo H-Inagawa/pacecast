@@ -11,3 +11,8 @@ export type RegisterResult = {
   message: string;
   verification_url?: string | null;
 };
+
+export type ForgotPasswordResult = {
+  message: string;
+  reset_url?: string | null;
+};

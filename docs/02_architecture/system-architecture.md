@@ -30,7 +30,7 @@
     +-- smtp.gmail.com:587
     v
 [Supabase PostgreSQL]
-    +-- auth_users / email_verifications
+    +-- auth_users / email_verifications / password_resets
     +-- user_profiles / running_records
     +-- weather_observations（地点で共有）
 ```

@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from pacecast.config import smtp_settings
-from pacecast.models import AuthUser, EmailVerification
+from pacecast.models import AuthUser, EmailVerification, PasswordReset
 
 logger = logging.getLogger(__name__)
 
@@ -377,5 +377,131 @@ def verify_email_token(db: Session, token: str) -> AuthUser:
         raise ValueError("確認リンクが無効です")
     user.email_verified = True
     verification.used_at = datetime.now()
+    db.flush()
+    return user
+
+
+def request_password_reset(db: Session, email: str) -> tuple[PasswordReset, str] | None:
+    """
+    確認済みユーザーへパスワード再設定トークンを発行する。
+
+    未登録・未確認・開発者用メールでは発行しない。
+
+    Args:
+        db: DB セッション。
+        email: 依頼したメール。
+
+    Returns:
+        トークンと宛先。対象が無いときは None。
+    """
+    normalized = normalize_email(email)
+    if not is_plausible_email(normalized) or normalized == DEV_EMAIL:
+        return None
+    user = db.scalar(select(AuthUser).where(AuthUser.email == normalized))
+    if user is None or not user.email_verified:
+        return None
+    now = datetime.now()
+    pending = db.scalars(
+        select(PasswordReset).where(PasswordReset.user_id == user.id, PasswordReset.used_at.is_(None))
+    ).all()
+    for row in pending:
+        row.used_at = now
+    reset = PasswordReset(
+        user_id=user.id,
+        token=secrets.token_urlsafe(32),
+        expires_at=now + timedelta(hours=TOKEN_HOURS),
+        used_at=None,
+        created_at=now,
+    )
+    db.add(reset)
+    db.flush()
+    return reset, user.email
+
+
+def reset_password_url(token: str) -> str:
+    """
+    パスワード再設定画面の URL を作る。
+
+    Args:
+        token: 再設定トークン。
+
+    Returns:
+        Next.js の再設定画面 URL。
+    """
+    return f"{_app_origin()}/reset-password?token={token}"
+
+
+def send_password_reset_email(to_email: str, url: str) -> bool:
+    """
+    再設定リンクを Gmail SMTP で送る。未設定ならログに残す。
+
+    Args:
+        to_email: 宛先。
+        url: 再設定画面の URL。
+
+    Returns:
+        メールを送れたとき True。SMTP 未設定でログだけなら False。
+
+    Raises:
+        EmailSendError: SMTP は設定済みだが送信に失敗したとき。
+    """
+    settings = smtp_settings()
+    if not settings.enabled:
+        logger.info("パスワード再設定リンク（SMTP 未設定）: %s", url)
+        return False
+
+    message = EmailMessage()
+    message["Subject"] = "PaceCast のパスワード再設定"
+    message["From"] = settings.from_addr
+    message["To"] = to_email
+    message.set_content(
+        "PaceCast のパスワードを再設定してください。\n\n"
+        "次のリンクを開くと、新しいパスワードを入力できます。\n\n"
+        f"{url}\n\n"
+        "このリンクは 24 時間有効です。覚えのない依頼なら、このメールは無視してください。\n"
+    )
+    try:
+        with smtplib.SMTP(settings.host, settings.port, timeout=20) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.ehlo()
+            if settings.user:
+                smtp.login(settings.user, settings.password)
+            smtp.send_message(message)
+    except (OSError, smtplib.SMTPException) as exc:
+        logger.exception("再設定メールの送信に失敗しました")
+        raise EmailSendError(
+            "再設定メールを送れませんでした。Gmail のアプリパスワードと .env を確認してください"
+        ) from exc
+    return True
+
+
+def consume_password_reset_token(db: Session, token: str, password: str) -> AuthUser:
+    """
+    再設定トークンを使い、パスワードを書き換える。
+
+    Args:
+        db: DB セッション。
+        token: メールのリンクに付いたトークン。
+        password: 新しいパスワード。
+
+    Returns:
+        パスワードを更新したユーザー。
+
+    Raises:
+        ValueError: 入力不正、またはトークンが無効・期限切れ・使用済みのとき。
+    """
+    if len(password) < 8:
+        raise ValueError("パスワードは8文字以上にしてください")
+    reset = db.scalar(select(PasswordReset).where(PasswordReset.token == token))
+    if reset is None or reset.used_at is not None:
+        raise ValueError("再設定リンクが無効です")
+    if reset.expires_at < datetime.now():
+        raise ValueError("再設定リンクの期限が切れています。もう一度依頼してください")
+    user = db.get(AuthUser, reset.user_id)
+    if user is None:
+        raise ValueError("再設定リンクが無効です")
+    user.password_hash = hash_password(password)
+    reset.used_at = datetime.now()
     db.flush()
     return user

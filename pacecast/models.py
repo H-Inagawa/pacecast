@@ -115,6 +115,7 @@ class AuthUser(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     verifications: Mapped[list["EmailVerification"]] = relationship(back_populates="user")
+    password_resets: Mapped[list["PasswordReset"]] = relationship(back_populates="user")
 
 
 class EmailVerification(Base):
@@ -130,3 +131,18 @@ class EmailVerification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
     user: Mapped[AuthUser] = relationship(back_populates="verifications")
+
+
+class PasswordReset(Base):
+    """パスワード再設定トークン。"""
+
+    __tablename__ = "password_resets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("auth_users.id"), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    user: Mapped[AuthUser] = relationship(back_populates="password_resets")

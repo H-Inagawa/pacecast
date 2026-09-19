@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { AUTH_PAGES } from "./lib/auth-pages";
 import { ONBOARDING_COOKIE, onboardingRedirectPath } from "./lib/onboarding";
 
-const AUTH_PAGES = new Set(["/login", "/register", "/verify"]);
+const PUBLIC_AUTH_PAGES = new Set<string>(AUTH_PAGES);
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get("pacecast_session")?.value;
   const needsOnboarding = request.cookies.get(ONBOARDING_COOKIE)?.value === "1";
-  const isAuthPage = AUTH_PAGES.has(pathname);
+  const isAuthPage = PUBLIC_AUTH_PAGES.has(pathname);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", pathname);
 

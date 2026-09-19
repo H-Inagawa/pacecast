@@ -97,6 +97,19 @@ DDL: `supabase/schema.sql`
 | used_at | DATETIME | NULL | 使用日時 |
 | created_at | DATETIME | NOT NULL | 発行日時 |
 
+### password_resets
+
+| 列 | 型 | 制約 | 説明 |
+| --- | --- | --- | --- |
+| id | INTEGER | PK | 内部 ID |
+| user_id | INTEGER | FK, NOT NULL | `auth_users.id` |
+| token | TEXT | UNIQUE, NOT NULL | 再設定メールのトークン |
+| expires_at | DATETIME | NOT NULL | 有効期限（24 時間） |
+| used_at | DATETIME | NULL | 使用日時 |
+| created_at | DATETIME | NOT NULL | 発行日時 |
+
+既存の Supabase へ足すときは `supabase/password-resets.sql` を SQL Editor で実行する。
+
 ## 3. インデックス
 
 - `weather_observations (observed_at, station_id)`（UNIQUE）
@@ -108,6 +121,8 @@ DDL: `supabase/schema.sql`
 - `auth_users.email`（UNIQUE）
 - `email_verifications.token`（UNIQUE）
 - `email_verifications.user_id`
+- `password_resets.token`（UNIQUE）
+- `password_resets.user_id`
 
 ## 4. 導出値
 

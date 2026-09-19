@@ -1,7 +1,7 @@
 # フロントエンド移行方針（Next.js）
 
 作成日: 2026-09-06  
-更新日: 2026-09-16  
+更新日: 2026-09-19  
 根拠: `docs/05_improvements/second-request.md`、[Issue #46](https://github.com/H-Inagawa/pacecast/issues/46)
 
 ## 1. 現状
@@ -19,13 +19,13 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 
 ## 3. API
 
-- `POST /api/auth/register` / `POST /api/auth/login` / `POST /api/auth/logout` / `GET /api/auth/verify` / `GET /api/auth/me`
+- `POST /api/auth/register` / `POST /api/auth/login` / `POST /api/auth/logout` / `GET /api/auth/verify` / `GET /api/auth/me` / `POST /api/auth/forgot-password` / `POST /api/auth/reset-password`
 - `GET /api/runs` / `GET /api/runs/{id}` / `POST /api/runs` / `PUT /api/runs/{id}` / `DELETE /api/runs/{id}`
 - `GET /api/profile` / `PUT /api/profile`
 - `GET /api/amedas/stations`
 - `POST /api/predict`
 
-認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` 以外は未ログインならログインへ戻す。`GET /api/auth/me` は `email` / `display_name` / `needs_settings` を返す。ログイン中でユーザー名が空なら設定未完了として `/settings` へ戻す（クライアントは `window.location.replace`）。設定の保存ではユーザー名・アメダス地点・誕生日を必須にする。ヘッダに登録の3段階を出す。走行・設定・予測はそのセッションのユーザーだけを対象にする。確認メールは Next.js が `smtp.gmail.com` へ送る。SMTP 未設定なら登録 API が `verification_url` を返し、画面にリンクを出す。
+認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` `/forgot-password` `/reset-password` 以外は未ログインならログインへ戻す。`GET /api/auth/me` は `email` / `display_name` / `needs_settings` を返す。ログイン中でユーザー名が空なら設定未完了として `/settings` へ戻す（クライアントは `window.location.replace`）。設定の保存ではユーザー名・アメダス地点・誕生日を必須にする。ヘッダに登録の3段階を出す。走行・設定・予測はそのセッションのユーザーだけを対象にする。確認メールとパスワード再設定メールは Next.js が `smtp.gmail.com` へ送る。SMTP 未設定なら登録 API が `verification_url`、再設定 API が `reset_url` を返し、画面にリンクを出す。未登録メールへの再設定依頼は、登録済みと同じ案内にする。
 
 走行時間は DB 上は従来どおり `duration_sec`。API の入出力は時・分・秒に分解し、既存記録と互換を保つ。
 

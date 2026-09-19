@@ -219,3 +219,74 @@ def test_register_reports_smtp_failure(db, monkeypatch) -> None:
     )
     assert created.status_code == 502
     assert "確認メールを送れませんでした" in created.json()["detail"]
+
+
+def test_forgot_password_unknown_email_looks_the_same(db) -> None:
+    """未登録メールでも成功と同じ案内を返す。"""
+    client = _client(db)
+    response = client.post("/api/auth/forgot-password", json={"email": "nobody@example.com"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload.get("reset_url") is None
+    assert "アカウントがあれば" in payload["message"]
+
+
+def test_reset_password_from_link_then_login(db) -> None:
+    """再設定リンクからパスワードを変え、新しいパスワードで入れる。"""
+    client = _client(db)
+    created = client.post(
+        "/api/auth/register",
+        json={"email": "runner@example.com", "password": "secret123"},
+    )
+    token = created.json()["verification_url"].split("token=", 1)[1]
+    assert client.get(f"/api/auth/verify?token={token}").status_code == 200
+    client.post("/api/auth/logout")
+
+    asked = client.post("/api/auth/forgot-password", json={"email": "runner@example.com"})
+    assert asked.status_code == 200
+    reset_url = asked.json()["reset_url"]
+    assert reset_url and "token=" in reset_url
+    reset_token = reset_url.split("token=", 1)[1]
+
+    changed = client.post(
+        "/api/auth/reset-password",
+        json={"token": reset_token, "password": "newpass12"},
+    )
+    assert changed.status_code == 200
+    assert client.get("/api/profile").status_code == 200
+    client.post("/api/auth/logout")
+
+    old = client.post(
+        "/api/auth/login",
+        json={"email": "runner@example.com", "password": "secret123"},
+    )
+    assert old.status_code == 401
+    new = client.post(
+        "/api/auth/login",
+        json={"email": "runner@example.com", "password": "newpass12"},
+    )
+    assert new.status_code == 200
+
+
+def test_forgot_password_sends_gmail_when_credentials_set(db, monkeypatch) -> None:
+    """SMTP があれば再設定メールを送り、画面にリンクを出さない。"""
+    client = _client(db)
+    created = client.post(
+        "/api/auth/register",
+        json={"email": "runner@example.com", "password": "secret123"},
+    )
+    token = created.json()["verification_url"].split("token=", 1)[1]
+    assert client.get(f"/api/auth/verify?token={token}").status_code == 200
+
+    monkeypatch.setenv("PACECAST_SMTP_USER", "sender@gmail.com")
+    monkeypatch.setenv("PACECAST_SMTP_PASSWORD", "abcd efgh ijkl mnop")
+    monkeypatch.setattr("pacecast.services.auth.smtplib.SMTP", _FakeSMTP)
+
+    asked = client.post("/api/auth/forgot-password", json={"email": "runner@example.com"})
+    assert asked.status_code == 200
+    payload = asked.json()
+    assert payload.get("reset_url") is None
+    assert "アカウントがあれば" in payload["message"]
+    assert _FakeSMTP.last["to"] == "runner@example.com"
+    assert "token=" in _FakeSMTP.last["body"]
+    assert "パスワード再設定" in _FakeSMTP.last["body"] or "reset-password" in _FakeSMTP.last["body"]

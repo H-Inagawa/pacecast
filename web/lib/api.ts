@@ -1,3 +1,4 @@
+import { AUTH_PAGES } from "./auth-pages";
 import { beginLoading, endLoading } from "./loading";
 
 function apiUrl(path: string): string {
@@ -8,13 +9,13 @@ function apiUrl(path: string): string {
   return path;
 }
 
-const AUTH_PAGES = new Set(["/login", "/register", "/verify"]);
+const PUBLIC_AUTH_PAGES = new Set<string>(AUTH_PAGES);
 
 function redirectToLogin(): void {
   if (typeof window === "undefined") {
     return;
   }
-  if (AUTH_PAGES.has(window.location.pathname)) {
+  if (PUBLIC_AUTH_PAGES.has(window.location.pathname)) {
     return;
   }
   window.location.assign("/login");

@@ -35,7 +35,7 @@ Free プランでよい。
 3. **Run** する
 4. エラーが無く、`auth_users` などのテーブルが **Table Editor** に出れば成功
 
-同じ SQL を二度流してもよい（`if not exists`）。
+同じ SQL を二度流してもよい（`if not exists`）。すでにプロジェクトがあるときに `password_resets` だけ足す場合は、`supabase/password-resets.sql` を貼る。
 
 ## 4. 環境変数を入れる
 

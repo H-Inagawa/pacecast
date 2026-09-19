@@ -1,10 +1,11 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, userFromSession } from "../lib/server/auth";
+import { AUTH_PAGES } from "../lib/auth-pages";
 import { sessionNeedsSettings } from "../lib/onboarding";
+import { SESSION_COOKIE, userFromSession } from "../lib/server/auth";
 import { getOrCreateProfile } from "../lib/server/profile";
 
-const OPEN_PATHS = new Set(["/login", "/register", "/verify", "/settings"]);
+const OPEN_PATHS = new Set<string>([...AUTH_PAGES, "/settings"]);
 
 export async function OnboardingGate({ children }: { children: React.ReactNode }) {
   const pathname = (await headers()).get("x-pathname") || "/";
