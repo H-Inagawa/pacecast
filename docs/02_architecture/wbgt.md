@@ -1,7 +1,7 @@
 # 推定 WBGT とアメダス地点
 
-更新日: 2026-09-12  
-根拠: [Issue #34](https://github.com/H-Inagawa/pacecast/issues/34)、[Issue #11](https://github.com/H-Inagawa/pacecast/issues/11)、[Issue #13](https://github.com/H-Inagawa/pacecast/issues/13)
+更新日: 2026-09-19  
+根拠: [Issue #34](https://github.com/H-Inagawa/pacecast/issues/34)、[Issue #11](https://github.com/H-Inagawa/pacecast/issues/11)、[Issue #13](https://github.com/H-Inagawa/pacecast/issues/13)、[Issue #51](https://github.com/H-Inagawa/pacecast/issues/51)
 
 ## 1. 式
 
@@ -40,7 +40,7 @@ WBGT は走行テーブルではなく `weather_observations` に持つ。走は
 
 地点マスタ: `https://www.jma.go.jp/bosai/amedas/const/amedastable.json`。初回取得後は `data/amedastable.json` にキャッシュする。
 
-未設定時の既定地点は東京（観測所 ID `44132`）。設定・走行追加・予報のプルダウンは観測所番号順。既存のテスト用設定は練馬（44071）のまま。手動 CSV は使わない。
+未設定時の既定地点は東京（観測所 ID `44132`）。設定・走行追加・予報の地点は都道府県セレクトで絞り、一覧は観測所番号順。都道府県は気象庁の観測所番号（先頭2桁）から決める。既存のテスト用設定は練馬（44071）のまま。手動 CSV は使わない。
 
 ## 4. 予測
 

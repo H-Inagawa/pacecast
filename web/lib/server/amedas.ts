@@ -1,3 +1,4 @@
+import { prefectureFromStationId } from "../amedas-prefecture";
 import {
   DEFAULT_AMEDAS_STATION_ID,
   DEFAULT_AMEDAS_STATION_NAME,
@@ -22,6 +23,7 @@ export type AmedasStation = {
   elems: string;
   latitude: number;
   longitude: number;
+  prefecture: string;
 };
 
 export type AmedasObservation = {
@@ -60,6 +62,7 @@ function parseStation(stationId: string, payload: Record<string, unknown>): Amed
     elems: String(payload.elems ?? ""),
     latitude: dmsToDecimal(lat.map(Number)),
     longitude: dmsToDecimal(lon.map(Number)),
+    prefecture: prefectureFromStationId(stationId),
   };
 }
 
@@ -70,6 +73,7 @@ function defaultStation(): AmedasStation {
     elems: "",
     latitude: DEFAULT_LATITUDE,
     longitude: DEFAULT_LONGITUDE,
+    prefecture: prefectureFromStationId(DEFAULT_AMEDAS_STATION_ID),
   };
 }
 

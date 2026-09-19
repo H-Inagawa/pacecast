@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { prefectureFromStationId, prefecturesInStations } from "../lib/amedas-prefecture";
 import type { AmedasStation } from "../lib/types";
 
 type Props = {
@@ -18,29 +19,54 @@ export function StationPicker({
   disabled = false,
   label = "アメダス地点",
 }: Props) {
-  const [filter, setFilter] = useState("");
+  const prefectures = useMemo(
+    () => prefecturesInStations(stations.map((item) => item.station_id)),
+    [stations],
+  );
+  const [prefecture, setPrefecture] = useState(
+    () => prefectureFromStationId(value) || prefectures[0] || "東京都",
+  );
+
+  useEffect(() => {
+    const next = prefectureFromStationId(value);
+    if (next) {
+      setPrefecture(next);
+    }
+  }, [value]);
+
   const options = useMemo(() => {
-    const query = filter.trim();
-    const filtered = query
-      ? stations.filter((item) => item.name.includes(query) || item.station_id.includes(query))
-      : stations;
+    const filtered = stations.filter((item) => prefectureFromStationId(item.station_id) === prefecture);
     if (!value || filtered.some((item) => item.station_id === value)) {
       return filtered;
     }
     return [...filtered, ...stations.filter((item) => item.station_id === value)];
-  }, [filter, stations, value]);
+  }, [prefecture, stations, value]);
+
+  function onPrefectureChange(next: string) {
+    setPrefecture(next);
+    const inPref = stations.filter((item) => prefectureFromStationId(item.station_id) === next);
+    if (inPref.some((item) => item.station_id === value) || inPref.length === 0) {
+      return;
+    }
+    onChange(inPref[0].station_id);
+  }
 
   return (
     <>
       <label>
-        地点の絞り込み
-        <input
-          type="search"
-          placeholder="地点名や番号で絞り込み"
-          value={filter}
+        都道府県
+        <select
+          value={prefecture}
           disabled={disabled}
-          onChange={(event) => setFilter(event.target.value)}
-        />
+          required
+          onChange={(event) => onPrefectureChange(event.target.value)}
+        >
+          {prefectures.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
       </label>
       <label>
         {label}

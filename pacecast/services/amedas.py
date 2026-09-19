@@ -21,6 +21,89 @@ STATION_TABLE_URL = "https://www.jma.go.jp/bosai/amedas/const/amedastable.json"
 MAP_URL = "https://www.jma.go.jp/bosai/amedas/data/map/{stamp}.json"
 STATION_CACHE_PATH = DATA_DIR / "amedastable.json"
 
+_PREFECTURE_BY_CODE = {
+    "11": "北海道",
+    "12": "北海道",
+    "13": "北海道",
+    "14": "北海道",
+    "15": "北海道",
+    "16": "北海道",
+    "17": "北海道",
+    "18": "北海道",
+    "19": "北海道",
+    "20": "北海道",
+    "21": "北海道",
+    "22": "北海道",
+    "23": "北海道",
+    "24": "北海道",
+    "31": "青森県",
+    "32": "秋田県",
+    "33": "岩手県",
+    "34": "宮城県",
+    "35": "山形県",
+    "36": "福島県",
+    "40": "茨城県",
+    "41": "栃木県",
+    "42": "群馬県",
+    "43": "埼玉県",
+    "44": "東京都",
+    "45": "千葉県",
+    "46": "神奈川県",
+    "48": "長野県",
+    "49": "山梨県",
+    "50": "静岡県",
+    "51": "愛知県",
+    "52": "岐阜県",
+    "53": "三重県",
+    "54": "新潟県",
+    "55": "富山県",
+    "56": "石川県",
+    "57": "福井県",
+    "60": "滋賀県",
+    "61": "京都府",
+    "62": "大阪府",
+    "63": "兵庫県",
+    "64": "奈良県",
+    "65": "和歌山県",
+    "66": "岡山県",
+    "67": "広島県",
+    "68": "島根県",
+    "69": "鳥取県",
+    "71": "徳島県",
+    "72": "香川県",
+    "73": "愛媛県",
+    "74": "高知県",
+    "81": "山口県",
+    "82": "福岡県",
+    "83": "大分県",
+    "84": "長崎県",
+    "85": "佐賀県",
+    "86": "熊本県",
+    "87": "宮崎県",
+    "88": "鹿児島県",
+    "91": "沖縄県",
+    "92": "沖縄県",
+    "93": "沖縄県",
+    "94": "沖縄県",
+}
+
+
+def prefecture_from_station_id(station_id: str | None) -> str:
+    """
+    観測所番号の先頭2桁から都道府県を返す。
+
+    気象庁「地域気象観測所一覧」の都府県・振興局表示番号に従う。
+    北海道の振興局はまとめて北海道、沖縄の離島番号も沖縄県にする。
+
+    Args:
+        station_id: アメダス観測所 ID。
+
+    Returns:
+        都道府県名。不明なら空文字。
+    """
+    code = str(station_id or "").strip()[:2]
+    return _PREFECTURE_BY_CODE.get(code, "")
+
 
 class AmedasError(Exception):
     """アメダス取得に失敗したときの例外。"""
@@ -35,6 +118,7 @@ class AmedasStation:
     elems: str
     latitude: float
     longitude: float
+    prefecture: str = ""
 
 
 @dataclass(frozen=True)
@@ -86,6 +170,7 @@ def _parse_station(station_id: str, payload: dict[str, Any]) -> AmedasStation | 
         elems=str(payload.get("elems") or ""),
         latitude=_dms_to_decimal(lat),
         longitude=_dms_to_decimal(lon),
+        prefecture=prefecture_from_station_id(station_id),
     )
 
 
@@ -102,6 +187,7 @@ def _default_station() -> AmedasStation:
         elems="",
         latitude=DEFAULT_LATITUDE,
         longitude=DEFAULT_LONGITUDE,
+        prefecture=prefecture_from_station_id(DEFAULT_AMEDAS_STATION_ID),
     )
 
 

@@ -407,6 +407,7 @@ def amedas_stations() -> list[AmedasStationOut]:
             name=item.name,
             latitude=item.latitude,
             longitude=item.longitude,
+            prefecture=item.prefecture,
         )
         for item in list_stations()
     ]

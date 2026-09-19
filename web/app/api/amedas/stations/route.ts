@@ -16,6 +16,7 @@ export async function GET() {
         name: item.name,
         latitude: item.latitude,
         longitude: item.longitude,
+        prefecture: item.prefecture,
       })),
     );
   } catch (error) {

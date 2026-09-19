@@ -64,6 +64,7 @@ export type AmedasStation = {
   name: string;
   latitude: number;
   longitude: number;
+  prefecture?: string;
 };
 
 export type SimilarRun = {

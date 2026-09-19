@@ -132,7 +132,7 @@ export default function SettingsPage() {
           </label>
           <StationPicker stations={stations} value={stationId} onChange={setStationId} />
           <p className="meta">
-            気象の取得と推定 WBGT に使います。未設定時は東京（44132）。観測所番号順です。
+            気象の取得と推定 WBGT に使います。未設定時は東京（44132）。都道府県で絞り、観測所番号順です。
             {runCount ? ` WBGT 付きの走行: ${wbgtReady} / ${runCount} 件` : ""}
           </p>
           <label>

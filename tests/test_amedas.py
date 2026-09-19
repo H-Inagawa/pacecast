@@ -2,7 +2,16 @@
 
 from datetime import datetime
 
-from pacecast.services.amedas import AmedasStation, parse_map_station, station_sort_key
+from pacecast.services.amedas import AmedasStation, parse_map_station, prefecture_from_station_id, station_sort_key
+
+
+def test_prefecture_from_station_id() -> None:
+    """観測所番号の先頭2桁から都道府県が分かる。"""
+    assert prefecture_from_station_id("44132") == "東京都"
+    assert prefecture_from_station_id("44071") == "東京都"
+    assert prefecture_from_station_id("11001") == "北海道"
+    assert prefecture_from_station_id("91011") == "沖縄県"
+    assert prefecture_from_station_id("") == ""
 
 
 def test_station_sort_key_orders_by_numeric_id() -> None:

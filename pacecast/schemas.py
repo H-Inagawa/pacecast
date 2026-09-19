@@ -105,6 +105,7 @@ class AmedasStationOut(BaseModel):
     name: str
     latitude: float
     longitude: float
+    prefecture: str = ""
 
 
 class SimilarRunOut(BaseModel):
