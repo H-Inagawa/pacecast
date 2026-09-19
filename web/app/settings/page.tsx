@@ -130,9 +130,23 @@ export default function SettingsPage() {
             ユーザー名
             <input type="text" value={name} onChange={(event) => setName(event.target.value)} required />
           </label>
-          <StationPicker stations={stations} value={stationId} onChange={setStationId} />
+          <StationPicker
+            stations={stations}
+            value={stationId}
+            onChange={setStationId}
+            allowGps
+            onGpsMessage={(message, kind) => {
+              if (kind === "error") {
+                setNotice(null);
+                setError(message);
+                return;
+              }
+              setError(null);
+              setNotice(message);
+            }}
+          />
           <p className="meta">
-            気象の取得と推定 WBGT に使います。未設定時は東京（44132）。都道府県で絞り、観測所番号順です。
+            気象の取得と推定 WBGT に使います。未設定時は東京（44132）。都道府県で絞り、観測所番号順です。「GPSで探す」は HTTPS か http://127.0.0.1 で使えます。
             {runCount ? ` WBGT 付きの走行: ${wbgtReady} / ${runCount} 件` : ""}
           </p>
           <label>

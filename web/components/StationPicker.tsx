@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { prefectureFromStationId, prefecturesInStations } from "../lib/amedas-prefecture";
+import { canUseGeolocation, geolocationUnavailableReason, requestCurrentPosition } from "../lib/geolocation";
+import { nearestStation } from "../lib/nearest-station";
 import type { AmedasStation } from "../lib/types";
 
 type Props = {
@@ -10,6 +12,8 @@ type Props = {
   onChange: (stationId: string) => void;
   disabled?: boolean;
   label?: string;
+  allowGps?: boolean;
+  onGpsMessage?: (message: string, kind: "ok" | "error") => void;
 };
 
 export function StationPicker({
@@ -18,6 +22,8 @@ export function StationPicker({
   onChange,
   disabled = false,
   label = "アメダス地点",
+  allowGps = false,
+  onGpsMessage,
 }: Props) {
   const prefectures = useMemo(
     () => prefecturesInStations(stations.map((item) => item.station_id)),
@@ -26,6 +32,8 @@ export function StationPicker({
   const [prefecture, setPrefecture] = useState(
     () => prefectureFromStationId(value) || prefectures[0] || "東京都",
   );
+  const [gpsReady, setGpsReady] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     const next = prefectureFromStationId(value);
@@ -33,6 +41,10 @@ export function StationPicker({
       setPrefecture(next);
     }
   }, [value]);
+
+  useEffect(() => {
+    setGpsReady(canUseGeolocation());
+  }, []);
 
   const options = useMemo(() => {
     const filtered = stations.filter((item) => prefectureFromStationId(item.station_id) === prefecture);
@@ -49,6 +61,27 @@ export function StationPicker({
       return;
     }
     onChange(inPref[0].station_id);
+  }
+
+  async function onFindByGps() {
+    if (!gpsReady || disabled || locating) {
+      return;
+    }
+    setLocating(true);
+    try {
+      const here = await requestCurrentPosition();
+      const nearest = nearestStation(stations, here.latitude, here.longitude);
+      if (nearest == null) {
+        onGpsMessage?.("最寄りの観測所を探せませんでした", "error");
+        return;
+      }
+      onChange(nearest.station_id);
+      onGpsMessage?.(`${nearest.name}（${nearest.station_id}）を選びました`, "ok");
+    } catch (error) {
+      onGpsMessage?.(error instanceof Error ? error.message : "現在地を取得できませんでした", "error");
+    } finally {
+      setLocating(false);
+    }
   }
 
   return (
@@ -68,16 +101,29 @@ export function StationPicker({
           ))}
         </select>
       </label>
-      <label>
-        {label}
-        <select value={value} disabled={disabled} required onChange={(event) => onChange(event.target.value)}>
-          {options.map((item) => (
-            <option key={item.station_id} value={item.station_id}>
-              {item.station_id} {item.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="station-pick-row">
+        <label>
+          {label}
+          <select value={value} disabled={disabled} required onChange={(event) => onChange(event.target.value)}>
+            {options.map((item) => (
+              <option key={item.station_id} value={item.station_id}>
+                {item.station_id} {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        {allowGps ? (
+          <button
+            type="button"
+            className="button"
+            disabled={disabled || !gpsReady || locating || stations.length === 0}
+            title={gpsReady ? undefined : geolocationUnavailableReason()}
+            onClick={() => void onFindByGps()}
+          >
+            {locating ? "探しています..." : "GPSで探す"}
+          </button>
+        ) : null}
+      </div>
     </>
   );
 }

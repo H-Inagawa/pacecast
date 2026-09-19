@@ -493,6 +493,17 @@ input:disabled, select:disabled {
   color: #8a8378;
 }
 
+.station-pick-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.7rem;
+  align-items: end;
+}
+
+.station-pick-row .button {
+  white-space: nowrap;
+}
+
 .duration-row, .split {
   display: flex;
   gap: 0.7rem;
