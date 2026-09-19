@@ -141,4 +141,4 @@ gh issue list --search "is:open label:figma"
 gh issue list --search "is:open label:future"
 ```
 
-デザインの実ファイル（Figma）の URL は、各子 Issue（[#18](https://github.com/H-Inagawa/pacecast/issues/18) の表）の本文に貼ります。未作成なら「未」のままです。画面はすでに動いているので、ラフスケッチはしません。
+デザインの実ファイル（Figma）の URL は、各子 Issue（[#18](https://github.com/H-Inagawa/pacecast/issues/18) の表）の本文に貼ります。未作成なら「未」のままです。画面はすでに動いているので、ラフスケッチはしません。初めて Figma を触るときの手順と、色・フレームの決め方は `docs/06_dev/figma.md` です。カラーはライト／ダーク、幅は PC と iPhone 17 / Pixel 10 を見ます。テンプレは [#18](https://github.com/H-Inagawa/pacecast/issues/18) です。

@@ -80,6 +80,7 @@
 | `docs/06_dev/supabase-setup.md` | Supabase プロジェクト作成と接続 |
 | `docs/06_dev/gmail-smtp.md` | 確認メール用の専用 Gmail とアプリパスワード |
 | `docs/06_dev/vercel-setup.md` | Vercel への公開 |
+| `docs/06_dev/figma.md` | 本番デザイン用 Figma の使い方 |
 
 ## 開発時の約束
 
