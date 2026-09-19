@@ -24,6 +24,12 @@ export function getServiceClient(): SupabaseClient {
   return cached;
 }
 
+export type LooseQueryResult = {
+  data: unknown;
+  error: { message: string } | null;
+  count?: number | null;
+};
+
 export async function requireData<T>(
   result: { data: T | null; error: { message: string } | null },
   fallback = "データベースの操作に失敗しました",

@@ -15,7 +15,7 @@ import { profileNeedsOnboarding } from "../onboarding";
 import { normalizeRunStationInit } from "../run-station-init";
 import type { IntensityHrs, Profile } from "../types";
 import { ApiError } from "./errors";
-import { getServiceClient, requireData } from "./supabase";
+import { getServiceClient, requireData, type LooseQueryResult } from "./supabase";
 import { toDbTimestamp, tokyoParts, tokyoTodayNoon } from "./datetime";
 import type { AuthUserRow, ProfileRow } from "./types";
 import { resolveStation } from "./amedas";
@@ -113,20 +113,25 @@ async function wbgtCounts(authUserId: number | null): Promise<{ runCount: number
   const modern =
     "id, weather:weather_observations!running_records_weather_observation_id_fkey(wbgt_c), weather_end:weather_observations!running_records_weather_end_observation_id_fkey(wbgt_c)";
   const legacy = "id, weather:weather_observations(wbgt_c)";
-  let runs = await client.from("running_records").select(modern, { count: "exact" }).eq("auth_user_id", authUserId);
+  const fetchRows = async (columns: string): Promise<LooseQueryResult> =>
+    client.from("running_records").select(columns, { count: "exact" }).eq("auth_user_id", authUserId);
+  let runs = await fetchRows(modern);
   if (
     runs.error &&
     (isMissingColumn(runs.error.message, "weather_end_observation_id") ||
       runs.error.message.toLowerCase().includes("relationship"))
   ) {
-    runs = await client.from("running_records").select(legacy, { count: "exact" }).eq("auth_user_id", authUserId);
+    runs = await fetchRows(legacy);
   }
   if (runs.error) {
     throw new ApiError(500, runs.error.message);
   }
-  const runCount = runs.count ?? (runs.data?.length ?? 0);
-  const ready = (runs.data ?? []).filter((row) => {
-    const raw = (row as { weather?: { wbgt_c: number | null } | Array<{ wbgt_c: number | null }> | null }).weather;
+  const rows = (Array.isArray(runs.data) ? runs.data : []) as Array<{
+    weather?: { wbgt_c: number | null } | Array<{ wbgt_c: number | null }> | null;
+  }>;
+  const runCount = runs.count ?? rows.length;
+  const ready = rows.filter((row) => {
+    const raw = row.weather;
     const weather = Array.isArray(raw) ? raw[0] : raw;
     return weather != null && weather.wbgt_c != null;
   }).length;

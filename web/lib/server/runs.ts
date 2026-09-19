@@ -4,7 +4,7 @@ import { durationFromHms, splitDuration } from "./duration";
 import { ApiError } from "./errors";
 import { resolveStation } from "./amedas";
 import { getOrCreateProfile, runWeatherZone, runZone } from "./profile";
-import { getServiceClient, requireData } from "./supabase";
+import { getServiceClient, requireData, type LooseQueryResult } from "./supabase";
 import type { AuthUserRow, ProfileRow, RunRow, WeatherRow } from "./types";
 import { enrichRunWeather, fillMissingEndWeather } from "./weather";
 import { effectiveWeather } from "../weather-span";
@@ -96,7 +96,7 @@ function shouldUseLegacyRunSelect(message: string): boolean {
   );
 }
 
-async function selectRuns(build: (columns: string) => Promise<{ data: unknown; error: { message: string } | null }>) {
+async function selectRuns(build: (columns: string) => PromiseLike<LooseQueryResult>) {
   let result = await build(RUN_SELECT);
   if (result.error && shouldUseLegacyRunSelect(result.error.message)) {
     result = await build(RUN_SELECT_LEGACY);

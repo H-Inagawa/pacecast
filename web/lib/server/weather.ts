@@ -12,7 +12,7 @@ import {
   type ForecastCondition,
 } from "./forecast";
 import { findNearestWeatherRow } from "./matching";
-import { getServiceClient, requireData } from "./supabase";
+import { getServiceClient, requireData, type LooseQueryResult } from "./supabase";
 import type { ProfileRow, RunRow, WeatherRow } from "./types";
 import { effectiveWeather, runEndedAt, shouldAverageWeatherSpan } from "../weather-span";
 
@@ -394,7 +394,7 @@ export async function backfillRunWbgt(profile: ProfileRow): Promise<void> {
   const modern =
     "*, weather:weather_observations!running_records_weather_observation_id_fkey(*), weather_end:weather_observations!running_records_weather_end_observation_id_fkey(*)";
   const legacy = "*, weather:weather_observations(*)";
-  const fetchRows = async (columns: string) => {
+  const fetchRows = async (columns: string): Promise<LooseQueryResult> => {
     let query = client.from("running_records").select(columns).order("started_at", { ascending: true });
     if (profile.auth_user_id != null) {
       query = query.eq("auth_user_id", profile.auth_user_id);
