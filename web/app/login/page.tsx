@@ -14,8 +14,8 @@ export default function LoginPage() {
     event.preventDefault();
     setError("");
     try {
-      await apiSend<AuthUser>("/api/auth/login", "POST", { email, password });
-      window.location.assign("/");
+      const user = await apiSend<AuthUser>("/api/auth/login", "POST", { email, password });
+      window.location.assign(user.onboarding_complete === false ? "/settings" : "/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "ログインできませんでした");
     }

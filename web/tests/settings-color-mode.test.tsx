@@ -5,7 +5,7 @@ import SettingsPage from "../app/settings/page";
 import { profileFixture, stationsFixture } from "./fixtures";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
 
 vi.mock("../lib/api", () => ({

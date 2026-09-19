@@ -44,7 +44,7 @@ export function StationPicker({
       </label>
       <label>
         {label}
-        <select value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+        <select value={value} disabled={disabled} required onChange={(event) => onChange(event.target.value)}>
           {options.map((item) => (
             <option key={item.station_id} value={item.station_id}>
               {item.station_id} {item.name}

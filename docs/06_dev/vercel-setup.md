@@ -57,9 +57,9 @@ python -c "import secrets; print(secrets.token_hex(32))"
 | `PACECAST_SECRET` | 上で作ったランダム文字列 |
 | `PACECAST_SMTP_HOST` | `smtp.gmail.com`（確認メールを使うとき） |
 | `PACECAST_SMTP_PORT` | `587` |
-| `PACECAST_SMTP_USER` | 送信用 Gmail |
-| `PACECAST_SMTP_PASSWORD` | Gmail のアプリパスワード |
-| `PACECAST_SMTP_FROM` | 送信元アドレス |
+| `PACECAST_SMTP_USER` | 専用 Gmail（私用は使わない。`docs/06_dev/gmail-smtp.md`） |
+| `PACECAST_SMTP_PASSWORD` | そのアカウントのアプリパスワード |
+| `PACECAST_SMTP_FROM` | 同じ専用アドレスでよい |
 | `PACECAST_APP_ORIGIN` | 最初は空でよい。デプロイ後の URL を入れて再デプロイ |
 
 `NEXT_PUBLIC_*` は作らない。`anon` キーも入れない。

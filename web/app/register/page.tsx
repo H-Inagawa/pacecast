@@ -2,10 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiSend } from "../../lib/api";
 import type { RegisterResult } from "../../lib/auth";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -26,6 +28,7 @@ export default function RegisterPage() {
         password,
       });
       setResult(payload);
+      router.replace("/register?sent=1");
     } catch (err) {
       setError(err instanceof Error ? err.message : "登録できませんでした");
     }

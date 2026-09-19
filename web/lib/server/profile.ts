@@ -11,6 +11,7 @@ import {
   suggestedIntensityHrs,
 } from "../intensity";
 import { classifyWbgtZone } from "../weatherZone";
+import { profileNeedsOnboarding } from "../onboarding";
 import type { IntensityHrs, Profile } from "../types";
 import { ApiError } from "./errors";
 import { getServiceClient, requireData } from "./supabase";
@@ -159,6 +160,7 @@ export async function serializeProfile(profile: ProfileRow): Promise<Profile> {
     amedas_station_name: station.name,
     wbgt_ready_count: ready,
     run_count: runCount,
+    onboarding_complete: Boolean(profile.display_name?.trim()),
   };
 }
 

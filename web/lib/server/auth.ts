@@ -8,6 +8,7 @@ import { cookieSecure, resolveAppOrigin } from "./origin";
 import { getServiceClient, requireData } from "./supabase";
 import { parseDbTimestamp, toDbTimestamp } from "./datetime";
 import type { AuthUserRow, EmailVerificationRow } from "./types";
+import { ONBOARDING_COOKIE } from "../onboarding";
 
 export const SESSION_COOKIE = "pacecast_session";
 export const SESSION_DAYS = 14;
@@ -47,7 +48,7 @@ function devPassword(): string {
 }
 
 export function normalizeEmail(value: string): string {
-  return value.trim().toLowerCase();
+  return String(value ?? "").trim().toLowerCase();
 }
 
 export function isPlausibleEmail(value: string): boolean {
@@ -151,16 +152,39 @@ export async function requireUser(): Promise<AuthUserRow> {
   return user;
 }
 
+function cookieOptions(maxAge: number) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge,
+    secure: cookieSecure(),
+  };
+}
+
 export function attachSessionCookie(response: NextResponse, userId: number): NextResponse {
   response.cookies.set({
     name: SESSION_COOKIE,
     value: makeSessionToken(userId),
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_DAYS * 24 * 60 * 60,
-    secure: cookieSecure(),
+    ...cookieOptions(SESSION_DAYS * 24 * 60 * 60),
   });
+  return response;
+}
+
+export function attachOnboardingCookie(response: NextResponse, needed: boolean): NextResponse {
+  if (needed) {
+    response.cookies.set({
+      name: ONBOARDING_COOKIE,
+      value: "1",
+      ...cookieOptions(SESSION_DAYS * 24 * 60 * 60),
+    });
+  } else {
+    response.cookies.set({
+      name: ONBOARDING_COOKIE,
+      value: "",
+      ...cookieOptions(0),
+    });
+  }
   return response;
 }
 
@@ -168,13 +192,9 @@ export function clearSessionCookie(response: NextResponse): NextResponse {
   response.cookies.set({
     name: SESSION_COOKIE,
     value: "",
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-    secure: cookieSecure(),
+    ...cookieOptions(0),
   });
-  return response;
+  return attachOnboardingCookie(response, false);
 }
 
 export async function ensureDevUser(): Promise<AuthUserRow> {

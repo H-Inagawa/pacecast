@@ -31,7 +31,7 @@ cd web
 npm run dev
 ```
 
-ブラウザで http://127.0.0.1:3000 を開きます。ログインはメールとパスワードです。開発確認アカウントは `docs/06_dev/team-setup.md` です。新規登録の確認メールは Gmail（`smtp.gmail.com`）で送ります。`.env.example` を `.env` にコピーし、Supabase の URL・service_role とアプリパスワードを入れてください。SMTP 未設定のときは登録後に画面へ確認リンクが出ます。過去気象は走行の保存時に、アメダスと Open-Meteo から自動取得します。
+ブラウザで http://127.0.0.1:3000 を開きます。ログインはメールとパスワードです。開発確認アカウントは `docs/06_dev/team-setup.md` です。新規登録の確認メールは専用 Gmail から送ります（`docs/06_dev/gmail-smtp.md`）。`.env.example` を `.env` にコピーし、Supabase の URL・service_role と送信用のアプリパスワードを入れてください。SMTP 未設定のときは登録後に画面へ確認リンクが出ます。過去気象は走行の保存時に、アメダスと Open-Meteo から自動取得します。
 
 FastAPI（ポート 8000）は pytest 用です。画面確認には不要です。
 

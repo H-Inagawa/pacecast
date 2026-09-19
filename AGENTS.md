@@ -37,7 +37,7 @@
 - 下部の主要ボタンとホーム戻りは高さを揃え、横幅は 3:1 で画面幅いっぱい。走行記録だけ「表示項目設定」「記録を追加」「ホームへ戻る」を 1:3:1。本文も画面幅を使う
 - 走行記録の列は「表示項目設定」で選べる。日時と距離は必ず出す。気象は気温・湿度・WBGTを個別に選ぶ。選択は端末に残す
 - 画面遷移と API 通信の待ち中は、半透明のローディングスピナーを出す（ごく短い待ちは出さない）
-- 未ログインはログイン画面。メール＋パスワード。新規登録は Gmail SMTP（`smtp.gmail.com` / 587 / STARTTLS）で確認リンクを送る。認証はアプリパスワード。設定はリポジトリ直下の `.env`（`.env.example` をコピー）。未設定時は画面に確認リンクを出す。開発者は `dev@pacecast.local` / `pacecast-dev`（開発テスト１）で登録なしに進めるが、ログイン画面にはアカウント情報を出さない。ドロワーからログアウトする
+- 未ログインはログイン画面。メール＋パスワード。新規登録は Gmail SMTP（`smtp.gmail.com` / 587 / STARTTLS）で確認リンクを送る。送信用は PaceCast 専用アカウント（私用 Gmail は使わない）。認証はアプリパスワード。手順は `docs/06_dev/gmail-smtp.md`。設定はリポジトリ直下の `.env`（`.env.example` をコピー）。未設定時は画面に確認リンクを出す。メール確認のあと、ログイン中でユーザー名（`display_name`）が空なら設定未完了として `/settings` へ戻す。設定の保存ではユーザー名・アメダス地点・誕生日を必須にする。ヘッダに「メールアドレス入力 ⇒ メール確認 ⇒ ユーザー設定入力」を出す。開発者は `dev@pacecast.local` / `pacecast-dev`（開発テスト１）で登録なしに進めるが、ログイン画面にはアカウント情報を出さない。ドロワーからログアウトする
 
 ## 業務ルール
 
@@ -77,6 +77,7 @@
 | `docs/03_database/database-design.md` | DB 設計 |
 | `docs/06_dev/team-setup.md` | 別 PC での環境構築・Git・DB |
 | `docs/06_dev/supabase-setup.md` | Supabase プロジェクト作成と接続 |
+| `docs/06_dev/gmail-smtp.md` | 確認メール用の専用 Gmail とアプリパスワード |
 | `docs/06_dev/vercel-setup.md` | Vercel への公開 |
 
 ## 開発時の約束
@@ -88,7 +89,7 @@
   - Issue は close しない。終了は開発者がプッシュ後に行う
   - `future` は後でやる。今は実装しない
   - `figma` は見た目。実装依頼が来るまで実装しない
-  - [#8](https://github.com/H-Inagawa/pacecast/issues/8)（仕様とドキュメント）と [#38](https://github.com/H-Inagawa/pacecast/issues/38)（チーム手順）も close しない。ずれたら都度直す
+  - [#8](https://github.com/H-Inagawa/pacecast/issues/8)（仕様とドキュメント）と [#38](https://github.com/H-Inagawa/pacecast/issues/38)（チーム手順）と [#52](https://github.com/H-Inagawa/pacecast/issues/52)（不要ファイルと Issue の定期整理）も close しない。ずれたら都度直す
   - 今やる実装は `is:open -label:future -label:figma -label:rules`
-- 別 PC での起動・`gh` ログイン・DB / Git・確認メール（Gmail）の進め方は `docs/06_dev/team-setup.md`
+- 別 PC での起動・`gh` ログイン・DB / Git の進め方は `docs/06_dev/team-setup.md`。確認メール用 Gmail は `docs/06_dev/gmail-smtp.md`
 - Cursor からの画面動作確認は `dev@pacecast.local` / `pacecast-dev`（開発テスト１）で行う。テスト用の走行データは自由に登録してよい。私用メール（`hinagawa1417@gmail.com`）では確認しない。画面に繋がらないときはブラウザを待たず、`http://127.0.0.1:3000` が数秒以内に HTTP を返すかを確認する（ポート Listen だけでは足りない）。手順は `docs/06_dev/team-setup.md`

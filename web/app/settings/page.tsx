@@ -32,6 +32,7 @@ export default function SettingsPage() {
   const [stationId, setStationId] = useState("44132");
   const [wbgtReady, setWbgtReady] = useState(0);
   const [runCount, setRunCount] = useState(0);
+  const [onboarding, setOnboarding] = useState(false);
 
   useEffect(() => {
     void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
@@ -48,6 +49,7 @@ export default function SettingsPage() {
         setWbgtReady(profile.wbgt_ready_count);
         setRunCount(profile.run_count);
         setStations(amedasStations);
+        setOnboarding(!profile.onboarding_complete);
         setLoaded(true);
       },
     );
@@ -61,6 +63,10 @@ export default function SettingsPage() {
     event.preventDefault();
     setError(null);
     setNotice(null);
+    if (!name.trim() || !birthday || !stationId) {
+      setError("ユーザー名、アメダス地点、誕生日を入力してください");
+      return;
+    }
 
     const nextMax = maxHr ? Number(maxHr) : null;
     const nextHrs = { ...hrs };
@@ -89,6 +95,12 @@ export default function SettingsPage() {
       setStationId(saved.amedas_station_id);
       setWbgtReady(saved.wbgt_ready_count);
       setRunCount(saved.run_count);
+      setOnboarding(!saved.onboarding_complete);
+      if (onboarding && saved.onboarding_complete) {
+        router.push("/");
+        router.refresh();
+        return;
+      }
       setNotice(
         saved.run_count
           ? `設定を保存しました（WBGT 付きの走行 ${saved.wbgt_ready_count} / ${saved.run_count} 件）`
@@ -104,15 +116,19 @@ export default function SettingsPage() {
 
   return (
     <>
-      <h1>設定</h1>
-      <p className="lede">ユーザー情報と、予測・記録色分けに使う設定を保存します。</p>
+      <h1>{onboarding ? "ユーザー設定" : "設定"}</h1>
+      <p className="lede">
+        {onboarding
+          ? "ユーザー名、アメダス地点、誕生日を入力すると、メイン画面へ進めます。"
+          : "ユーザー情報と、予測・記録色分けに使う設定を保存します。"}
+      </p>
       {notice ? <p className="notice">{notice}</p> : null}
       {error ? <p className="error">{error}</p> : null}
       {loaded ? (
         <form id="settings-form" className="stack" onSubmit={(event) => void onSubmit(event)}>
           <label>
             ユーザー名
-            <input type="text" value={name} onChange={(event) => setName(event.target.value)} />
+            <input type="text" value={name} onChange={(event) => setName(event.target.value)} required />
           </label>
           <StationPicker stations={stations} value={stationId} onChange={setStationId} />
           <p className="meta">
@@ -124,6 +140,7 @@ export default function SettingsPage() {
             <input
               type="date"
               value={birthday}
+              required
               onChange={(event) => {
                 const value = event.target.value;
                 setBirthday(value);
@@ -242,9 +259,9 @@ export default function SettingsPage() {
       )}
       <StickyActions>
         <button type="submit" className="button action-lg" form="settings-form" disabled={!loaded}>
-          保存
+          {onboarding ? "保存して始める" : "保存"}
         </button>
-        <BackHome variant="button" />
+        {onboarding ? null : <BackHome variant="button" />}
       </StickyActions>
     </>
   );

@@ -2,11 +2,12 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet } from "../../lib/api";
 import type { AuthUser } from "../../lib/auth";
 
 function VerifyClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const [error, setError] = useState("");
@@ -19,9 +20,12 @@ function VerifyClient() {
     }
     let cancelled = false;
     apiGet<AuthUser>(`/api/auth/verify?token=${encodeURIComponent(token)}`)
-      .then(() => {
+      .then((user) => {
         if (!cancelled) {
           setDone(true);
+          if (user.onboarding_complete === false) {
+            router.replace("/settings");
+          }
         }
       })
       .catch((err: unknown) => {
@@ -47,10 +51,10 @@ function VerifyClient() {
         </>
       ) : done ? (
         <>
-          <p className="notice">メールアドレスを確認しました。メイン画面へ進めます。</p>
+          <p className="notice">メールアドレスを確認しました。ユーザー名・地点・誕生日を入力してください。</p>
           <p>
-            <Link className="button primary" href="/">
-              ホームへ
+            <Link className="button primary" href="/settings">
+              ユーザー設定へ
             </Link>
           </p>
         </>

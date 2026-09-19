@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { ONBOARDING_COOKIE, onboardingRedirectPath } from "./lib/onboarding";
 
 const AUTH_PAGES = new Set(["/login", "/register", "/verify"]);
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = request.cookies.get("pacecast_session")?.value;
+  const needsOnboarding = request.cookies.get(ONBOARDING_COOKIE)?.value === "1";
   const isAuthPage = AUTH_PAGES.has(pathname);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
 
   if (!session && !isAuthPage) {
     const url = request.nextUrl.clone();
@@ -15,14 +19,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (session && (pathname === "/login" || pathname === "/register")) {
+  const nextPath = onboardingRedirectPath(pathname, Boolean(session), needsOnboarding);
+  if (nextPath && nextPath !== pathname) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = nextPath;
     url.search = "";
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 }
 
 export const config = {

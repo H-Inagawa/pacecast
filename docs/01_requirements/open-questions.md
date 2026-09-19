@@ -7,9 +7,9 @@
 | 項目 | 仮決め | 見直し時期 |
 | --- | --- | --- |
 | 利用者 | メール＋パスワード。走行・設定はアカウント単位。既存データは開発者用と私用 Gmail にコピー | チーム利用や権限を足すとき |
-| 地点 | 設定のアメダス地点（未設定時は東京 44132）。走・予報でも上書き可 | 旅行先の最寄り自動選択 |
+| 地点 | 設定のアメダス地点（未設定時は東京 44132）。走・予報でも上書き可 | 最寄り自動選択は [#49](https://github.com/H-Inagawa/pacecast/issues/49) / [#50](https://github.com/H-Inagawa/pacecast/issues/50)。都道府県セレクトは [#51](https://github.com/H-Inagawa/pacecast/issues/51) |
 | 紐付け時刻 | 走行開始時刻の最近傍1時間値。同距離なら早い方 | 長距離走の評価時 |
-| 長時間走の気象 | 開始時刻の1点のみ使う | 分割平均や経過気象を入れるとき |
+| 長時間走の気象 | 開始時刻の1点のみ使う | 時間帯の平均（難しければ開始・終了の2点）は [#48](https://github.com/H-Inagawa/pacecast/issues/48) |
 | 走行強度 | 設定の最大心拍から強度別 bpm を算出（個別上書き可）。記録には強度列を持たない | 過去心拍の分位で個人化するとき |
 | 予測手法 | 直近重み付きの式モデル（WBGT・距離・心拍の交差・2次）。表示は秒/km | 記録から外れた距離・心拍の外挿は [#44](https://github.com/H-Inagawa/pacecast/issues/44)。分析画面の配置は #12 |
 | 予報ソース | Open-Meteo（キー不要） | 公式 API や複数地点が必要になったとき |
@@ -22,8 +22,9 @@
 - 「全力走」と「余裕走」を予測対象からどう除外／分けるか
 - 降水など、WBGT 以外の気象要素をいつ入れるか
 - 予測結果をどの期間・どの距離帯まで信頼するかの、R² 以外の定量基準（記録外の外挿は #44）
-- データのバックアップ方針
-- デプロイ先: 公開は Vercel Hobby（[#45](https://github.com/H-Inagawa/pacecast/issues/45)、`*.vercel.app`。独自ドメインは買わない）。データは Supabase（[#46](https://github.com/H-Inagawa/pacecast/issues/46)）。画面の API は Next.js が service_role で Postgres を読む。FastAPI + SQLite は pytest 用
+- パスワード再設定（[#47](https://github.com/H-Inagawa/pacecast/issues/47)）
+- データのバックアップ方針（[#17](https://github.com/H-Inagawa/pacecast/issues/17)。対象は Supabase）
+- デプロイ先: 公開は Vercel Hobby（[#45](https://github.com/H-Inagawa/pacecast/issues/45) 済み、`*.vercel.app`。独自ドメインは買わない）。データは Supabase（[#46](https://github.com/H-Inagawa/pacecast/issues/46)）。画面の API は Next.js が service_role で Postgres を読む。FastAPI + SQLite は pytest 用
 
 ## 構想にあって初期実装に含めない理由
 

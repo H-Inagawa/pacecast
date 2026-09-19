@@ -4,6 +4,7 @@ export const DEV_LOGIN_PASSWORD = "pacecast-dev";
 export type AuthUser = {
   id: number;
   email: string;
+  onboarding_complete?: boolean;
 };
 
 export type RegisterResult = {

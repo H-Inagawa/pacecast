@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { apiSend } from "../lib/api";
 import { NAV_ITEMS, isCurrentPath } from "../lib/nav";
 
-export function DrawerMenu() {
+export function DrawerMenu({ lockNav = false }: { lockNav?: boolean }) {
   const pathname = usePathname() || "/";
   const [open, setOpen] = useState(false);
 
@@ -69,10 +69,15 @@ export function DrawerMenu() {
             <ul className="drawer-list">
               {NAV_ITEMS.map((item) => {
                 const current = isCurrentPath(pathname, item.href);
+                const locked = lockNav && item.href !== "/settings";
                 return (
                   <li key={item.href}>
-                    {current ? (
-                      <span className="drawer-item current" aria-current="page">
+                    {current || locked ? (
+                      <span
+                        className={current ? "drawer-item current" : "drawer-item"}
+                        aria-current={current ? "page" : undefined}
+                        aria-disabled={locked ? true : undefined}
+                      >
                         {item.label}
                       </span>
                     ) : (

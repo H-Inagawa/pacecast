@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "../../../lib/server/auth";
+import { attachOnboardingCookie, requireUser } from "../../../lib/server/auth";
 import { ApiError, toErrorResponse } from "../../../lib/server/errors";
 import { getOrCreateProfile, saveProfile, serializeProfile } from "../../../lib/server/profile";
 import { resolveStation } from "../../../lib/server/amedas";
@@ -12,7 +12,8 @@ export const maxDuration = 60;
 export async function GET() {
   try {
     const user = await requireUser();
-    return NextResponse.json(await serializeProfile(await getOrCreateProfile(user)));
+    const serialized = await serializeProfile(await getOrCreateProfile(user));
+    return attachOnboardingCookie(NextResponse.json(serialized), !serialized.onboarding_complete);
   } catch (error) {
     return toErrorResponse(error);
   }
@@ -31,7 +32,11 @@ export async function PUT(request: Request) {
       amedas_station_id?: string | null;
     };
     const profile = await getOrCreateProfile(user);
-    profile.display_name = (payload.display_name || "").trim() || null;
+    const displayName = (payload.display_name || "").trim();
+    if (!displayName || !payload.birthday || !payload.amedas_station_id) {
+      throw new ApiError(400, "ユーザー名、アメダス地点、誕生日を入力してください");
+    }
+    profile.display_name = displayName;
     if (payload.birthday) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.birthday)) {
         throw new ApiError(400, "誕生日の形式が正しくありません");
@@ -66,7 +71,8 @@ export async function PUT(request: Request) {
     if (payload.amedas_station_id && payload.amedas_station_id !== previousStation) {
       await backfillRunWbgt(saved);
     }
-    return NextResponse.json(await serializeProfile(saved));
+    const serialized = await serializeProfile(saved);
+    return attachOnboardingCookie(NextResponse.json(serialized), !serialized.onboarding_complete);
   } catch (error) {
     return toErrorResponse(error);
   }

@@ -48,7 +48,7 @@ gh auth status
 gh issue list
 ```
 
-Cursor から Issue を登録・コメントするときは、本文の先頭に `【Cursor自動入力】` を付けます。Issue は Cursor から close しません（[#31](https://github.com/H-Inagawa/pacecast/issues/31)）。[#8](https://github.com/H-Inagawa/pacecast/issues/8) と [#38](https://github.com/H-Inagawa/pacecast/issues/38) も close せず、足りない・ずれたときに都度直します。
+Cursor から Issue を登録・コメントするときは、本文の先頭に `【Cursor自動入力】` を付けます。Issue は Cursor から close しません（[#31](https://github.com/H-Inagawa/pacecast/issues/31)）。[#8](https://github.com/H-Inagawa/pacecast/issues/8) と [#38](https://github.com/H-Inagawa/pacecast/issues/38) と [#52](https://github.com/H-Inagawa/pacecast/issues/52) も close せず、足りない・ずれたときに都度直します。
 
 ## 3. アプリを動かす
 
@@ -86,13 +86,7 @@ FastAPI（ポート 8000）と SQLite は pytest 用です。pytest は TestClie
 
 ## 3.1 確認メール（Gmail）
 
-新規登録の確認メールは `smtp.gmail.com`（ポート 587、STARTTLS）で送ります。Gmail の通常のログインパスワードは使えません。2段階認証を有効にしたうえで、[アプリパスワード](https://myaccount.google.com/apppasswords) を発行します。
-
-1. リポジトリ直下の `.env.example` を `.env` にコピーする
-2. `SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` を入れる（`docs/06_dev/supabase-setup.md`）
-3. `PACECAST_SMTP_USER` と `PACECAST_SMTP_FROM` に送信用の Gmail アドレスを入れる
-4. `PACECAST_SMTP_PASSWORD` にアプリパスワードを入れる（表示の空白はそのままでよい。送信時に除く）
-5. Next.js（`npm run dev`）を起動し直す
+送信用は PaceCast 専用の Google アカウントにします。私用 Gmail は使わないでください。アカウント作成・2段階認証・アプリパスワード・`.env` は `docs/06_dev/gmail-smtp.md` です。
 
 `.env` は Git に載せません。SMTP の値が無いときは、新規登録後に画面へ確認リンクが出ます。テストは実 SMTP に繋がりません。
 

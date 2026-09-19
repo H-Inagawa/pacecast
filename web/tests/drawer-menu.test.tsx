@@ -38,4 +38,15 @@ describe("DrawerMenu", () => {
 
     expect(screen.queryByRole("navigation", { name: "サイト内メニュー" })).not.toBeInTheDocument();
   });
+
+  it("設定が未完了のときは他の画面へ進めない", async () => {
+    const user = userEvent.setup();
+    render(<DrawerMenu lockNav />);
+
+    await user.click(screen.getByRole("button", { name: "メニュー" }));
+
+    expect(screen.queryByRole("link", { name: "走行記録" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "ホーム" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ログアウト" })).toBeInTheDocument();
+  });
 });

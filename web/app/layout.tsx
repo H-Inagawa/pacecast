@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppChrome } from "../components/AppChrome";
 import { AppHeader } from "../components/AppHeader";
 import { AppProviders } from "../components/AppProviders";
+import { OnboardingGate } from "../components/OnboardingGate";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,9 +15,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <body>
         <AppProviders>
-          <AppChrome header={<AppHeader />}>
-            <main className="page">{children}</main>
-          </AppChrome>
+          <OnboardingGate>
+            <AppChrome header={<AppHeader />}>
+              <main className="page">{children}</main>
+            </AppChrome>
+          </OnboardingGate>
         </AppProviders>
       </body>
     </html>

@@ -56,6 +56,7 @@ export type Profile = {
   amedas_station_name: string;
   wbgt_ready_count: number;
   run_count: number;
+  onboarding_complete: boolean;
 };
 
 export type AmedasStation = {

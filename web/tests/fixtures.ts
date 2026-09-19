@@ -36,6 +36,7 @@ export const profileFixture: Profile = {
   amedas_station_name: "練馬",
   wbgt_ready_count: 39,
   run_count: 39,
+  onboarding_complete: true,
 };
 
 export const stationsFixture: AmedasStation[] = [

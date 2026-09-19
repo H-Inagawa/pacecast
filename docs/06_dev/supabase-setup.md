@@ -46,7 +46,7 @@ SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=（service_role の値）
 ```
 
-確認メール用の `PACECAST_SMTP_*` は、これまでどおりでよい。Next.js は `web/` から起動しても親の `.env` を読む。
+確認メール用の `PACECAST_SMTP_*` は `docs/06_dev/gmail-smtp.md`（専用 Gmail。私用は使わない）。Next.js は `web/` から起動しても親の `.env` を読む。
 
 `web/.env.local` に同じキーを書いてもよい。Git には載せない。
 
