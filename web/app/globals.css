@@ -132,7 +132,7 @@ body {
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 8%, transparent), transparent 28rem),
     var(--bg);
-  font-family: "Hiragino Sans", "Yu Gothic UI", "Segoe UI", sans-serif;
+  font-family: var(--font-serif-jp), "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
   line-height: 1.6;
 }
 
@@ -329,9 +329,9 @@ button.drawer-logout:hover {
 .brand {
   color: var(--header-ink);
   text-decoration: none;
-  font-family: Georgia, "Times New Roman", serif;
-  font-style: italic;
-  font-weight: 800;
+  font-family: var(--font-serif-jp), "Noto Serif JP", serif;
+  font-style: normal;
+  font-weight: 900;
   font-size: 1.56rem;
   line-height: 2.19rem;
   letter-spacing: 0.02em;
@@ -386,7 +386,8 @@ button.drawer-logout:hover {
 }
 
 .hero h1, h1 {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-serif-jp), "Noto Serif JP", serif;
+  font-weight: 900;
   line-height: 1.25;
   margin: 0 0 0.6rem;
 }
@@ -636,7 +637,8 @@ tr.wbgt-none td { background: var(--wbgt-none-bg); color: var(--wbgt-none-ink); 
 .stat {
   font-size: 1.5rem;
   margin: 0.2rem 0;
-  font-family: Georgia, serif;
+  font-family: var(--font-serif-jp), "Noto Serif JP", serif;
+  font-weight: 700;
 }
 
 form.stack { display: grid; gap: 0.9rem; margin: 1rem 0 1.5rem; }

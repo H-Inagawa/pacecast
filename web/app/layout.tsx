@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
+import { Noto_Serif_JP } from "next/font/google";
 import { AppChrome } from "../components/AppChrome";
 import { AppHeader } from "../components/AppHeader";
 import { AppProviders } from "../components/AppProviders";
 import { OnboardingGate } from "../components/OnboardingGate";
 import "./globals.css";
+
+const notoSerifJp = Noto_Serif_JP({
+  subsets: ["latin"],
+  weight: ["400", "600", "700", "900"],
+  display: "swap",
+  variable: "--font-serif-jp",
+});
 
 export const metadata: Metadata = {
   title: "PaceCast",
@@ -12,8 +20,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja">
-      <body>
+    <html lang="ja" className={notoSerifJp.variable}>
+      <body className={notoSerifJp.className}>
         <AppProviders>
           <OnboardingGate>
             <AppChrome header={<AppHeader />}>
