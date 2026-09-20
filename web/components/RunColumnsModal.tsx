@@ -8,6 +8,7 @@ import {
   type OptionalRunColumn,
   type RunColumnVisibility,
 } from "../lib/runColumns";
+import { ModalCloseButton } from "./ModalCloseButton";
 
 type Props = {
   open: boolean;
@@ -76,6 +77,7 @@ export function RunColumnsModal({ open, columns, onChange, onClose }: Props) {
         aria-labelledby="run-columns-title"
         onClick={(event) => event.stopPropagation()}
       >
+        <ModalCloseButton onClick={onClose} />
         <h2 id="run-columns-title">表示項目設定</h2>
         <p className="lede">一覧に出す列を選びます。日時と距離は必ず表示します。</p>
         <ul className="column-options">
@@ -101,11 +103,6 @@ export function RunColumnsModal({ open, columns, onChange, onClose }: Props) {
             />
           ))}
         </ul>
-        <div className="actions">
-          <button type="button" className="button secondary" onClick={onClose}>
-            閉じる
-          </button>
-        </div>
       </div>
     </div>
   );

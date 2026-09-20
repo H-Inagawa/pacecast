@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ModalCloseButton } from "./ModalCloseButton";
 
 type Props = {
   open: boolean;
@@ -41,6 +42,7 @@ export function AboutModal({ open, onClose }: Props) {
         aria-labelledby="about-title"
         onClick={(event) => event.stopPropagation()}
       >
+        <ModalCloseButton onClick={onClose} />
         <h2 id="about-title">PaceCastとは？</h2>
         <p>
           過去の走行記録と、そのときの気象から、指定した気象条件・走行強度でのペースとタイムを見積もるアプリです。
@@ -82,12 +84,6 @@ export function AboutModal({ open, onClose }: Props) {
           PaceCast 本体のライセンスは、まだ決めていません。画面の Next.js / React、API の FastAPI / SQLAlchemy
           などは、それぞれのライセンス（主に MIT / Apache-2.0）に従います。
         </p>
-
-        <div className="actions">
-          <button type="button" onClick={onClose}>
-            閉じる
-          </button>
-        </div>
       </div>
     </div>
   );

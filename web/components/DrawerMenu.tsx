@@ -53,9 +53,7 @@ export function DrawerMenu({ lockNav = false }: { lockNav?: boolean }) {
         aria-controls="site-drawer"
         onClick={() => setOpen(true)}
       >
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-          <path fill="currentColor" d="M4 7h16v2H4zm0 4h16v2H4zm0 4h16v2H4z" />
-        </svg>
+        <img className="drawer-toggle-icon" src="/icons/hamburger.svg" alt="" width={60} height={60} />
       </button>
       {open ? (
         <div className="drawer-backdrop" onClick={() => setOpen(false)} role="presentation">
@@ -74,7 +72,7 @@ export function DrawerMenu({ lockNav = false }: { lockNav?: boolean }) {
                   <li key={item.href}>
                     {current || locked ? (
                       <span
-                        className={current ? "drawer-item current" : "drawer-item"}
+                        className={current ? "drawer-item current" : locked ? "drawer-item locked" : "drawer-item"}
                         aria-current={current ? "page" : undefined}
                         aria-disabled={locked ? true : undefined}
                       >

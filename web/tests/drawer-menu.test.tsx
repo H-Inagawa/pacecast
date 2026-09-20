@@ -46,6 +46,7 @@ describe("DrawerMenu", () => {
     await user.click(screen.getByRole("button", { name: "メニュー" }));
 
     expect(screen.queryByRole("link", { name: "走行記録" })).not.toBeInTheDocument();
+    expect(screen.getByText("走行記録")).toHaveClass("locked");
     expect(screen.queryByRole("link", { name: "ホーム" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "ログアウト" })).toBeInTheDocument();
   });

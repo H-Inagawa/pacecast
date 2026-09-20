@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ModalCloseButton } from "./ModalCloseButton";
 import { RunForm } from "./RunForm";
 
 type Props = {
@@ -46,6 +47,7 @@ export function RunFormModal({ open, runId, onClose, onSaved }: Props) {
         aria-labelledby="run-form-title"
         onClick={(event) => event.stopPropagation()}
       >
+        <ModalCloseButton onClick={onClose} />
         <RunForm
           key={runId ?? "new"}
           title={title}

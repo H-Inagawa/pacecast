@@ -1,7 +1,7 @@
 # フロントエンド移行方針（Next.js）
 
 作成日: 2026-09-06  
-更新日: 2026-09-19  
+更新日: 2026-09-20  
 根拠: `docs/05_improvements/second-request.md`、[Issue #46](https://github.com/H-Inagawa/pacecast/issues/46)
 
 ## 1. 現状
@@ -65,6 +65,8 @@ pytest は SQLite と TestClient を使う（ポート 8000 の起動は不要�
 画面の主要操作（記録追加・予測・設定保存）は、まずコンポーネント／ページ単体で確認する。API とブラウザを同時に立てる E2E は、画面単体では足りない操作が出てから足す。
 
 処理待ちは `LoadingOverlay` で出す。`apiGet` / `apiSend` とサイト内リンクの遷移を数える。150ms 未満の待ちは出さない。
+
+色は `web/app/globals.css` の CSS 変数。ライトは `:root`、ダークは `@media (prefers-color-scheme: dark)`。設定での切替はまだ無い。
 
 ```bash
 cd web

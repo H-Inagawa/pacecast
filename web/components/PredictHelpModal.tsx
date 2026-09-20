@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ModalCloseButton } from "./ModalCloseButton";
 
 type Props = {
   open: boolean;
@@ -41,6 +42,7 @@ export function PredictHelpModal({ open, onClose }: Props) {
         aria-labelledby="predict-help-title"
         onClick={(event) => event.stopPropagation()}
       >
+        <ModalCloseButton onClick={onClose} />
         <h2 id="predict-help-title">予測の見方</h2>
         <h3>予測の方法</h3>
         <p>
@@ -71,12 +73,6 @@ export function PredictHelpModal({ open, onClose }: Props) {
         <p>
           下のグラフは、他の条件を今回の予測値に固定したときの関係です。点は過去走、線は式です。分析画面の散布図とは役割が違います。
         </p>
-
-        <div className="actions">
-          <button type="button" onClick={onClose}>
-            閉じる
-          </button>
-        </div>
       </div>
     </div>
   );
