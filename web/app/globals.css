@@ -581,8 +581,9 @@ body:has(.sticky-actions) .page {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  width: 100%;
-  max-width: 20rem;
+  box-sizing: border-box;
+  width: calc(100vw - 50px);
+  max-width: 100%;
   margin: 1.6rem auto 1rem;
 }
 
@@ -660,28 +661,23 @@ body:has(.sticky-actions) .page {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 0.35rem;
+  gap: 0.4rem;
   box-sizing: border-box;
   height: 100%;
-  padding: 0.85rem 1rem;
+  padding: 1rem 1.1rem;
 }
 
 .home-card__label {
   font-family: var(--font-serif-jp), "Kaisei Opti", serif;
   font-weight: 700;
-  font-size: 1.05rem;
-  line-height: 1.25;
-}
-
-.home-card--md .home-card__label,
-.home-card--sm .home-card__label {
-  font-size: 0.98rem;
+  font-size: 20px;
+  line-height: 1.3;
 }
 
 .home-card__lede {
-  font-size: 0.78rem;
+  font-size: 14px;
   font-weight: 400;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--ink);
   opacity: 0.88;
 }
@@ -692,28 +688,6 @@ body:has(.sticky-actions) .page {
     mix-blend-mode: normal;
     filter: invert(1);
     opacity: 0.22;
-  }
-}
-
-@media (min-width: 721px) {
-  .home-cards {
-    max-width: 36rem;
-  }
-
-  .home-card--lg {
-    height: 10rem;
-  }
-
-  .home-card--md {
-    height: 6.25rem;
-  }
-
-  .home-card--sm {
-    height: 5rem;
-  }
-
-  .home-card__lede {
-    font-size: 0.85rem;
   }
 }
 
@@ -1252,10 +1226,6 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   .section-head { flex-direction: column; align-items: flex-start; }
   .summary-inline { white-space: normal; }
   table { font-size: 0.92rem; }
-
-  .home-cards {
-    max-width: 20rem;
-  }
 
   a.button.home-back,
   .button.home-back {
