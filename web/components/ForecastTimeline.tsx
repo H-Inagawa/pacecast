@@ -17,6 +17,7 @@ import {
   forecastScrollStartIndex,
   forecastTimelineWidthPx,
 } from "../lib/runningForecast";
+import { formatWindWithDirection } from "../lib/wind";
 import type { RunningForecastHour } from "../lib/types";
 
 type Props = {
@@ -41,7 +42,7 @@ function formatMetric(key: OptionalForecastColumn, hour: RunningForecastHour): s
     case "humidity":
       return `${hour.humidity_pct.toFixed(0)}%`;
     case "wind":
-      return `${hour.wind_ms.toFixed(1)}m/s`;
+      return formatWindWithDirection(hour.wind_ms, hour.wind_dir_deg);
     case "solar":
       return `${hour.solar_wm2.toFixed(0)}`;
   }

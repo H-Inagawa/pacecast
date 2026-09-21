@@ -16,6 +16,7 @@ import {
   type OptionalForecastColumn,
 } from "../../lib/forecastColumns";
 import { pickCurrentForecastHour } from "../../lib/runningForecast";
+import { formatWindWithDirection } from "../../lib/wind";
 import type { AmedasStation, Profile, RunningForecast } from "../../lib/types";
 
 export default function ForecastPage() {
@@ -92,7 +93,7 @@ export default function ForecastPage() {
                 <li>WBGT: {currentHour.wbgt_c.toFixed(1)}℃</li>
                 <li>気温: {currentHour.temperature_c.toFixed(1)}℃</li>
                 <li>湿度: {currentHour.humidity_pct.toFixed(0)}%</li>
-                <li>風速: {currentHour.wind_ms.toFixed(1)}m/s</li>
+                <li>風速: {formatWindWithDirection(currentHour.wind_ms, currentHour.wind_dir_deg)}</li>
                 <li>日照: {currentHour.solar_wm2.toFixed(0)}</li>
               </ul>
             </div>

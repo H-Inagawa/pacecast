@@ -79,6 +79,7 @@ export type RunningForecastHour = {
   temperature_c: number;
   humidity_pct: number;
   wind_ms: number;
+  wind_dir_deg: number | null;
   solar_wm2: number;
 };
 

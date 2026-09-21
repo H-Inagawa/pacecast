@@ -17,6 +17,7 @@ export type RunningForecastHour = {
   temperature_c: number;
   humidity_pct: number;
   wind_ms: number;
+  wind_dir_deg: number | null;
   solar_wm2: number;
 };
 
@@ -67,6 +68,7 @@ export async function buildRunningForecast(stationId?: string | null): Promise<R
       temperature_c: row.temperatureC,
       humidity_pct: row.humidityPct,
       wind_ms: wind,
+      wind_dir_deg: row.windDirDeg,
       solar_wm2: solar,
     });
   }

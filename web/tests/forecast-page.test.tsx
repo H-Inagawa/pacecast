@@ -22,6 +22,7 @@ const hours = [
     temperature_c: 20.1,
     humidity_pct: 55,
     wind_ms: 2.2,
+    wind_dir_deg: 45,
     solar_wm2: 0,
   },
   {
@@ -35,6 +36,7 @@ const hours = [
     temperature_c: 24.0,
     humidity_pct: 70,
     wind_ms: 1.5,
+    wind_dir_deg: 180,
     solar_wm2: 0,
   },
 ];
@@ -69,6 +71,8 @@ describe("ランニング天気予報", () => {
     expect(screen.getByText("天気: 快晴")).toBeInTheDocument();
     expect(screen.getByText("体感: 快適")).toBeInTheDocument();
     expect(screen.getByText("WBGT: 18.2℃")).toBeInTheDocument();
+    expect(screen.getByText("風速: 北東 2.2m/s")).toBeInTheDocument();
+    expect(screen.getByText("北東 2.2m/s")).toBeInTheDocument();
     expect(screen.queryByText(/時点/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "WBGTの説明" })).toBeInTheDocument();
   });

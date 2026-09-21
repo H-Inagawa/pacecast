@@ -252,6 +252,7 @@ export type ForecastHourRow = {
   temperatureC: number;
   humidityPct: number;
   windMs: number | null;
+  windDirDeg: number | null;
   solarWm2: number | null;
   weatherCode: number | null;
 };
@@ -262,7 +263,7 @@ export async function fetchForecastHours(
   forecastDays = 3,
 ): Promise<ForecastHourRow[]> {
   const params = forecastParams(latitude, longitude);
-  params.set("hourly", `${HOURLY_VARS},weather_code`);
+  params.set("hourly", `${HOURLY_VARS},wind_direction_10m,weather_code`);
   params.set("forecast_days", String(forecastDays));
   const url = new URL(FORECAST_URL);
   url.search = params.toString();
@@ -272,6 +273,7 @@ export async function fetchForecastHours(
   const temperatures = asNumberArray(hourly.temperature_2m);
   const humidities = asNumberArray(hourly.relative_humidity_2m);
   const winds = asNumberArray(hourly.wind_speed_10m);
+  const windDirs = asNumberArray(hourly.wind_direction_10m);
   const solars = asNumberArray(hourly.shortwave_radiation);
   const codes = asNumberArray(hourly.weather_code);
   const rows: ForecastHourRow[] = [];
@@ -283,6 +285,7 @@ export async function fetchForecastHours(
       continue;
     }
     const wind = index < winds.length ? winds[index] : null;
+    const windDir = index < windDirs.length ? windDirs[index] : null;
     const solar = index < solars.length ? solars[index] : null;
     const code = index < codes.length ? codes[index] : null;
     rows.push({
@@ -290,6 +293,7 @@ export async function fetchForecastHours(
       temperatureC: Number(temperatures[index]),
       humidityPct: Number(humidities[index]),
       windMs: toNumberOrNull(wind),
+      windDirDeg: toNumberOrNull(windDir),
       solarWm2: toNumberOrNull(solar),
       weatherCode: toNumberOrNull(code),
     });
