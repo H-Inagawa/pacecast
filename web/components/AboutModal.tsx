@@ -60,6 +60,10 @@ export function AboutModal({ open, onClose }: Props) {
             気温・湿度、または予報の日時と地点を指定して、式モデルからペースとタイムを出します。誤差の目安と関係グラフも結果に出します。
           </li>
           <li>
+            <strong>ランニング天気予報</strong>
+            設定のアメダス地点から3日分の天気と推定 WBGT を、グラフと3時間ごとの表で見ます。
+          </li>
+          <li>
             <strong>分析結果</strong>
             推定 WBGT と走行ペースの関係を散布図で見ます。気象や WBGT が無い走は含めません。
           </li>

@@ -6,7 +6,11 @@ import { usePathname } from "next/navigation";
 import { apiSend } from "../lib/api";
 import { NAV_ITEMS, isCurrentPath } from "../lib/nav";
 
-export function DrawerMenu({ lockNav = false }: { lockNav?: boolean }) {
+type Props = {
+  lockNav?: boolean;
+};
+
+export function DrawerMenu({ lockNav = false }: Props) {
   const pathname = usePathname() || "/";
   const [open, setOpen] = useState(false);
 
@@ -51,9 +55,9 @@ export function DrawerMenu({ lockNav = false }: { lockNav?: boolean }) {
         aria-label="メニュー"
         aria-expanded={open}
         aria-controls="site-drawer"
-        onClick={() => setOpen(true)}
+        onClick={() => setOpen(!open)}
       >
-        <img className="drawer-toggle-icon" src="/icons/hamburger.svg" alt="" width={70} height={70} />
+        <img className="drawer-toggle-icon" src="/icons/hamburger.svg" alt="" width={25} height={25} />
       </button>
       {open ? (
         <div className="drawer-backdrop" onClick={() => setOpen(false)} role="presentation">

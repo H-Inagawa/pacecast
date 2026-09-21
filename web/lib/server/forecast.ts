@@ -247,6 +247,56 @@ export async function fetchConditionForTime(
   return fetchArchiveCondition(targetAt, latitude, longitude, locationLabel);
 }
 
+export type ForecastHourRow = {
+  observedAt: Date;
+  temperatureC: number;
+  humidityPct: number;
+  windMs: number | null;
+  solarWm2: number | null;
+  weatherCode: number | null;
+};
+
+export async function fetchForecastHours(
+  latitude = DEFAULT_LATITUDE,
+  longitude = DEFAULT_LONGITUDE,
+  forecastDays = 3,
+): Promise<ForecastHourRow[]> {
+  const params = forecastParams(latitude, longitude);
+  params.set("hourly", `${HOURLY_VARS},weather_code`);
+  params.set("forecast_days", String(forecastDays));
+  const url = new URL(FORECAST_URL);
+  url.search = params.toString();
+  const payload = await fetchJson(url, 20_000, "天気予報の取得に失敗しました");
+  const hourly = isRecord(payload) && isRecord(payload.hourly) ? payload.hourly : {};
+  const times = asStringArray(hourly.time);
+  const temperatures = asNumberArray(hourly.temperature_2m);
+  const humidities = asNumberArray(hourly.relative_humidity_2m);
+  const winds = asNumberArray(hourly.wind_speed_10m);
+  const solars = asNumberArray(hourly.shortwave_radiation);
+  const codes = asNumberArray(hourly.weather_code);
+  const rows: ForecastHourRow[] = [];
+  for (let index = 0; index < times.length; index++) {
+    if (index >= temperatures.length || index >= humidities.length) {
+      continue;
+    }
+    if (temperatures[index] == null || humidities[index] == null) {
+      continue;
+    }
+    const wind = index < winds.length ? winds[index] : null;
+    const solar = index < solars.length ? solars[index] : null;
+    const code = index < codes.length ? codes[index] : null;
+    rows.push({
+      observedAt: parseHourlyTime(times[index]),
+      temperatureC: Number(temperatures[index]),
+      humidityPct: Number(humidities[index]),
+      windMs: toNumberOrNull(wind),
+      solarWm2: toNumberOrNull(solar),
+      weatherCode: toNumberOrNull(code),
+    });
+  }
+  return rows;
+}
+
 export function nearestCondition(
   rows: ForecastCondition[],
   targetAt: Date,

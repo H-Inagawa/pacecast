@@ -7,6 +7,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "ホーム" },
   { href: "/runs", label: "走行記録" },
   { href: "/predict", label: "パフォーマンスを予測" },
+  { href: "/forecast", label: "ランニング天気予報" },
   { href: "/analyze", label: "分析結果" },
   { href: "/settings", label: "設定" },
 ];

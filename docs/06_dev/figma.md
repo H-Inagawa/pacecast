@@ -53,6 +53,7 @@ PaceCast の画面はすでに動いています。ラフスケッチはしま�
 7. `06 ログイン・新規登録・メール確認`
 8. `07 パスワード再設定`
 9. `08 分析結果`
+10. `09 ランニング天気予報`
 
 各ページに、その画面の GitHub Issue の URL をテキストで書いておくと探しやすいです。
 
@@ -228,5 +229,4 @@ Auto layout（部品を選んで Shift+A）を使うと、余白を数値で持�
 | 6 | ログイン・新規登録・メール確認 | [#42](https://github.com/H-Inagawa/pacecast/issues/42) |
 | 7 | パスワード再設定 | [#53](https://github.com/H-Inagawa/pacecast/issues/53) |
 | 8 | 分析結果 | [#41](https://github.com/H-Inagawa/pacecast/issues/41) |
-
-気象データ画面は廃止済みです。
+| 9 | ランニング天気予報 | [#55](https://github.com/H-Inagawa/pacecast/issues/55) |

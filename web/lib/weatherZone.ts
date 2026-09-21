@@ -13,6 +13,14 @@ export const WBGT_ZONE_LABELS: Record<WbgtZone, string> = {
   none: "未関連・WBGTなし",
 };
 
+export const WBGT_FEEL_LABELS: Record<Exclude<WbgtZone, "none">, string> = {
+  too_cold: "寒すぎる",
+  cold: "寒い",
+  comfort: "快適",
+  hot: "暑い",
+  too_hot: "暑すぎる",
+};
+
 export function classifyWbgtZone(wbgtC: number | null | undefined): WbgtZone {
   if (wbgtC == null) {
     return "none";

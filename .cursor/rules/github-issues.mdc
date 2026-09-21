@@ -8,6 +8,7 @@ alwaysApply: true
 根拠: https://github.com/H-Inagawa/pacecast/issues/31
 
 - Issue の登録・コメントの冒頭に `【Cursor自動入力】` を付ける
+- Issue の本文を編集するときは、チャット原文ではなく Cursor が解釈した内容を記載する（修正の経緯を残す。コメントに残してもよい）
 - 実装後も Issue を close しない。終了は開発者がプッシュ後に行う
 - 次の運用チケットは close しない。足りない・ずれたときに都度直す
   - [#31](https://github.com/H-Inagawa/pacecast/issues/31) Issue 管理

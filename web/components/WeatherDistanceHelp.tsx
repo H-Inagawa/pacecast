@@ -39,3 +39,6 @@ export function WeatherDistanceHelp({ text }: DistanceHelpProps) {
 export const WBGT_HELP_TEXT =
   "WBGT（湿球黒球温度）は暑さの指数です。気温・湿度・風速・日射から推定しています。値が高いほど暑い条件です。環境省の実況推定と同じ式を使っています。";
 
+export const FORECAST_WBGT_HELP_TEXT =
+  `${WBGT_HELP_TEXT} 列の色は推定 WBGT。寒すぎる / 寒い / 快適 / 暑い / 暑すぎる。`;
+

@@ -28,6 +28,13 @@ export default function HomePage() {
           分析結果を見る
         </Link>
       </div>
+      <div className="card forecast-entry">
+        <h2>ランニング天気予報</h2>
+        <p className="lede">これから3日の天気と推定 WBGT を見て、走りやすい時間を選びます。</p>
+        <Link className="button" href="/forecast">
+          天気予報を見る
+        </Link>
+      </div>
       <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </section>
   );

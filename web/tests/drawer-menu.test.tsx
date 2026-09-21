@@ -26,7 +26,34 @@ describe("DrawerMenu", () => {
     expect(screen.queryByRole("link", { name: "パフォーマンスを予測" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "走行記録" })).toHaveAttribute("href", "/runs");
     expect(screen.getByRole("link", { name: "ホーム" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "ランニング天気予報" })).toHaveAttribute("href", "/forecast");
     expect(screen.getByRole("button", { name: "ログアウト" })).toBeInTheDocument();
+  });
+
+  it("開いているときはドロワー上にメニューと出る", async () => {
+    const user = userEvent.setup();
+    render(<DrawerMenu />);
+
+    await user.click(screen.getByRole("button", { name: "メニュー" }));
+
+    const nav = screen.getByRole("navigation", { name: "サイト内メニュー" });
+    expect(nav).toBeInTheDocument();
+    expect(nav.querySelector(".drawer-title")).toHaveTextContent("メニュー");
+  });
+
+  it("開いているときのハンバーガーで閉じる", async () => {
+    const user = userEvent.setup();
+    render(<DrawerMenu />);
+
+    const toggle = screen.getByRole("button", { name: "メニュー" });
+    await user.click(toggle);
+    expect(screen.getByRole("navigation", { name: "サイト内メニュー" })).toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(toggle);
+
+    expect(screen.queryByRole("navigation", { name: "サイト内メニュー" })).not.toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
   it("背景クリックで閉じる", async () => {

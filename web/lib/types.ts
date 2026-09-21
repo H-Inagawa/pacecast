@@ -68,6 +68,26 @@ export type AmedasStation = {
   prefecture?: string;
 };
 
+export type RunningForecastHour = {
+  observed_at: string;
+  hour: number;
+  weather_code: number | null;
+  weather_label: string;
+  weather_zone: "too_cold" | "cold" | "comfort" | "hot" | "too_hot";
+  feel_label: string;
+  wbgt_c: number;
+  temperature_c: number;
+  humidity_pct: number;
+  wind_ms: number;
+  solar_wm2: number;
+};
+
+export type RunningForecast = {
+  station_id: string;
+  station_name: string;
+  hours: RunningForecastHour[];
+};
+
 export type SimilarRun = {
   record_id: number;
   started_at: string;

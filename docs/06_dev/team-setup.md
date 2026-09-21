@@ -48,7 +48,7 @@ gh auth status
 gh issue list
 ```
 
-Cursor から Issue を登録・コメントするときは、本文の先頭に `【Cursor自動入力】` を付けます。Issue は Cursor から close しません（[#31](https://github.com/H-Inagawa/pacecast/issues/31)）。[#8](https://github.com/H-Inagawa/pacecast/issues/8) と [#38](https://github.com/H-Inagawa/pacecast/issues/38) と [#52](https://github.com/H-Inagawa/pacecast/issues/52) も close せず、足りない・ずれたときに都度直します。
+Cursor から Issue を登録・コメントするときは、本文の先頭に `【Cursor自動入力】` を付けます。本文を編集するときは、チャット原文ではなく Cursor が解釈した内容を書きます（修正の経緯を残すため。コメントに残してもよい）。Issue は Cursor から close しません（[#31](https://github.com/H-Inagawa/pacecast/issues/31)）。[#8](https://github.com/H-Inagawa/pacecast/issues/8) と [#38](https://github.com/H-Inagawa/pacecast/issues/38) と [#52](https://github.com/H-Inagawa/pacecast/issues/52) も close せず、足りない・ずれたときに都度直します。
 
 ## 3. アプリを動かす
 

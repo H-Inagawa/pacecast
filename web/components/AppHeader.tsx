@@ -1,8 +1,7 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { cookies, headers } from "next/headers";
-import { DrawerMenu } from "./DrawerMenu";
 import { OnboardingGuide } from "./OnboardingGuide";
+import { SiteHeader } from "./SiteHeader";
 import { SESSION_COOKIE, userFromSession } from "../lib/server/auth";
 import { getOrCreateProfile } from "../lib/server/profile";
 import { profileNeedsOnboarding } from "../lib/onboarding";
@@ -30,28 +29,7 @@ export async function AppHeader() {
 
   return (
     <div className="site-header-wrap">
-      <header className="site-header">
-        {signedIn ? <DrawerMenu lockNav={onboarding} /> : <span className="header-icon-slot" aria-hidden="true" />}
-        <div className="header-identity">
-          {signedIn && !onboarding ? (
-            <Link className="brand" href={homeHref}>
-              PaceCast
-            </Link>
-          ) : (
-            <span className="brand">PaceCast</span>
-          )}
-          {displayName ? <p className="header-user">{`${displayName} さん`}</p> : null}
-        </div>
-        {signedIn && !onboarding ? (
-          <Link className="settings-icon" href="/settings" aria-label="設定" title="設定">
-            <span className="settings-icon-glyph">
-              <img src="/icons/gear.svg" alt="" width={30} height={30} />
-            </span>
-          </Link>
-        ) : (
-          <span className="header-icon-slot" aria-hidden="true" />
-        )}
-      </header>
+      <SiteHeader signedIn={signedIn} onboarding={onboarding} displayName={displayName} homeHref={homeHref} />
       {showGuide ? (
         <Suspense fallback={null}>
           <OnboardingGuide />

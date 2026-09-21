@@ -4,9 +4,10 @@ import { describe, expect, it } from "vitest";
 import HomePage from "../app/page";
 
 describe("ホーム", () => {
-  it("分析結果への導線がある", () => {
+  it("分析結果とランニング天気予報への導線がある", () => {
     render(<HomePage />);
     expect(screen.getByRole("link", { name: "分析結果を見る" })).toHaveAttribute("href", "/analyze");
+    expect(screen.getByRole("link", { name: "天気予報を見る" })).toHaveAttribute("href", "/forecast");
   });
 
   it("PaceCastとは？を開くと概要と各画面の説明が出る", async () => {
@@ -20,6 +21,7 @@ describe("ホーム", () => {
     expect(dialog).toHaveTextContent("過去の走行記録と、そのときの気象から");
     expect(dialog).toHaveTextContent("走行記録");
     expect(dialog).toHaveTextContent("パフォーマンスを予測");
+    expect(dialog).toHaveTextContent("ランニング天気予報");
     expect(dialog).toHaveTextContent("分析結果");
     expect(dialog).toHaveTextContent("設定");
     expect(dialog).toHaveTextContent("Open-Meteo");
