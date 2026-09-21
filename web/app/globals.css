@@ -132,7 +132,7 @@ body {
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 8%, transparent), transparent 28rem),
     var(--bg);
-  font-family: var(--font-serif-jp), "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-family: var(--font-serif-jp), "Kaisei Opti", "Hiragino Mincho ProN", "Yu Mincho", serif;
   line-height: 1.6;
 }
 
@@ -146,9 +146,9 @@ a { color: var(--link); }
 
 .site-header {
   display: grid;
-  grid-template-columns: 3.75rem 1fr 3.75rem;
+  grid-template-columns: 4.375rem 1fr 4.375rem;
   align-items: stretch;
-  height: 3.75rem;
+  height: 4.375rem;
   padding: 0;
   background: var(--header-bg);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
@@ -156,8 +156,8 @@ a { color: var(--link); }
 
 .header-icon-slot {
   display: block;
-  width: 3.75rem;
-  height: 3.75rem;
+  width: 4.375rem;
+  height: 4.375rem;
 }
 
 .header-identity {
@@ -173,8 +173,8 @@ a { color: var(--link); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 3.75rem;
-  height: 3.75rem;
+  width: 4.375rem;
+  height: 4.375rem;
   padding: 0;
   overflow: hidden;
   border-radius: 0;
@@ -243,7 +243,7 @@ a { color: var(--link); }
   color: var(--drawer-ink);
   text-decoration: none;
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 a.drawer-item:hover {
@@ -263,8 +263,12 @@ a.drawer-item:hover {
 }
 
 button.drawer-logout {
-  width: 100%;
-  margin-top: 0.94rem;
+  position: absolute;
+  top: min(25rem, calc(100% - 3.5rem));
+  left: 1.56rem;
+  right: 1.56rem;
+  width: auto;
+  margin-top: 0;
   text-align: left;
   background: transparent;
   color: var(--drawer-logout);
@@ -302,8 +306,8 @@ button.drawer-logout:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 3.75rem;
-  height: 3.75rem;
+  width: 4.375rem;
+  height: 4.375rem;
   padding: 0;
   color: var(--header-ink);
   border-radius: 0;
@@ -329,11 +333,11 @@ button.drawer-logout:hover {
 .brand {
   color: var(--header-ink);
   text-decoration: none;
-  font-family: var(--font-serif-jp), "Noto Serif JP", serif;
+  font-family: var(--font-serif-jp), "Kaisei Opti", serif;
   font-style: normal;
-  font-weight: 900;
-  font-size: 1.56rem;
-  line-height: 2.19rem;
+  font-weight: 700;
+  font-size: 2.25rem;
+  line-height: 2.5rem;
   letter-spacing: 0.02em;
 }
 
@@ -386,8 +390,9 @@ button.drawer-logout:hover {
 }
 
 .hero h1, h1 {
-  font-family: var(--font-serif-jp), "Noto Serif JP", serif;
-  font-weight: 900;
+  font-family: var(--font-serif-jp), "Kaisei Opti", serif;
+  font-weight: 700;
+  font-size: 1.5rem;
   line-height: 1.25;
   margin: 0 0 0.6rem;
 }
@@ -421,8 +426,12 @@ button.drawer-logout:hover {
 .eyebrow {
   letter-spacing: 0.14em;
   color: var(--accent);
-  font-size: 0.8rem;
+  font-size: 1rem;
   margin-bottom: 0.4rem;
+}
+
+.lede {
+  font-size: 1rem;
 }
 
 .lede, .meta, .empty { color: var(--muted); }
@@ -440,11 +449,13 @@ button.drawer-logout:hover {
   right: 0;
   bottom: 0;
   z-index: 30;
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: 3fr 1fr;
-  align-items: stretch;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  grid-template-columns: minmax(0, 3fr) 7.5rem;
+  align-items: center;
+  gap: 0.38rem;
+  height: calc(3.75rem + env(safe-area-inset-bottom, 0px));
+  padding: 0.3125rem 0.62rem calc(0.25rem + env(safe-area-inset-bottom, 0px));
   background: var(--page-bg);
   border-top: 1px solid var(--line);
 }
@@ -454,7 +465,7 @@ button.drawer-logout:hover {
 }
 
 .sticky-actions-1-3-1 {
-  grid-template-columns: 1fr 3fr 1fr;
+  grid-template-columns: 7.5rem minmax(0, 1fr) 7.5rem;
 }
 
 .sticky-actions .button,
@@ -465,17 +476,19 @@ button.drawer-logout:hover {
   justify-content: center;
   box-sizing: border-box;
   width: 100%;
-  height: 3.25rem;
+  height: 3.125rem;
   min-width: 0;
-  padding: 0 1rem;
+  padding: 0 0.4rem;
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 500;
   text-align: center;
+  white-space: nowrap;
 }
 
 a.button.home-back,
 .button.home-back {
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 500;
   background: var(--btn-home-bg);
   color: var(--btn-home-ink);
   border: 2px solid var(--btn-home-border);
@@ -489,9 +502,9 @@ a.button.home-back:hover,
 .button.columns-settings {
   background: var(--btn-bar-sub-bg);
   color: var(--btn-bar-sub-ink);
-  white-space: normal;
+  white-space: nowrap;
   line-height: 1.2;
-  font-size: 0.92rem;
+  font-size: 0.75rem;
 }
 
 .button.columns-settings:hover {
@@ -514,7 +527,7 @@ a.button.home-back:hover,
 }
 
 body:has(.sticky-actions) .page {
-  padding-bottom: 6.5rem;
+  padding-bottom: calc(3.75rem + 1rem + env(safe-area-inset-bottom, 0px));
 }
 
 .sticky-actions button:disabled {
@@ -549,16 +562,40 @@ body:has(.sticky-actions) .page {
 }
 
 .button.primary {
-  min-width: 16rem;
-  padding: 1.15rem 1.6rem;
-  font-size: 1.15rem;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 6.25rem;
+  min-width: 6.25rem;
+  height: 3.125rem;
+  padding: 0 0.3rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
+  white-space: nowrap;
+}
+
+.hero .button.primary {
+  width: auto;
+  min-width: 16rem;
+  height: auto;
+  padding: 1.15rem 1.6rem;
+  font-size: 1.15rem;
 }
 
 .button.secondary {
-  padding: 0.45rem 0.9rem;
-  font-size: 0.92rem;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 6.25rem;
+  min-width: 6.25rem;
+  height: 3.125rem;
+  padding: 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
   background: var(--btn-secondary-bg);
   color: var(--btn-secondary-ink);
   border: 1px solid var(--btn-secondary-border);
@@ -637,7 +674,7 @@ tr.wbgt-none td { background: var(--wbgt-none-bg); color: var(--wbgt-none-ink); 
 .stat {
   font-size: 1.5rem;
   margin: 0.2rem 0;
-  font-family: var(--font-serif-jp), "Noto Serif JP", serif;
+  font-family: var(--font-serif-jp), "Kaisei Opti", serif;
   font-weight: 700;
 }
 
@@ -648,11 +685,18 @@ label, fieldset {
   gap: 0.35rem;
   border: 0;
   padding: 0;
+  font-size: 1.25rem;
+  font-weight: 500;
 }
 
 input, select {
-  font: inherit;
-  padding: 0.5rem 0.6rem;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  height: 2.1875rem;
+  min-height: 2.1875rem;
+  padding: 0 0.6rem;
   border: 1px solid var(--input-border);
   border-radius: 0.6rem;
   background: var(--input-bg);
@@ -909,65 +953,19 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 }
 
 @media (max-width: 720px) {
-  .button.primary { min-width: 100%; }
+  .hero .button.primary { min-width: 100%; }
   .section-head { flex-direction: column; align-items: flex-start; }
   .summary-inline { white-space: normal; }
   table { font-size: 0.92rem; }
-
-  .sticky-actions {
-    gap: 0.38rem;
-    padding: 0.31rem 0.62rem calc(0.31rem + env(safe-area-inset-bottom));
-  }
-
-  .sticky-actions-1-3-1 {
-    grid-template-columns: 7.5rem minmax(0, 1fr) 7.5rem;
-  }
-
-  .button.columns-settings {
-    font-size: 0.88rem;
-    white-space: nowrap;
-  }
-
-  .sticky-actions .button,
-  .sticky-actions button,
-  .sticky-actions a.button {
-    height: 2.19rem;
-    border-radius: 0.94rem;
-    font-size: 1rem;
-  }
 
   a.button.home-back,
   .button.home-back {
     border-width: 1px;
   }
 
-  body:has(.sticky-actions) .page {
-    padding-bottom: 4.25rem;
-  }
-
   .button.secondary {
-    height: 2.19rem;
     border-width: 3px;
     border-radius: 0.94rem;
-  }
-
-  .hero h1, h1 {
-    font-size: 1.5rem;
-  }
-
-  .eyebrow {
-    font-size: 0.88rem;
-  }
-
-  .lede, .meta, .empty {
-    font-size: 0.75rem;
-  }
-
-  input, select {
-    min-height: 2rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.31rem;
-    font-size: 0.75rem;
   }
 
   .modal-backdrop {

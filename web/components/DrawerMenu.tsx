@@ -53,7 +53,7 @@ export function DrawerMenu({ lockNav = false }: { lockNav?: boolean }) {
         aria-controls="site-drawer"
         onClick={() => setOpen(true)}
       >
-        <img className="drawer-toggle-icon" src="/icons/hamburger.svg" alt="" width={60} height={60} />
+        <img className="drawer-toggle-icon" src="/icons/hamburger.svg" alt="" width={70} height={70} />
       </button>
       {open ? (
         <div className="drawer-backdrop" onClick={() => setOpen(false)} role="presentation">
