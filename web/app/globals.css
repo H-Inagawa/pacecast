@@ -577,6 +577,146 @@ body:has(.sticky-actions) .page {
   margin: 0 0 0.4rem;
 }
 
+.home-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 20rem;
+  margin: 1.6rem 0 1rem;
+}
+
+.home-card {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+  border: 0;
+  border-radius: 1rem;
+  padding: 0;
+  margin: 0;
+  background: var(--card);
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.home-card--lg {
+  height: 10rem;
+}
+
+.home-card--md {
+  height: 6.25rem;
+}
+
+.home-card--sm {
+  height: 5rem;
+}
+
+.home-card__bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  width: auto;
+  max-width: calc(100% - 10px);
+  height: calc(100% - 5px);
+  max-height: calc(100% - 5px);
+  object-fit: contain;
+  object-position: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+
+.home-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 20%, transparent);
+  transition: background 0.15s ease;
+}
+
+.home-card:hover .home-card__overlay,
+.home-card:focus-visible .home-card__overlay {
+  background: color-mix(in srgb, var(--ink) 50%, transparent);
+}
+
+.home-card:active .home-card__overlay {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.home-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.home-card__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  box-sizing: border-box;
+  height: 100%;
+  padding: 0.85rem 1rem;
+}
+
+.home-card__label {
+  font-family: var(--font-serif-jp), "Kaisei Opti", serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.25;
+}
+
+.home-card--md .home-card__label,
+.home-card--sm .home-card__label {
+  font-size: 0.98rem;
+}
+
+.home-card__lede {
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--ink);
+  opacity: 0.88;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* soft-light だと端が溶けて見切れに見えるので、反転＋不透明度だけにする */
+  .home-card__bg {
+    mix-blend-mode: normal;
+    filter: invert(1);
+    opacity: 0.22;
+  }
+}
+
+@media (min-width: 721px) {
+  .home-cards {
+    max-width: 36rem;
+  }
+
+  .home-card--lg {
+    height: 10rem;
+  }
+
+  .home-card--md {
+    height: 6.25rem;
+  }
+
+  .home-card--sm {
+    height: 5rem;
+  }
+
+  .home-card__lede {
+    font-size: 0.85rem;
+  }
+}
+
 .button, button, input[type="submit"] {
   display: inline-block;
   border: 0;
@@ -1109,10 +1249,13 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 }
 
 @media (max-width: 720px) {
-  .hero .button.primary { min-width: 100%; }
   .section-head { flex-direction: column; align-items: flex-start; }
   .summary-inline { white-space: normal; }
   table { font-size: 0.92rem; }
+
+  .home-cards {
+    max-width: 20rem;
+  }
 
   a.button.home-back,
   .button.home-back {
