@@ -58,7 +58,9 @@ export async function POST(request: Request) {
         humidity_pct: forecast.humidityPct,
         location_label: forecast.locationLabel,
         wind_ms: forecast.windMs,
+        wind_dir_deg: forecast.windDirDeg ?? null,
         solar_wm2: forecast.solarWm2,
+        weather_code: forecast.weatherCode ?? null,
         wbgt_c: wbgt,
       };
     } else {

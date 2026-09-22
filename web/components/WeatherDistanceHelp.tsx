@@ -36,9 +36,12 @@ export function WeatherDistanceHelp({ text }: DistanceHelpProps) {
   return <HelpTip label="気象距離" text={text} ariaLabel="気象距離の説明" />;
 }
 
-export const WBGT_HELP_TEXT =
-  "WBGT（湿球黒球温度）は暑さの指数です。気温・湿度・風速・日射から推定しています。値が高いほど暑い条件です。環境省の実況推定と同じ式を使っています。";
+export const WBGT_HELP_TEXT = [
+  "WBGT（湿球黒球温度）は暑さの指数です。",
+  "気温・湿度・風速・日射から推定しています。",
+  "値が高いほど暑い条件です。",
+  "環境省の実況推定と同じ式を使っています。",
+].join("\n");
 
-export const FORECAST_WBGT_HELP_TEXT =
-  `${WBGT_HELP_TEXT} 列の色は推定 WBGT。寒すぎる / 寒い / 快適 / 暑い / 暑すぎる。`;
+export const FORECAST_WBGT_HELP_TEXT = `${WBGT_HELP_TEXT}\n列の色は推定 WBGT。寒すぎる / 寒い / 快適 / 暑い / 暑すぎる。`;
 

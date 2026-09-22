@@ -110,6 +110,26 @@ describe("走行記録の表示項目", () => {
     expect(labels).toEqual(["暑すぎる", "暑い", "快適", "寒い", "寒すぎる", "未適用"]);
   });
 
+  it("心拍色分けのときは凡例チップを出す", async () => {
+    mockedGet.mockResolvedValue([{ ...sampleRun, hr_zone: "high" }]);
+    render(<RunsView />);
+    const legend = await screen.findByRole("list", { name: "心拍の凡例" });
+    expect(within(legend).getByText("凡例:")).toBeInTheDocument();
+    const labels = within(legend).getAllByRole("listitem").map((item) => item.textContent);
+    expect(labels).toEqual(["70%未満", "70〜80%", "80%以上"]);
+    expect(screen.queryByRole("list", { name: "WBGTの凡例" })).not.toBeInTheDocument();
+  });
+
+  it("WBGTの説明は改行して全文を出す", async () => {
+    const user = userEvent.setup();
+    render(<RunsView />);
+    await user.click(await screen.findByRole("button", { name: "WBGTの説明" }));
+    const pop = screen.getByText(/WBGT（湿球黒球温度）は暑さの指数です。/);
+    expect(pop.textContent).toContain("気温・湿度・風速・日射から推定しています。");
+    expect(pop.textContent).toContain("環境省の実況推定と同じ式を使っています。");
+    expect(pop.className).toContain("help-pop");
+  });
+
   it("削除は確認してから送る", async () => {
     const user = userEvent.setup();
     render(<RunsView />);

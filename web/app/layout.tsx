@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Kaisei_Opti } from "next/font/google";
+import { Noto_Serif_JP } from "next/font/google";
 import { AppChrome } from "../components/AppChrome";
 import { AppHeader } from "../components/AppHeader";
 import { AppProviders } from "../components/AppProviders";
 import { OnboardingGate } from "../components/OnboardingGate";
 import "./globals.css";
 
-const kaiseiOpti = Kaisei_Opti({
+const notoSerifJp = Noto_Serif_JP({
   subsets: ["latin"],
   weight: ["400", "500", "700"],
   display: "swap",
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja" className={kaiseiOpti.variable}>
-      <body className={kaiseiOpti.className}>
+    <html lang="ja" className={notoSerifJp.variable}>
+      <body className={notoSerifJp.className}>
         <AppProviders>
           <OnboardingGate>
             <AppChrome header={<AppHeader />}>

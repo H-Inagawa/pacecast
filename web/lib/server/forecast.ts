@@ -17,6 +17,8 @@ export type ForecastCondition = {
   windMs: number | null;
   solarWm2: number | null;
   locationLabel: string;
+  windDirDeg?: number | null;
+  weatherCode?: number | null;
 };
 
 export class ForecastError extends Error {
@@ -76,6 +78,8 @@ function pickNearest(
   solars: Array<number | null>,
   targetAt: Date,
   locationLabel: string,
+  windDirs: Array<number | null> = [],
+  codes: Array<number | null> = [],
 ): ForecastCondition {
   let bestIndex: number | null = null;
   let bestDelta: number | null = null;
@@ -103,6 +107,8 @@ function pickNearest(
 
   const wind = bestIndex < winds.length ? winds[bestIndex] : null;
   const solar = bestIndex < solars.length ? solars[bestIndex] : null;
+  const windDir = bestIndex < windDirs.length ? windDirs[bestIndex] : null;
+  const code = bestIndex < codes.length ? codes[bestIndex] : null;
   return {
     observedAt: parseHourlyTime(times[bestIndex]),
     temperatureC: Number(temperatures[bestIndex]),
@@ -110,6 +116,8 @@ function pickNearest(
     windMs: toNumberOrNull(wind),
     solarWm2: toNumberOrNull(solar),
     locationLabel,
+    windDirDeg: toNumberOrNull(windDir),
+    weatherCode: toNumberOrNull(code),
   };
 }
 
@@ -124,10 +132,12 @@ function parseHourlyPayload(
   const humidities = asNumberArray(hourly.relative_humidity_2m);
   const winds = asNumberArray(hourly.wind_speed_10m);
   const solars = asNumberArray(hourly.shortwave_radiation);
+  const windDirs = asNumberArray(hourly.wind_direction_10m);
+  const codes = asNumberArray(hourly.weather_code);
   if (!times.length || times.length !== temperatures.length || times.length !== humidities.length) {
     throw new ForecastError("気象データの形式を解釈できませんでした");
   }
-  return pickNearest(times, temperatures, humidities, winds, solars, targetAt, locationLabel);
+  return pickNearest(times, temperatures, humidities, winds, solars, targetAt, locationLabel, windDirs, codes);
 }
 
 async function fetchJson(url: URL, timeoutMs: number, errorMessage: string): Promise<unknown> {
@@ -162,6 +172,7 @@ export async function fetchForecastCondition(
   locationLabel = DEFAULT_LOCATION,
 ): Promise<ForecastCondition> {
   const params = forecastParams(latitude, longitude);
+  params.set("hourly", `${HOURLY_VARS},wind_direction_10m,weather_code`);
   params.set("forecast_days", "16");
   params.set("past_days", "7");
   const url = new URL(FORECAST_URL);

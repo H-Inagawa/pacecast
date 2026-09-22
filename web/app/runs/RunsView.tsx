@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HelpTip, WBGT_HELP_TEXT } from "../../components/WeatherDistanceHelp";
 import { BackHome } from "../../components/BackHome";
@@ -43,6 +43,12 @@ const WBGT_LEGEND: { zone: WbgtZone; label: string }[] = [
   { zone: "none", label: "未適用" },
 ];
 
+const HR_LEGEND: { zone: "low" | "medium" | "high"; label: string }[] = [
+  { zone: "low", label: "70%未満" },
+  { zone: "medium", label: "70〜80%" },
+  { zone: "high", label: "80%以上" },
+];
+
 export function RunsView({ initialEditId }: Props) {
   const router = useRouter();
   const [runs, setRuns] = useState<Run[]>([]);
@@ -52,6 +58,8 @@ export function RunsView({ initialEditId }: Props) {
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [columns, setColumns] = useState<RunColumnVisibility>(DEFAULT_RUN_COLUMNS);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const pinRef = useRef<HTMLDivElement>(null);
+  const [pinHeight, setPinHeight] = useState(0);
 
   async function load() {
     try {
@@ -102,25 +110,53 @@ export function RunsView({ initialEditId }: Props) {
   const formOpen = formRunId !== undefined;
   const totalDistance = runs.reduce((sum, run) => sum + run.distance_km, 0);
   const wbgtColoring = runs.some((run) => run.weather_zone != null);
+  const hrColoring = !wbgtColoring && runs.some((run) => run.hr_zone != null);
+
+  useLayoutEffect(() => {
+    const node = pinRef.current;
+    if (!node) {
+      return;
+    }
+    const update = () => setPinHeight(node.offsetHeight);
+    update();
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loaded, wbgtColoring, hrColoring, error]);
 
   return (
-    <>
-      <header className="page-heading runs-heading">
-        <h1>走行記録</h1>
-        {loaded && groups.length ? <p className="meta">{formatRunSummary(runs.length, totalDistance)}</p> : null}
-        {loaded && !groups.length ? <p className="meta">記録がありません</p> : null}
-      </header>
-      {error ? <p className="error">{error}</p> : null}
-      {wbgtColoring ? (
-        <div className="wbgt-legend" role="list" aria-label="WBGTの凡例">
-          <span className="wbgt-legend__label">凡例:</span>
-          {WBGT_LEGEND.map((item) => (
-            <span key={item.zone} role="listitem" className={`wbgt-legend__chip wbgt-${item.zone}`}>
-              {item.label}
-            </span>
-          ))}
-        </div>
-      ) : null}
+    <div className="runs-page" style={{ "--runs-pin-h": `${pinHeight}px` } as React.CSSProperties}>
+      <div className="runs-pin" ref={pinRef}>
+        <header className="page-heading runs-heading">
+          <h1>走行記録</h1>
+          {loaded && groups.length ? <p className="meta">{formatRunSummary(runs.length, totalDistance)}</p> : null}
+          {loaded && !groups.length ? <p className="meta">記録がありません</p> : null}
+        </header>
+        {error ? <p className="error">{error}</p> : null}
+        {wbgtColoring ? (
+          <div className="wbgt-legend" role="list" aria-label="WBGTの凡例">
+            <span className="wbgt-legend__label">凡例:</span>
+            {WBGT_LEGEND.map((item) => (
+              <span key={item.zone} role="listitem" className={`wbgt-legend__chip wbgt-${item.zone}`}>
+                {item.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {hrColoring ? (
+          <div className="wbgt-legend" role="list" aria-label="心拍の凡例">
+            <span className="wbgt-legend__label">凡例:</span>
+            {HR_LEGEND.map((item) => (
+              <span key={item.zone} role="listitem" className={`wbgt-legend__chip zone-${item.zone}`}>
+                {item.label}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
       {!loaded ? (
         <p className="empty">読み込み中...</p>
       ) : groups.length ? (
@@ -231,6 +267,6 @@ export function RunsView({ initialEditId }: Props) {
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }

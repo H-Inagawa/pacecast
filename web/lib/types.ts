@@ -133,7 +133,9 @@ export type PredictResult = {
     humidity_pct: number;
     location_label: string;
     wind_ms?: number | null;
+    wind_dir_deg?: number | null;
     solar_wm2?: number | null;
+    weather_code?: number | null;
     wbgt_c?: number | null;
   } | null;
   weather_distance_help: string;

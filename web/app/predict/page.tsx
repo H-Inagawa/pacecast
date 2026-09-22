@@ -2,13 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { BackHome } from "../../components/BackHome";
+import { ModalCloseButton } from "../../components/ModalCloseButton";
 import { PredictHelpModal } from "../../components/PredictHelpModal";
 import { RelationChart } from "../../components/RelationChart";
-import { StickyActions } from "../../components/StickyActions";
 import { StationPicker } from "../../components/StationPicker";
+import { StickyActions } from "../../components/StickyActions";
 import { WeatherDistanceHelp } from "../../components/WeatherDistanceHelp";
 import { apiGet, apiSend } from "../../lib/api";
-import { confidenceLabel, defaultDateTimeLocal, formatDateTime, formatDistanceKm, formatDuration, formatPace, formatWbgtDelta, formatWeatherBrief } from "../../lib/format";
+import {
+  confidenceLabel,
+  defaultDateTimeLocal,
+  formatDateTime,
+  formatDistanceKm,
+  formatDuration,
+  formatPace,
+  formatWbgtDelta,
+  formatWeatherBrief,
+} from "../../lib/format";
+import { formatWindWithDirection } from "../../lib/wind";
+import { weatherCodeLabel } from "../../lib/weatherCode";
+import { classifyWbgtZone, WBGT_FEEL_LABELS } from "../../lib/weatherZone";
 import type { AmedasStation, PredictResult, Profile } from "../../lib/types";
 
 const RACE_LABELS: Record<string, string> = {
@@ -18,18 +31,85 @@ const RACE_LABELS: Record<string, string> = {
   race_full: "フルマラソン(42.195km)",
 };
 
+const DISTANCE_INTENSITY = [
+  { key: "low", label: "楽" },
+  { key: "medium", label: "中" },
+  { key: "high", label: "きつい" },
+] as const;
+
+type DistanceDraft = {
+  mode: "custom" | "race";
+  km: string;
+  race: string;
+  intensity: string;
+};
+
+type WeatherDraft = {
+  mode: "manual" | "forecast";
+  temperature: string;
+  humidity: string;
+  forecastAt: string;
+  stationId: string;
+};
+
+function intensityLabel(key: string): string {
+  return DISTANCE_INTENSITY.find((item) => item.key === key)?.label ?? key;
+}
+
+function formatForecastChoice(value: string): string {
+  const match = value.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (!match) {
+    return `${value}（予報）`;
+  }
+  return `${Number(match[2])}/${Number(match[3])} ${Number(match[4])}:${match[5]}（予報）`;
+}
+
+function weatherSummary(saved: WeatherDraft | null, result: PredictResult | null): string {
+  if (saved?.mode === "forecast" && result?.condition) {
+    const condition = result.condition;
+    const zone = classifyWbgtZone(condition.wbgt_c);
+    const feel = zone === "none" ? "—" : WBGT_FEEL_LABELS[zone];
+    const wind = condition.wind_ms == null ? "—" : formatWindWithDirection(condition.wind_ms, condition.wind_dir_deg);
+    const solar = condition.solar_wm2 == null ? "—" : String(Math.round(condition.solar_wm2));
+    const wbgt = condition.wbgt_c == null ? "—" : `${condition.wbgt_c.toFixed(1)}℃`;
+    return [
+      `天気: ${weatherCodeLabel(condition.weather_code)}`,
+      `体感: ${feel}`,
+      `WBGT: ${wbgt}`,
+      `気温: ${condition.temperature_c.toFixed(1)}℃`,
+      `湿度: ${condition.humidity_pct.toFixed(0)}%`,
+      `風速: ${wind}`,
+      `日照: ${solar}`,
+    ].join("\n");
+  }
+  if (!saved) {
+    return "設定してください";
+  }
+  if (saved.mode === "manual") {
+    return `気温 ${Number(saved.temperature).toFixed(1)}℃ / 湿度 ${Number(saved.humidity).toFixed(0)}%`;
+  }
+  return formatForecastChoice(saved.forecastAt);
+}
+
+function distanceSummary(saved: DistanceDraft | null): string {
+  if (!saved) {
+    return "設定してください";
+  }
+  if (saved.mode === "race") {
+    return RACE_LABELS[saved.race] ?? saved.race;
+  }
+  return `${Number(saved.km).toFixed(2)} km / 走行強度: ${intensityLabel(saved.intensity)}`;
+}
+
 export default function PredictPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [mode, setMode] = useState<"manual" | "forecast" | null>(null);
-  const [distanceMode, setDistanceMode] = useState<"custom" | "race" | null>(null);
-  const [distanceKm, setDistanceKm] = useState("5.0");
-  const [race, setRace] = useState("race_5k");
-  const [temperature, setTemperature] = useState("20.0");
-  const [humidity, setHumidity] = useState("60");
-  const [forecastAt, setForecastAt] = useState(defaultDateTimeLocal());
-  const [forecastStationId, setForecastStationId] = useState("44132");
   const [stations, setStations] = useState<AmedasStation[]>([]);
-  const [intensity, setIntensity] = useState("medium");
+  const [savedDistance, setSavedDistance] = useState<DistanceDraft | null>(null);
+  const [savedWeather, setSavedWeather] = useState<WeatherDraft | null>(null);
+  const [distanceDraft, setDistanceDraft] = useState<DistanceDraft | null>(null);
+  const [weatherDraft, setWeatherDraft] = useState<WeatherDraft | null>(null);
+  const [distanceError, setDistanceError] = useState<string | null>(null);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
   const [result, setResult] = useState<PredictResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -39,33 +119,91 @@ export default function PredictPage() {
       ([nextProfile, amedasStations]) => {
         setProfile(nextProfile);
         setStations(amedasStations);
-        setForecastStationId(nextProfile.amedas_station_id || "44132");
       },
     );
   }, []);
 
-  async function onSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  const ready = savedDistance != null && savedWeather != null;
+
+  function openDistance() {
+    setDistanceDraft(
+      savedDistance ?? {
+        mode: "custom",
+        km: "10.00",
+        race: "race_10k",
+        intensity: "medium",
+      },
+    );
+    setDistanceError(null);
+  }
+
+  function openWeather() {
+    setWeatherDraft(
+      savedWeather ?? {
+        mode: "manual",
+        temperature: "24.0",
+        humidity: "65",
+        forecastAt: defaultDateTimeLocal(),
+        stationId: profile?.amedas_station_id || "44132",
+      },
+    );
+    setWeatherError(null);
+  }
+
+  function commitDistance() {
+    if (!distanceDraft) {
+      return;
+    }
+    if (distanceDraft.mode === "custom" && !(Number(distanceDraft.km) > 0)) {
+      setDistanceError("距離は 0 より大きくしてください");
+      return;
+    }
+    setSavedDistance(distanceDraft);
+    setDistanceDraft(null);
+    setResult(null);
     setError(null);
-    if (distanceMode == null) {
-      setError("距離の指定方法を選んでください");
+  }
+
+  function commitWeather() {
+    if (!weatherDraft) {
       return;
     }
-    if (mode == null) {
-      setError("気象条件の指定方法を選んでください");
+    if (weatherDraft.mode === "manual") {
+      const humidity = Number(weatherDraft.humidity);
+      if (weatherDraft.temperature.trim() === "" || weatherDraft.humidity.trim() === "") {
+        setWeatherError("気温と湿度を入力してください");
+        return;
+      }
+      if (!(humidity >= 0 && humidity <= 100)) {
+        setWeatherError("湿度は 0〜100 の範囲で入力してください");
+        return;
+      }
+    } else if (!weatherDraft.forecastAt) {
+      setWeatherError("予報の日時を選んでください");
       return;
     }
+    setSavedWeather(weatherDraft);
+    setWeatherDraft(null);
+    setResult(null);
+    setError(null);
+  }
+
+  async function onSubmit() {
+    if (!savedDistance || !savedWeather) {
+      return;
+    }
+    setError(null);
     try {
       const payload = await apiSend<PredictResult>("/api/predict", "POST", {
-        distance_km: distanceMode === "custom" ? Number(distanceKm) : undefined,
-        distance_mode: distanceMode,
-        race,
-        mode,
-        temperature_c: Number(temperature),
-        humidity_pct: Number(humidity),
-        forecast_at: forecastAt,
-        intensity,
-        amedas_station_id: mode === "forecast" ? forecastStationId : undefined,
+        distance_km: savedDistance.mode === "custom" ? Number(savedDistance.km) : undefined,
+        distance_mode: savedDistance.mode,
+        race: savedDistance.race,
+        mode: savedWeather.mode,
+        temperature_c: Number(savedWeather.temperature),
+        humidity_pct: Number(savedWeather.humidity),
+        forecast_at: savedWeather.forecastAt,
+        intensity: savedDistance.intensity,
+        amedas_station_id: savedWeather.mode === "forecast" ? savedWeather.stationId : undefined,
       });
       setResult(payload);
     } catch (err) {
@@ -74,10 +212,8 @@ export default function PredictPage() {
     }
   }
 
-  const customOn = distanceMode === "custom";
-  const raceOn = distanceMode === "race";
-  const manualOn = mode === "manual";
-  const forecastOn = mode === "forecast";
+  const weatherText = weatherSummary(savedWeather, result);
+  const distanceText = distanceSummary(savedDistance);
 
   return (
     <>
@@ -90,113 +226,24 @@ export default function PredictPage() {
       <p className="lede">気象条件と走行強度を指定して、過去走からペース・タイムを見積もります。</p>
       <PredictHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       {error ? <p className="error">{error}</p> : null}
-      <form id="predict-form" className="stack" onSubmit={(event) => void onSubmit(event)}>
-        <p className="meta">距離の指定方法</p>
-        <label className="choice">
-          <input type="radio" name="distance-mode" checked={customOn} onChange={() => setDistanceMode("custom")} />
-          距離を指定して予測
-        </label>
-        <div className={customOn ? "mode-card active" : "mode-card inactive"}>
-          <label>
-            距離（km）
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={distanceKm}
-              onChange={(event) => setDistanceKm(event.target.value)}
-              disabled={!customOn}
-              required={customOn}
-            />
-          </label>
-          <label>
-            走行強度
-            <select value={intensity} onChange={(event) => setIntensity(event.target.value)} disabled={!customOn}>
-              {(profile?.custom_intensities ?? []).map((item) => (
-                <option key={item.key} value={item.key}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label className="choice">
-          <input type="radio" name="distance-mode" checked={raceOn} onChange={() => setDistanceMode("race")} />
-          レース種別で予測
-        </label>
-        <div className={raceOn ? "mode-card active" : "mode-card inactive"}>
-          {Object.entries(RACE_LABELS).map(([key, label]) => (
-            <label className="choice" key={key}>
-              <input type="radio" name="race" checked={race === key} onChange={() => setRace(key)} disabled={!raceOn} />
-              {label}
-            </label>
-          ))}
-        </div>
 
-        <p className="meta">気象条件の指定方法</p>
-        <label className="choice">
-          <input type="radio" name="mode" checked={manualOn} onChange={() => setMode("manual")} />
-          気温・湿度を入力する
-        </label>
-        <div className={manualOn ? "mode-card active" : "mode-card inactive"}>
-          <div className="split">
-            <label>
-              気温（℃）
-              <input
-                type="number"
-                step="0.1"
-                value={temperature}
-                onChange={(event) => setTemperature(event.target.value)}
-                disabled={!manualOn}
-              />
-            </label>
-            <label>
-              湿度（％）
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={humidity}
-                onChange={(event) => setHumidity(event.target.value)}
-                disabled={!manualOn}
-              />
-            </label>
-          </div>
-        </div>
-        <label className="choice">
-          <input type="radio" name="mode" checked={forecastOn} onChange={() => setMode("forecast")} />
-          日時を指定して予報を使う
-        </label>
-        <div className={forecastOn ? "mode-card active" : "mode-card inactive"}>
-          <StationPicker
-            stations={stations}
-            value={forecastStationId}
-            onChange={setForecastStationId}
-            disabled={!forecastOn}
-            label="予報の地点"
-          />
-          <label>
-            予報を使う日時
-            <input
-              type="datetime-local"
-              value={forecastAt}
-              onChange={(event) => setForecastAt(event.target.value)}
-              disabled={!forecastOn}
-            />
-          </label>
-        </div>
-      </form>
+      <section className="predict-card" aria-label="気象の指定">
+        <h2>気象の指定</h2>
+        <p className={savedWeather ? "predict-card__value" : "predict-card__value is-unset"}>{weatherText}</p>
+        <button type="button" className="button" onClick={openWeather}>
+          設定する
+        </button>
+      </section>
+      <section className="predict-card" aria-label="距離/レースを指定">
+        <h2>距離/レースを指定</h2>
+        <p className={savedDistance ? "predict-card__value" : "predict-card__value is-unset"}>{distanceText}</p>
+        <button type="button" className="button" onClick={openDistance}>
+          設定する
+        </button>
+      </section>
 
       {result ? (
         <>
-          {result.condition ? (
-            <p className="meta">
-              予報: {result.condition.location_label} {formatDateTime(result.condition.observed_at)} / {result.condition.temperature_c.toFixed(1)}℃ /{" "}
-              {result.condition.humidity_pct.toFixed(0)}%
-              {result.condition.wbgt_c != null ? ` / WBGT ${result.condition.wbgt_c.toFixed(1)}℃` : ""}
-            </p>
-          ) : null}
-          <p className="meta">走行強度: {result.intensity_label}</p>
           <section className="stat-grid">
             <article className="card">
               <h2>予想ペース</h2>
@@ -206,67 +253,227 @@ export default function PredictPage() {
               <h2>予想タイム</h2>
               <p className="stat">{formatDuration(result.predicted_duration_sec)}</p>
             </article>
-            <article className="card">
-              <h2>誤差の目安（RMSE）</h2>
-              <p className="stat">±{formatPace(result.rmse_sec_per_km)}</p>
-            </article>
-            <article className="card">
-              <h2>当てはまり（R²）</h2>
-              <p className="stat">{result.r_squared.toFixed(2)}</p>
-            </article>
           </section>
-          <p className="meta">
-            信頼度: {confidenceLabel(result.confidence)}（R² {result.r_squared.toFixed(2)}） / 使用した過去走 {result.sample_count}{" "}
-            件（近い条件 {result.near_count} 件）
+          <p className="meta predict-metrics">
+            信頼度 {confidenceLabel(result.confidence)} ・ 参考件数 {result.sample_count}件
+            <br />
+            誤差(RMSE) {Math.round(result.rmse_sec_per_km)}秒/km ・ 関係の強さ(R²): {result.r_squared.toFixed(2)}
           </p>
-          <p className="meta">{result.model_formula}</p>
-          <h2>関係グラフ</h2>
           <div className="relation-grid">
             {result.relation_charts.map((chart) => (
               <RelationChart key={chart.key} chart={chart} />
             ))}
           </div>
-          <h2>根拠にした過去走</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>日時</th>
-                <th>距離</th>
-                <th>ペース</th>
-                <th>心拍</th>
-                <th>当時の気象</th>
-                <th>
-                  <WeatherDistanceHelp text={result.weather_distance_help} />
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.used_runs.map((run) => (
-                <tr key={run.record_id}>
-                  <td>{formatDateTime(run.started_at)}</td>
-                  <td>{formatDistanceKm(run.distance_km)}</td>
-                  <td>{formatPace(run.pace_sec_per_km)}</td>
-                  <td>{run.avg_heart_rate ?? "—"}</td>
-                  <td>
-                    {formatWeatherBrief({
-                      temperature_c: run.temperature_c,
-                      humidity_pct: run.humidity_pct,
-                      wbgt_c: run.wbgt_c,
-                    })}
-                  </td>
-                  <td>{formatWbgtDelta(run.wbgt_delta)}</td>
+          <div className="runs-table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>日時</th>
+                  <th>距離</th>
+                  <th>ペース</th>
+                  <th>心拍</th>
+                  <th>気象</th>
+                  <th>
+                    <WeatherDistanceHelp text={result.weather_distance_help} />
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {result.used_runs.map((run) => (
+                  <tr key={run.record_id}>
+                    <td>{formatDateTime(run.started_at)}</td>
+                    <td>{formatDistanceKm(run.distance_km)}</td>
+                    <td>{formatPace(run.pace_sec_per_km)}</td>
+                    <td>{run.avg_heart_rate ?? "—"}</td>
+                    <td>
+                      {formatWeatherBrief({
+                        temperature_c: run.temperature_c,
+                        humidity_pct: run.humidity_pct,
+                        wbgt_c: run.wbgt_c,
+                      })}
+                    </td>
+                    <td>{formatWbgtDelta(run.wbgt_delta)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       ) : null}
+
       <StickyActions>
-        <button type="submit" className="button action-lg" form="predict-form">
+        <button type="button" className="button action-lg" disabled={!ready} onClick={() => void onSubmit()}>
           予測する
         </button>
         <BackHome variant="button" />
       </StickyActions>
+
+      {weatherDraft ? (
+        <div className="modal-backdrop" onClick={() => setWeatherDraft(null)} role="presentation">
+          <div
+            className="modal-panel predict-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="weather-setting-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <ModalCloseButton onClick={() => setWeatherDraft(null)} />
+            <h2 id="weather-setting-title">気象の指定</h2>
+            <div className="predict-modal-form">
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="weather-mode"
+                  checked={weatherDraft.mode === "manual"}
+                  onChange={() => setWeatherDraft({ ...weatherDraft, mode: "manual" })}
+                />
+                数値を入れる
+              </label>
+              <div className={weatherDraft.mode === "manual" ? "mode-card active" : "mode-card inactive"}>
+                <label>
+                  気温
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={weatherDraft.temperature}
+                    onChange={(event) => setWeatherDraft({ ...weatherDraft, temperature: event.target.value })}
+                    disabled={weatherDraft.mode !== "manual"}
+                  />
+                </label>
+                <label>
+                  湿度
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={weatherDraft.humidity}
+                    onChange={(event) => setWeatherDraft({ ...weatherDraft, humidity: event.target.value })}
+                    disabled={weatherDraft.mode !== "manual"}
+                  />
+                </label>
+              </div>
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="weather-mode"
+                  checked={weatherDraft.mode === "forecast"}
+                  onChange={() => setWeatherDraft({ ...weatherDraft, mode: "forecast" })}
+                />
+                予報から選ぶ
+              </label>
+              <div className={weatherDraft.mode === "forecast" ? "mode-card active" : "mode-card inactive"}>
+                <StationPicker
+                  stations={stations}
+                  value={weatherDraft.stationId}
+                  onChange={(stationId) => setWeatherDraft({ ...weatherDraft, stationId })}
+                  disabled={weatherDraft.mode !== "forecast"}
+                  label="アメダス"
+                  allowGps
+                  layout="run"
+                  onGpsMessage={(message, kind) => setWeatherError(kind === "error" ? message : null)}
+                />
+                <label>
+                  予報の日時
+                  <input
+                    type="datetime-local"
+                    value={weatherDraft.forecastAt}
+                    onChange={(event) => setWeatherDraft({ ...weatherDraft, forecastAt: event.target.value })}
+                    disabled={weatherDraft.mode !== "forecast"}
+                  />
+                </label>
+              </div>
+              {weatherError ? <p className="error">{weatherError}</p> : null}
+              <button type="button" className="button" onClick={commitWeather}>
+                設定する
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {distanceDraft ? (
+        <div className="modal-backdrop" onClick={() => setDistanceDraft(null)} role="presentation">
+          <div
+            className="modal-panel predict-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="distance-setting-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <ModalCloseButton onClick={() => setDistanceDraft(null)} />
+            <h2 id="distance-setting-title">距離/レースを指定</h2>
+            <div className="predict-modal-form">
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="distance-mode"
+                  checked={distanceDraft.mode === "custom"}
+                  onChange={() => setDistanceDraft({ ...distanceDraft, mode: "custom" })}
+                />
+                距離を指定
+              </label>
+              <div className={distanceDraft.mode === "custom" ? "mode-card active" : "mode-card inactive"}>
+                <label>
+                  距離（km）
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={distanceDraft.km}
+                    onChange={(event) => setDistanceDraft({ ...distanceDraft, km: event.target.value })}
+                    disabled={distanceDraft.mode !== "custom"}
+                  />
+                </label>
+                {distanceDraft.mode === "custom" ? (
+                  <fieldset className="predict-intensity">
+                    <legend>走行強度</legend>
+                    {DISTANCE_INTENSITY.map((item) => (
+                      <label className="choice" key={item.key}>
+                        <input
+                          type="radio"
+                          name="intensity"
+                          checked={distanceDraft.intensity === item.key}
+                          onChange={() => setDistanceDraft({ ...distanceDraft, intensity: item.key })}
+                        />
+                        {item.label}
+                      </label>
+                    ))}
+                  </fieldset>
+                ) : null}
+              </div>
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="distance-mode"
+                  checked={distanceDraft.mode === "race"}
+                  onChange={() => setDistanceDraft({ ...distanceDraft, mode: "race" })}
+                />
+                レース種別で予測
+              </label>
+              <div className={distanceDraft.mode === "race" ? "mode-card active" : "mode-card inactive"}>
+                <label>
+                  レース
+                  <select
+                    value={distanceDraft.race}
+                    onChange={(event) => setDistanceDraft({ ...distanceDraft, race: event.target.value })}
+                    disabled={distanceDraft.mode !== "race"}
+                  >
+                    {Object.entries(RACE_LABELS).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {distanceError ? <p className="error">{distanceError}</p> : null}
+              <button type="button" className="button" onClick={commitDistance}>
+                設定する
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
