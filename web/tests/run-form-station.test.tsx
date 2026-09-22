@@ -48,7 +48,7 @@ describe("記録追加の初期地点", () => {
     mockGeolocation({ latitude: 35.74, longitude: 139.65 });
     render(<RunForm title="記録を追加" onCancel={() => undefined} onSuccess={() => undefined} />);
     await waitFor(() => {
-      expect(screen.getByLabelText("走行地点")).toHaveDisplayValue("44071 練馬");
+      expect(screen.getByLabelText("アメダス")).toHaveDisplayValue("44071 練馬");
     });
   });
 
@@ -66,7 +66,7 @@ describe("記録追加の初期地点", () => {
 
     render(<RunForm title="記録を追加" onCancel={() => undefined} onSuccess={() => undefined} />);
     await waitFor(() => {
-      expect(screen.getByLabelText("走行地点")).toHaveDisplayValue("44071 練馬");
+      expect(screen.getByLabelText("アメダス")).toHaveDisplayValue("44071 練馬");
     });
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled();
   });

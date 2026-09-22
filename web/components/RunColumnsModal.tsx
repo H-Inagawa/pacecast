@@ -79,10 +79,13 @@ export function RunColumnsModal({ open, columns, onChange, onClose }: Props) {
       >
         <ModalCloseButton onClick={onClose} />
         <h2 id="run-columns-title">表示項目設定</h2>
-        <p className="lede">一覧に出す列を選びます。日時と距離は必ず表示します。</p>
+        <p className="lede">一覧に出す列を選びます。</p>
         <ul className="column-options">
           <ColumnCheck label={RUN_COLUMN_LABELS.started_at} checked disabled />
           <ColumnCheck label={RUN_COLUMN_LABELS.distance} checked disabled />
+        </ul>
+        <p className="column-group-label">走行詳細</p>
+        <ul className="column-options">
           {RUN_DETAIL_COLUMNS.map((key) => (
             <ColumnCheck
               key={key}

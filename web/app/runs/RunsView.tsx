@@ -26,12 +26,22 @@ import {
   formatWbgtValue,
   groupRunsByMonth,
 } from "../../lib/format";
-import { runRowClass, WBGT_ZONE_LABELS } from "../../lib/weatherZone";
+import { runRowClass, type WbgtZone } from "../../lib/weatherZone";
 import type { Run } from "../../lib/types";
+import { ModalCloseButton } from "../../components/ModalCloseButton";
 
 type Props = {
   initialEditId?: number;
 };
+
+const WBGT_LEGEND: { zone: WbgtZone; label: string }[] = [
+  { zone: "too_hot", label: "暑すぎる" },
+  { zone: "hot", label: "暑い" },
+  { zone: "comfort", label: "快適" },
+  { zone: "cold", label: "寒い" },
+  { zone: "too_cold", label: "寒すぎる" },
+  { zone: "none", label: "未適用" },
+];
 
 export function RunsView({ initialEditId }: Props) {
   const router = useRouter();
@@ -41,6 +51,7 @@ export function RunsView({ initialEditId }: Props) {
   const [formRunId, setFormRunId] = useState<number | null | undefined>(undefined);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [columns, setColumns] = useState<RunColumnVisibility>(DEFAULT_RUN_COLUMNS);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   async function load() {
     try {
@@ -73,12 +84,18 @@ export function RunsView({ initialEditId }: Props) {
     router.replace("/runs");
   }, [initialEditId, router]);
 
-  async function remove(id: number) {
-    if (!window.confirm("記録を削除してよろしいですか？")) {
+  async function confirmRemove() {
+    if (deleteId == null) {
       return;
     }
-    await apiSend(`/api/runs/${id}`, "DELETE");
-    await load();
+    try {
+      await apiSend(`/api/runs/${deleteId}`, "DELETE");
+      setDeleteId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "削除に失敗しました");
+      setDeleteId(null);
+    }
   }
 
   const groups = groupRunsByMonth(runs);
@@ -88,24 +105,32 @@ export function RunsView({ initialEditId }: Props) {
 
   return (
     <>
-      <header className="page-heading">
+      <header className="page-heading runs-heading">
         <h1>走行記録</h1>
-        {loaded ? <p className="meta">{formatRunSummary(runs.length, totalDistance)}</p> : null}
+        {loaded && groups.length ? <p className="meta">{formatRunSummary(runs.length, totalDistance)}</p> : null}
+        {loaded && !groups.length ? <p className="meta">記録がありません</p> : null}
       </header>
       {error ? <p className="error">{error}</p> : null}
       {wbgtColoring ? (
-        <p className="meta weather-legend">
-          行の色は推定 WBGT。{WBGT_ZONE_LABELS.too_cold} / {WBGT_ZONE_LABELS.cold} / {WBGT_ZONE_LABELS.comfort} /{" "}
-          {WBGT_ZONE_LABELS.hot} / {WBGT_ZONE_LABELS.too_hot}。{WBGT_ZONE_LABELS.none}はグレー。
-        </p>
+        <div className="wbgt-legend" role="list" aria-label="WBGTの凡例">
+          <span className="wbgt-legend__label">凡例:</span>
+          {WBGT_LEGEND.map((item) => (
+            <span key={item.zone} role="listitem" className={`wbgt-legend__chip wbgt-${item.zone}`}>
+              {item.label}
+            </span>
+          ))}
+        </div>
       ) : null}
       {!loaded ? (
         <p className="empty">読み込み中...</p>
       ) : groups.length ? (
         groups.map((group) => (
           <section className="month-block" key={group.key}>
-            <h2>{group.label}</h2>
-            <p className="meta">{formatRunSummary(group.runs.length, group.total)}</p>
+            <div className="month-head">
+              <h2>{group.label}</h2>
+              <p className="meta">{formatRunSummary(group.runs.length, group.total)}</p>
+            </div>
+            <div className="runs-table-scroll">
             <table>
               <thead>
                 <tr>
@@ -141,7 +166,7 @@ export function RunsView({ initialEditId }: Props) {
                       <button type="button" className="text-link" onClick={() => setFormRunId(run.id)}>
                         編集
                       </button>
-                      <button type="button" className="linkish" onClick={() => void remove(run.id)}>
+                      <button type="button" className="linkish" onClick={() => setDeleteId(run.id)}>
                         削除
                       </button>
                     </td>
@@ -149,15 +174,14 @@ export function RunsView({ initialEditId }: Props) {
                 ))}
               </tbody>
             </table>
+            </div>
           </section>
         ))
       ) : (
         <p className="empty">
-          記録がありません。
           <button type="button" className="text-link" onClick={() => setFormRunId(null)}>
             最初の走行を追加
           </button>
-          してください。
         </p>
       )}
       {formOpen ? null : (
@@ -183,6 +207,30 @@ export function RunsView({ initialEditId }: Props) {
         onClose={() => setFormRunId(undefined)}
         onSaved={() => void load()}
       />
+      {deleteId != null ? (
+        <div className="modal-backdrop" onClick={() => setDeleteId(null)} role="presentation">
+          <div
+            className="modal-panel delete-confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-run-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <ModalCloseButton onClick={() => setDeleteId(null)} />
+            <p id="delete-run-title" className="delete-confirm__title">
+              記録を削除してよろしいですか？
+            </p>
+            <div className="delete-confirm__actions">
+              <button type="button" className="button danger" onClick={() => void confirmRemove()}>
+                削除
+              </button>
+              <button type="button" className="button ghost" onClick={() => setDeleteId(null)}>
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

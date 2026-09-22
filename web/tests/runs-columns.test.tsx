@@ -14,9 +14,10 @@ vi.mock("../lib/api", () => ({
   apiSend: vi.fn(),
 }));
 
-import { apiGet } from "../lib/api";
+import { apiGet, apiSend } from "../lib/api";
 
 const mockedGet = vi.mocked(apiGet);
+const mockedSend = vi.mocked(apiSend);
 
 const sampleRun: Run = {
   id: 3,
@@ -40,7 +41,9 @@ describe("走行記録の表示項目", () => {
   beforeEach(() => {
     window.localStorage.clear();
     mockedGet.mockReset();
+    mockedSend.mockReset();
     mockedGet.mockResolvedValue([sampleRun]);
+    mockedSend.mockResolvedValue(undefined);
   });
 
   it("下部に表示項目設定があり、日時と距離は外せない", async () => {
@@ -96,5 +99,28 @@ describe("走行記録の表示項目", () => {
     expect(screen.getByRole("columnheader", { name: /WBGT/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "WBGTの説明" })).toBeInTheDocument();
     expect(screen.queryByText("24.0℃")).not.toBeInTheDocument();
+  });
+
+  it("WBGT色分けのときは凡例チップを出す", async () => {
+    mockedGet.mockResolvedValue([{ ...sampleRun, weather_zone: "comfort" }]);
+    render(<RunsView />);
+    const legend = await screen.findByRole("list", { name: "WBGTの凡例" });
+    expect(within(legend).getByText("凡例:")).toBeInTheDocument();
+    const labels = within(legend).getAllByRole("listitem").map((item) => item.textContent);
+    expect(labels).toEqual(["暑すぎる", "暑い", "快適", "寒い", "寒すぎる", "未適用"]);
+  });
+
+  it("削除は確認してから送る", async () => {
+    const user = userEvent.setup();
+    render(<RunsView />);
+    await user.click(await screen.findByRole("button", { name: "削除" }));
+    const dialog = screen.getByRole("dialog", { name: "記録を削除してよろしいですか？" });
+    await user.click(within(dialog).getByRole("button", { name: "キャンセル" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mockedSend).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "削除" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "削除" }));
+    expect(mockedSend).toHaveBeenCalledWith("/api/runs/3", "DELETE");
   });
 });

@@ -36,7 +36,7 @@ export function RunFormModal({ open, runId, onClose, onSaved }: Props) {
     return null;
   }
 
-  const title = runId ? "走行記録を編集" : "走行記録を追加";
+  const title = runId ? "記録を編集" : "記録を追加";
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">

@@ -117,8 +117,20 @@ export function RunForm({ title, runId, onCancel, onSuccess }: Props) {
     <>
       <h2 id="run-form-title">{title}</h2>
       {error ? <p className="error">{error}</p> : null}
-      <form className="stack" onSubmit={(event) => void onSubmit(event)}>
-        <StationPicker stations={stations} value={stationId} onChange={setStationId} label="走行地点" />
+      <form className="stack run-form" onSubmit={(event) => void onSubmit(event)}>
+        <StationPicker
+          stations={stations}
+          value={stationId}
+          onChange={setStationId}
+          label="アメダス"
+          allowGps
+          layout="run"
+          onGpsMessage={(message, kind) => {
+            if (kind === "error") {
+              setError(message);
+            }
+          }}
+        />
         <label>
           走行日時
           <input

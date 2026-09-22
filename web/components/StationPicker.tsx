@@ -13,6 +13,8 @@ type Props = {
   disabled?: boolean;
   label?: string;
   allowGps?: boolean;
+  /** 記録追加モーダル向け。地点名の下に都道府県と観測所を横並びにする。 */
+  layout?: "stack" | "run";
   onGpsMessage?: (message: string, kind: "ok" | "error") => void;
 };
 
@@ -23,6 +25,7 @@ export function StationPicker({
   disabled = false,
   label = "アメダス地点",
   allowGps = false,
+  layout = "stack",
   onGpsMessage,
 }: Props) {
   const prefectures = useMemo(
@@ -84,45 +87,81 @@ export function StationPicker({
     }
   }
 
+  const prefectureSelect = (
+    <select
+      aria-label="都道府県"
+      value={prefecture}
+      disabled={disabled}
+      required
+      onChange={(event) => onPrefectureChange(event.target.value)}
+    >
+      {prefectures.map((name) => (
+        <option key={name} value={name}>
+          {name}
+        </option>
+      ))}
+    </select>
+  );
+  const stationSelect = (
+    <select
+      aria-label={label}
+      value={value}
+      disabled={disabled}
+      required
+      onChange={(event) => onChange(event.target.value)}
+    >
+      {options.map((item) => (
+        <option key={item.station_id} value={item.station_id}>
+          {item.station_id} {item.name}
+        </option>
+      ))}
+    </select>
+  );
+  const gpsButton = allowGps ? (
+    <button
+      type="button"
+      className={layout === "run" ? "button run-station__gps" : "button"}
+      disabled={disabled || !gpsReady || locating || stations.length === 0}
+      title={gpsReady ? undefined : geolocationUnavailableReason()}
+      onClick={() => void onFindByGps()}
+    >
+      {locating ? "探しています..." : "GPSで探す"}
+    </button>
+  ) : null;
+
+  if (layout === "run") {
+    return (
+      <div className="run-station">
+        <p className="run-station__title">走行地点</p>
+        <div className="run-station__body">
+          <div className="run-station__fields">
+            <label>
+              都道府県
+              {prefectureSelect}
+            </label>
+            <label>
+              {label}
+              {stationSelect}
+            </label>
+          </div>
+          {gpsButton}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <label>
         都道府県
-        <select
-          value={prefecture}
-          disabled={disabled}
-          required
-          onChange={(event) => onPrefectureChange(event.target.value)}
-        >
-          {prefectures.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+        {prefectureSelect}
       </label>
       <div className="station-pick-row">
         <label>
           {label}
-          <select value={value} disabled={disabled} required onChange={(event) => onChange(event.target.value)}>
-            {options.map((item) => (
-              <option key={item.station_id} value={item.station_id}>
-                {item.station_id} {item.name}
-              </option>
-            ))}
-          </select>
+          {stationSelect}
         </label>
-        {allowGps ? (
-          <button
-            type="button"
-            className="button"
-            disabled={disabled || !gpsReady || locating || stations.length === 0}
-            title={gpsReady ? undefined : geolocationUnavailableReason()}
-            onClick={() => void onFindByGps()}
-          >
-            {locating ? "探しています..." : "GPSで探す"}
-          </button>
-        ) : null}
+        {gpsButton}
       </div>
     </>
   );
