@@ -7,20 +7,22 @@ import { PredictHelpModal } from "../../components/PredictHelpModal";
 import { RelationChart } from "../../components/RelationChart";
 import { StationPicker } from "../../components/StationPicker";
 import { StickyActions } from "../../components/StickyActions";
-import { WeatherDistanceHelp } from "../../components/WeatherDistanceHelp";
+import { HelpTip } from "../../components/WeatherDistanceHelp";
 import { apiGet, apiSend } from "../../lib/api";
 import {
   confidenceLabel,
   defaultDateTimeLocal,
   formatDateTime,
   formatDistanceKm,
-  formatDuration,
+  formatDurationRange,
   formatPace,
-  formatWbgtDelta,
+  formatPaceRange,
+  formatSimilarity,
   formatWeatherBrief,
 } from "../../lib/format";
 import { formatWindWithDirection } from "../../lib/wind";
 import { weatherCodeLabel } from "../../lib/weatherCode";
+import { RUN_WEIGHT_HELP } from "../../lib/personalPredict";
 import { classifyWbgtZone, WBGT_FEEL_LABELS } from "../../lib/weatherZone";
 import type { AmedasStation, PredictResult, Profile } from "../../lib/types";
 
@@ -51,6 +53,25 @@ type WeatherDraft = {
   forecastAt: string;
   stationId: string;
 };
+
+function formatEffectPercent(effect: number): string {
+  const percent = effect * 100;
+  const sign = percent > 0 ? "+" : "";
+  return `${sign}${percent.toFixed(1)}%`;
+}
+
+function personalEffectLabel(general: number, finalEffect: number, alpha: number): string {
+  const percent = formatEffectPercent(finalEffect);
+  if (!(alpha > 0)) {
+    return percent;
+  }
+  const delta = (finalEffect - general) * 100;
+  if (Math.abs(delta) < 0.05) {
+    return percent;
+  }
+  const direction = delta > 0 ? "遅くなる" : "速くなる";
+  return `${percent} (一般より${Math.abs(delta).toFixed(1)}%${direction})`;
+}
 
 function intensityLabel(key: string): string {
   return DISTANCE_INTENSITY.find((item) => item.key === key)?.label ?? key;
@@ -247,23 +268,62 @@ export default function PredictPage() {
           <section className="stat-grid">
             <article className="card">
               <h2>予想ペース</h2>
-              <p className="stat">{formatPace(result.predicted_pace_sec_per_km)}</p>
+              <p className="stat stat-range">
+                {formatPaceRange(result.predicted_pace_sec_per_km, result.rmse_sec_per_km)}
+              </p>
             </article>
             <article className="card">
               <h2>予想タイム</h2>
-              <p className="stat">{formatDuration(result.predicted_duration_sec)}</p>
+              <p className="stat stat-range">
+                {formatDurationRange(
+                  result.predicted_duration_sec,
+                  result.predicted_pace_sec_per_km > 0
+                    ? result.rmse_sec_per_km * (result.predicted_duration_sec / result.predicted_pace_sec_per_km)
+                    : 0,
+                )}
+              </p>
             </article>
           </section>
+          {result.final_wbgt_effect != null && result.general_wbgt_effect != null ? (
+            <div className="wbgt-effect">
+              <table>
+                <caption>WBGTによる補正率</caption>
+                <thead>
+                  <tr>
+                    <th />
+                    <th>一般</th>
+                    <th>個人補正あり</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th>WBGT補正率</th>
+                    <td>{formatEffectPercent(result.general_wbgt_effect)}</td>
+                    <td>
+                      {personalEffectLabel(
+                        result.general_wbgt_effect,
+                        result.final_wbgt_effect,
+                        result.personal_weight ?? 0,
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {result.model_note ? <p className="meta">{result.model_note}</p> : null}
           <p className="meta predict-metrics">
             信頼度 {confidenceLabel(result.confidence)} ・ 参考件数 {result.sample_count}件
-            <br />
-            誤差(RMSE) {Math.round(result.rmse_sec_per_km)}秒/km ・ 関係の強さ(R²): {result.r_squared.toFixed(2)}
+            {result.class_sample_count != null ? `（この階級 ${result.class_sample_count}件）` : ""}
+            {" ・ "}
+            関係の強さ(R²): {result.r_squared.toFixed(2)}
           </p>
           <div className="relation-grid">
             {result.relation_charts.map((chart) => (
               <RelationChart key={chart.key} chart={chart} />
             ))}
           </div>
+          {result.final_wbgt_effect != null ? <h2 className="predict-table-title">予測条件に近い走行記録</h2> : null}
           <div className="runs-table-scroll">
             <table>
               <thead>
@@ -274,7 +334,15 @@ export default function PredictPage() {
                   <th>心拍</th>
                   <th>気象</th>
                   <th>
-                    <WeatherDistanceHelp text={result.weather_distance_help} />
+                    <HelpTip
+                      label="予測条件との類似性"
+                      text={
+                        result.final_wbgt_effect != null
+                          ? RUN_WEIGHT_HELP
+                          : "100 が最大です。直近の走ほど大きくなります。"
+                      }
+                      ariaLabel="予測条件との類似性の説明"
+                    />
                   </th>
                 </tr>
               </thead>
@@ -292,7 +360,7 @@ export default function PredictPage() {
                         wbgt_c: run.wbgt_c,
                       })}
                     </td>
-                    <td>{formatWbgtDelta(run.wbgt_delta)}</td>
+                    <td>{formatSimilarity(run.weight ?? Number.NaN)}</td>
                   </tr>
                 ))}
               </tbody>

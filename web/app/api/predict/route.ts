@@ -126,6 +126,7 @@ export async function POST(request: Request) {
         wbgt_c: item.wbgtC,
         weather_distance: item.weatherDistance,
         wbgt_delta: item.wbgtDelta,
+        weight: item.weight,
       })),
       condition,
       weather_distance_help: WEATHER_DISTANCE_HELP,
@@ -133,6 +134,12 @@ export async function POST(request: Request) {
       rmse_sec_per_km: result.rmseSecPerKm,
       model_formula: result.modelFormula,
       uses_hr: result.usesHr,
+      general_wbgt_effect: result.generalWbgtEffect,
+      personal_wbgt_effect: result.personalWbgtEffect,
+      final_wbgt_effect: result.finalWbgtEffect,
+      personal_weight: result.personalWeight,
+      class_sample_count: result.classSampleCount,
+      model_note: result.modelNote,
       relation_charts: result.relationCharts.map((chart) => ({
         key: chart.key,
         title: chart.title,
@@ -140,6 +147,10 @@ export async function POST(request: Request) {
         note: chart.note,
         observed: chart.observed.map((point) => ({ x: point.x, pace_sec_per_km: point.paceSecPerKm })),
         curve: chart.curve.map((point) => ({ x: point.x, pace_sec_per_km: point.paceSecPerKm })),
+        formula: chart.formula ?? null,
+        marker: chart.marker
+          ? { x: chart.marker.x, pace_sec_per_km: chart.marker.paceSecPerKm }
+          : null,
       })),
     });
   } catch (error) {

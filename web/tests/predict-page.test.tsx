@@ -108,9 +108,9 @@ describe("予測フォーム", () => {
         }),
       );
     });
-    expect(screen.getByText("5'29\"/km")).toBeInTheDocument();
-    expect(screen.getByText("27:24")).toBeInTheDocument();
-    expect(screen.getByText(/誤差\(RMSE\) 12秒\/km/)).toBeInTheDocument();
+    expect(screen.getByText("5'17\"~5'41\"/km (5'29\"/km±12\"/km)")).toBeInTheDocument();
+    expect(screen.getByText("26:24~28:24 (27:24±1:00)")).toBeInTheDocument();
+    expect(screen.queryByText(/誤差\(RMSE\)/)).not.toBeInTheDocument();
     expect(screen.getByText(/関係の強さ\(R²\): 0.72/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "WBGT とペース" })).toBeInTheDocument();
   });

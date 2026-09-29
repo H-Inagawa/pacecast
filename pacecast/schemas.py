@@ -189,6 +189,12 @@ class PredictOut(BaseModel):
     model_formula: str
     uses_hr: bool
     relation_charts: list[RelationChartOut]
+    general_wbgt_effect: float | None = None
+    personal_wbgt_effect: float | None = None
+    final_wbgt_effect: float | None = None
+    personal_weight: float | None = None
+    class_sample_count: int | None = None
+    model_note: str | None = None
 
 
 class AuthCredentials(BaseModel):

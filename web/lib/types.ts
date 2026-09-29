@@ -101,6 +101,7 @@ export type SimilarRun = {
   wbgt_c: number;
   weather_distance: number;
   wbgt_delta: number;
+  weight?: number | null;
 };
 
 export type ChartPoint = {
@@ -115,6 +116,8 @@ export type RelationChart = {
   note: string;
   observed: ChartPoint[];
   curve: ChartPoint[];
+  formula?: string | null;
+  marker?: ChartPoint | null;
 };
 
 export type PredictResult = {
@@ -144,4 +147,10 @@ export type PredictResult = {
   model_formula: string;
   uses_hr: boolean;
   relation_charts: RelationChart[];
+  general_wbgt_effect?: number | null;
+  personal_wbgt_effect?: number | null;
+  final_wbgt_effect?: number | null;
+  personal_weight?: number | null;
+  class_sample_count?: number | null;
+  model_note?: string | null;
 };

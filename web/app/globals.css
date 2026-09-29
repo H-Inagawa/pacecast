@@ -1136,6 +1136,11 @@ form.run-form .actions button {
   font-weight: 700;
 }
 
+.stat-range {
+  font-size: 1.35rem;
+  line-height: 1.35;
+}
+
 form.stack { display: grid; gap: 0.9rem; margin: 1rem 0 1.5rem; }
 
 label, fieldset {
@@ -1230,6 +1235,39 @@ input:disabled, select:disabled {
 }
 .predict-intensity legend { margin-bottom: 0.35rem; }
 .predict-metrics { white-space: normal; }
+.predict-formula {
+  white-space: pre-line;
+  margin: 0.4rem 0 1rem;
+}
+.predict-table-title {
+  font-size: 1.05rem;
+  margin: 1.2rem 0 0.4rem;
+}
+.wbgt-effect {
+  margin: 0.6rem 0 1rem;
+}
+.wbgt-effect table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.wbgt-effect caption {
+  text-align: left;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+.wbgt-effect th,
+.wbgt-effect td {
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+}
+.wbgt-effect thead th {
+  color: var(--muted);
+  font-weight: 500;
+}
 
 .choice { display: flex; align-items: center; gap: 0.5rem; }
 .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
@@ -1395,6 +1433,18 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 
 .chart-dot {
   fill: var(--accent);
+}
+
+.chart-star {
+  fill: var(--accent);
+  stroke: var(--ink);
+  stroke-width: 0.8;
+}
+
+.chart-formula {
+  fill: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .chart-line {

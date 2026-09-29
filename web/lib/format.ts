@@ -7,6 +7,53 @@ export function formatPace(secPerKm: number): string {
   return `${minutes}'${String(seconds).padStart(2, "0")}"/km`;
 }
 
+function paceClock(secPerKm: number): string {
+  const total = Math.max(0, Math.round(secPerKm));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${minutes}'${String(seconds).padStart(2, "0")}"`;
+}
+
+function formatRmsePace(secPerKm: number): string {
+  const total = Math.max(0, Math.round(secPerKm));
+  if (total < 60) {
+    return `${total}"/km`;
+  }
+  return formatPace(total);
+}
+
+/**
+ * 予想ペースを、中心と RMSE の幅で表す。
+ */
+export function formatPaceRange(paceSecPerKm: number, rmseSecPerKm: number): string {
+  const center = Math.max(0, Math.round(paceSecPerKm));
+  const error = Math.max(0, Math.round(rmseSecPerKm));
+  const low = Math.max(0, center - error);
+  const high = center + error;
+  return `${paceClock(low)}~${paceClock(high)}/km (${formatPace(center)}±${formatRmsePace(error)})`;
+}
+
+/**
+ * 予想タイムを、中心と誤差の幅で表す。
+ */
+export function formatDurationRange(durationSec: number, errorSec: number): string {
+  const center = Math.max(0, Math.round(durationSec));
+  const error = Math.max(0, Math.round(errorSec));
+  const low = Math.max(0, center - error);
+  const high = center + error;
+  return `${formatDuration(low)}~${formatDuration(high)} (${formatDuration(center)}±${formatDuration(error)})`;
+}
+
+/**
+ * 予測条件との類似性を、最大 100 の小数第2位で表す。
+ */
+export function formatSimilarity(weight: number): string {
+  if (!Number.isFinite(weight)) {
+    return "—";
+  }
+  return (weight * 100).toFixed(2);
+}
+
 export function formatDuration(seconds: number): string {
   const total = Math.round(seconds);
   const hours = Math.floor(total / 3600);

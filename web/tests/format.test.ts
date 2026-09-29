@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   formatDateTime,
+  formatDurationRange,
   formatPace,
+  formatPaceRange,
+  formatSimilarity,
   formatRunSummary,
   formatWbgtDelta,
   formatHumidityPct,
@@ -33,6 +36,10 @@ function run(partial: Partial<Run> & Pick<Run, "id" | "started_at" | "distance_k
 describe("format", () => {
   it("ペースを分秒/km で出す", () => {
     expect(formatPace(330)).toBe("5'30\"/km");
+    expect(formatPaceRange(330, 30)).toBe("5'00\"~6'00\"/km (5'30\"/km±30\"/km)");
+    expect(formatDurationRange(3300, 300)).toBe("50:00~1:00:00 (55:00±5:00)");
+    expect(formatSimilarity(0.337)).toBe("33.70");
+    expect(formatSimilarity(1)).toBe("100.00");
   });
 
   it("未関連の気象はプレースホルダにする", () => {

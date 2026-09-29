@@ -590,6 +590,12 @@ def predict(
         rmse_sec_per_km=result.rmse_sec_per_km,
         model_formula=result.model_formula,
         uses_hr=result.uses_hr,
+        general_wbgt_effect=result.general_wbgt_effect,
+        personal_wbgt_effect=result.personal_wbgt_effect,
+        final_wbgt_effect=result.final_wbgt_effect,
+        personal_weight=result.personal_weight,
+        class_sample_count=result.class_sample_count,
+        model_note=result.model_note,
         relation_charts=[
             RelationChartOut(
                 key=chart.key,

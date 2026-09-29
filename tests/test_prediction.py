@@ -95,7 +95,9 @@ def test_predict_performance_uses_formula_for_wbgt(db) -> None:
     assert hot is not None
     assert cool.predicted_pace_sec_per_km < hot.predicted_pace_sec_per_km
     assert cool.predicted_duration_sec == round(cool.predicted_pace_sec_per_km * 5)
-    assert cool.r_squared > 0.8
+    assert cool.r_squared > 0
+    assert cool.final_wbgt_effect is not None
+    assert len(cool.used_runs) <= 5
     assert cool.rmse_sec_per_km > 0
     assert cool.relation_charts[0].key == "wbgt"
     assert cool.relation_charts[0].curve

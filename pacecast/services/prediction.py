@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 from pacecast.config import NEAR_WEATHER_DISTANCE
 from pacecast.models import RunningRecord
 from pacecast.services.weather_span import record_weather
+from pacecast.services.personal_wbgt import PersonalRun, try_personal_prediction
 from pacecast.services.regression import (
     FittedPaceModel,
     fit_pace_model,
@@ -58,6 +59,8 @@ class RelationChart:
     note: str
     observed: list[ChartPoint]
     curve: list[ChartPoint]
+    formula: str | None = None
+    marker: ChartPoint | None = None
 
 
 @dataclass(frozen=True)
@@ -78,6 +81,12 @@ class PredictionResult:
     model_formula: str
     uses_hr: bool
     relation_charts: list[RelationChart]
+    general_wbgt_effect: float | None = None
+    personal_wbgt_effect: float | None = None
+    final_wbgt_effect: float | None = None
+    personal_weight: float | None = None
+    class_sample_count: int | None = None
+    model_note: str | None = None
 
 
 def weather_distance(wbgt_a: float, wbgt_b: float) -> float:
@@ -169,6 +178,7 @@ def _relation_charts(
     heart_rate: float,
     distance_km: float,
     wbgt_c: float,
+    predicted_pace_sec_per_km: float,
 ) -> list[RelationChart]:
     """
     WBGT・心拍・距離とペースの関係グラフを作る。
@@ -179,6 +189,7 @@ def _relation_charts(
         heart_rate: 予測の心拍。
         distance_km: 予測の距離。
         wbgt_c: 予測の WBGT。
+        predicted_pace_sec_per_km: 予想ペース（秒/km）。星の位置に使う。
 
     Returns:
         3本の関係グラフ。
@@ -195,10 +206,9 @@ def _relation_charts(
     ]
     dist_obs = [ChartPoint(x=record.distance_km, pace_sec_per_km=record.pace_sec_per_km) for record in records]
 
-    def domain(points: list[ChartPoint], fallback: float) -> list[float]:
-        if not points:
-            return [fallback]
+    def domain(points: list[ChartPoint], target: float) -> list[float]:
         xs = [point.x for point in points]
+        xs.append(target)
         return _linspace(min(xs), max(xs))
 
     wbgt_curve = _curve(model, "wbgt", domain(wbgt_obs, wbgt_c), heart_rate, distance_km, wbgt_c)
@@ -216,6 +226,7 @@ def _relation_charts(
             note="距離と心拍は予測条件で固定",
             observed=wbgt_obs,
             curve=wbgt_curve,
+            marker=ChartPoint(x=wbgt_c, pace_sec_per_km=predicted_pace_sec_per_km),
         ),
         RelationChart(
             key="heart_rate",
@@ -224,6 +235,7 @@ def _relation_charts(
             note="WBGT と距離は予測条件で固定" if model.uses_hr else "心拍付きが少ないため、今回の式に心拍は入れていません",
             observed=hr_obs,
             curve=hr_curve,
+            marker=ChartPoint(x=heart_rate, pace_sec_per_km=predicted_pace_sec_per_km),
         ),
         RelationChart(
             key="distance",
@@ -232,6 +244,7 @@ def _relation_charts(
             note="WBGT と心拍は予測条件で固定",
             observed=dist_obs,
             curve=dist_curve,
+            marker=ChartPoint(x=distance_km, pace_sec_per_km=predicted_pace_sec_per_km),
         ),
     ]
 
@@ -311,6 +324,87 @@ def predict_performance(
     as_of_dt = as_of or datetime.now()
     hr_rows = [record for record in eligible if record.avg_heart_rate is not None]
     uses_hr = len(hr_rows) >= MIN_HR_RUNS
+    personal = None
+    if uses_hr and target_hr is not None:
+        personal_runs = []
+        for record in hr_rows:
+            weather = record_weather(record)
+            if weather is None or weather.wbgt_c is None:
+                continue
+            personal_runs.append(
+                PersonalRun(
+                    record_id=record.id,
+                    started_at=record.started_at,
+                    distance_km=record.distance_km,
+                    duration_sec=record.duration_sec,
+                    avg_heart_rate=float(record.avg_heart_rate or 0),
+                    wbgt_c=weather.wbgt_c,
+                )
+            )
+        personal = try_personal_prediction(personal_runs, wbgt_c, distance_km, float(target_hr), as_of_dt)
+    if personal is not None:
+        by_id = {record.id: record for record in hr_rows}
+        used_runs = [
+            _to_similar(by_id[record_id], wbgt_c, weight)
+            for record_id, weight in personal.ranked[:5]
+            if record_id in by_id
+        ]
+        near_count = sum(
+            1
+            for record in eligible
+            if (weather := record_weather(record)) is not None
+            and weather.wbgt_c is not None
+            and weather_distance(wbgt_c, weather.wbgt_c) <= NEAR_WEATHER_DISTANCE
+        )
+        return PredictionResult(
+            predicted_pace_sec_per_km=personal.predicted_pace_sec_per_km,
+            predicted_duration_sec=int(round(personal.predicted_pace_sec_per_km * distance_km)),
+            predicted_heart_rate=float(target_hr) if target_hr is not None else None,
+            confidence=_confidence_from_r2(personal.r_squared),
+            sample_count=personal.sample_count,
+            near_count=near_count,
+            used_runs=used_runs,
+            intensity_key=intensity_key,
+            intensity_label=intensity_label,
+            r_squared=personal.r_squared,
+            rmse_sec_per_km=personal.rmse_sec_per_km,
+            model_formula=personal.formula,
+            uses_hr=True,
+            relation_charts=[
+                RelationChart(
+                    key="wbgt",
+                    title="WBGT とペース",
+                    x_label="推定 WBGT（℃）",
+                    note="線は WBGT 補正後のペースです。星は今回の予想です",
+                    observed=[ChartPoint(point.x, point.pace_sec_per_km) for point in personal.wbgt_observed],
+                    curve=[ChartPoint(point.x, point.pace_sec_per_km) for point in personal.wbgt_curve],
+                    marker=ChartPoint(x=wbgt_c, pace_sec_per_km=personal.predicted_pace_sec_per_km),
+                ),
+                RelationChart(
+                    key="heart_rate",
+                    title="心拍 とペース",
+                    x_label="平均心拍（bpm）",
+                    note="点は過去走の実ペースです。星は今回の予想です",
+                    observed=[ChartPoint(point.x, point.pace_sec_per_km) for point in personal.hr_observed],
+                    curve=[ChartPoint(point.x, point.pace_sec_per_km) for point in personal.hr_curve],
+                    formula=personal.formula.split("\n")[0] if personal.formula.startswith("速度(") else None,
+                    marker=ChartPoint(
+                        x=float(target_hr) if target_hr is not None else 0.0,
+                        pace_sec_per_km=personal.predicted_pace_sec_per_km,
+                    ),
+                ),
+            ],
+            general_wbgt_effect=personal.general_effect,
+            personal_wbgt_effect=personal.personal_effect,
+            final_wbgt_effect=personal.final_effect,
+            personal_weight=personal.alpha,
+            class_sample_count=personal.class_sample_count,
+            model_note=(
+                None
+                if personal.heart_rate_adjusted
+                else "心拍とペースの関係が使えないため、記録のペースをそのまま重み付けしました。"
+            ),
+        )
     fit_rows = hr_rows if uses_hr else eligible
     if len(fit_rows) < 2:
         return None
@@ -358,5 +452,10 @@ def predict_performance(
         rmse_sec_per_km=model.rmse_sec_per_km,
         model_formula=model.formula_text(),
         uses_hr=uses_hr,
-        relation_charts=_relation_charts(model, fit_rows, predict_hr, distance_km, wbgt_c),
+        relation_charts=_relation_charts(model, fit_rows, predict_hr, distance_km, wbgt_c, pace),
+        model_note=(
+            "心拍とペースの関係が使えないため、従来の式で予測しました。"
+            if len(hr_rows) >= MIN_HR_RUNS
+            else "心拍付きの記録が少ないため、従来の式で予測しました。"
+        ),
     )
