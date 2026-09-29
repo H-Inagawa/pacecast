@@ -59,6 +59,7 @@ export type ProfileRow = {
   amedas_station_id: string | null;
   amedas_station_name: string | null;
   run_station_init?: string | null;
+  personal_prior_k?: number | null;
   updated_at: string;
 };
 

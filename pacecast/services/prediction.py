@@ -288,6 +288,7 @@ def predict_performance(
     target_hr: int | None = None,
     auth_user_id: int | None = None,
     as_of: datetime | None = None,
+    prior_k: float | None = None,
 ) -> PredictionResult | None:
     """
     指定した推定 WBGT・距離・走行強度に対するパフォーマンスを予測する。
@@ -301,6 +302,7 @@ def predict_performance(
         target_hr: 目標心拍。心拍項を使うときの入力。
         auth_user_id: 対象ランナー。省略時は全走行を使う（テスト用）。
         as_of: 直近重みの基準日時。省略時は現在。
+        prior_k: 個人記録の重み K。省略時は 10。
 
     Returns:
         予測結果。WBGT 付きの過去走が無ければ None。
@@ -341,7 +343,9 @@ def predict_performance(
                     wbgt_c=weather.wbgt_c,
                 )
             )
-        personal = try_personal_prediction(personal_runs, wbgt_c, distance_km, float(target_hr), as_of_dt)
+        personal = try_personal_prediction(
+            personal_runs, wbgt_c, distance_km, float(target_hr), as_of_dt, prior_k if prior_k is not None else 10
+        )
     if personal is not None:
         by_id = {record.id: record for record in hr_rows}
         used_runs = [

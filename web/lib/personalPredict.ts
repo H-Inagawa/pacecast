@@ -1,6 +1,14 @@
 /** 心拍補正と一般・個人 WBGT を混ぜた予測。方針は docs/02_architecture/issue-44-prediction.md */
 
 export const PERSONAL_PRIOR_K = 10;
+
+/** 設定の重み K。空や範囲外は初期値 10。 */
+export function normalizePersonalPriorK(value: number | null | undefined): number {
+  if (value == null || !Number.isFinite(value) || value < 0.1 || value > 1000) {
+    return PERSONAL_PRIOR_K;
+  }
+  return value;
+}
 export const MIN_PERSONAL_HR_RUNS = 6;
 
 const HALF_LIFE_DAYS = 180;
@@ -221,6 +229,7 @@ function classFactor(distanceKm: number, wbgt: number, targetDistance: number, t
  *   distanceKm: 予測する距離（km）。
  *   targetHr: 目標心拍（bpm）。
  *   asOf: 直近重みの基準日時。
+ *   priorK: 個人記録の重み K。未設定は 10。
  *
  * Returns:
  *   予測。心拍の傾きが使えないときは null。
@@ -231,6 +240,7 @@ export function tryPersonalPrediction(
   distanceKm: number,
   targetHr: number,
   asOf: Date,
+  priorK: number = PERSONAL_PRIOR_K,
 ): PersonalFit | null {
   if (runs.length < MIN_PERSONAL_HR_RUNS) {
     return null;
@@ -318,7 +328,7 @@ export function tryPersonalPrediction(
       recency * kernel(run.wbgtC - targetWbgt, WBGT_SIGMA) * kernel(run.distanceKm - distanceKm, DISTANCE_SIGMA);
     nEff += kernelWeight * factor;
   });
-  const alpha = nEff / (nEff + PERSONAL_PRIOR_K);
+  const alpha = nEff / (nEff + normalizePersonalPriorK(priorK));
   const general = generalEffect(distanceKm, targetWbgt, basePace);
   const personal = personalAt(targetWbgt);
   const finalEffect = clamp((1 - alpha) * general + alpha * personal, -0.15, 0.5);

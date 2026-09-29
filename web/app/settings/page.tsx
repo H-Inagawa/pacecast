@@ -1,15 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { BackHome } from "../../components/BackHome";
+import { HelpTip } from "../../components/WeatherDistanceHelp";
+import { ModalCloseButton } from "../../components/ModalCloseButton";
 import { StickyActions } from "../../components/StickyActions";
 import { apiGet, apiSend } from "../../lib/api";
 import { ageFromBirthday, emptyHrs, maxHrFromAge, suggestedHrs } from "../../lib/heartRate";
 import { StationPicker } from "../../components/StationPicker";
+import { PERSONAL_PRIOR_K, normalizePersonalPriorK } from "../../lib/personalPredict";
 import { normalizeRunStationInit, type RunStationInit } from "../../lib/run-station-init";
 import type { AmedasStation, IntensityHrs, Profile } from "../../lib/types";
 import { normalizeRowColorMode, type RowColorMode } from "../../lib/weatherZone";
+
+const PRIOR_K_HELP =
+  "一般の WBGT 補正と、自分の記録から求めた補正の混ぜ方です。α = 有効件数 / (有効件数 + K)。K が小さいほど自分の記録を強く使います。K が大きいほど一般の補正に寄ります。未設定は 10 です。";
+
+const STATION_HELP =
+  "気象の取得と推定 WBGT に使います。未設定時は東京（44132）。都道府県で絞り、観測所番号順です。「GPSで探す」は HTTPS か http://127.0.0.1 で使えます。";
+
+const COLOR_MODE_LABEL: Record<RowColorMode, string> = {
+  hr: "心拍",
+  wbgt: "気象条件（WBGT）",
+  off: "色分けしない",
+};
 
 function fieldValue(value: number | null): string {
   return value == null ? "" : String(value);
@@ -25,15 +41,15 @@ export default function SettingsPage() {
   const [maxHr, setMaxHr] = useState("");
   const [colorMode, setColorMode] = useState<RowColorMode>("hr");
   const [hrs, setHrs] = useState<IntensityHrs>(emptyHrs());
-  const [raceOpen, setRaceOpen] = useState(false);
+  const [priorK, setPriorK] = useState(String(PERSONAL_PRIOR_K));
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [age, setAge] = useState<number | null>(null);
   const [stations, setStations] = useState<AmedasStation[]>([]);
   const [stationId, setStationId] = useState("44132");
   const [runStationInit, setRunStationInit] = useState<RunStationInit>("profile");
-  const [wbgtReady, setWbgtReady] = useState(0);
-  const [runCount, setRunCount] = useState(0);
   const [onboarding, setOnboarding] = useState(false);
 
   useEffect(() => {
@@ -46,11 +62,10 @@ export default function SettingsPage() {
         setOriginalMaxHr(profile.max_heart_rate == null ? "" : String(profile.max_heart_rate));
         setColorMode(normalizeRowColorMode(profile.row_color_mode, profile.color_rows ? "hr" : "off"));
         setHrs(profile.intensities);
+        setPriorK(String(normalizePersonalPriorK(profile.personal_prior_k)));
         setAge(profile.age);
         setStationId(profile.amedas_station_id);
         setRunStationInit(normalizeRunStationInit(profile.run_station_init));
-        setWbgtReady(profile.wbgt_ready_count);
-        setRunCount(profile.run_count);
         setStations(amedasStations);
         setOnboarding(!profile.onboarding_complete);
         setLoaded(true);
@@ -89,28 +104,24 @@ export default function SettingsPage() {
         intensities: nextHrs,
         amedas_station_id: stationId,
         run_station_init: runStationInit,
+        personal_prior_k: normalizePersonalPriorK(priorK === "" ? null : Number(priorK)),
       });
       setMaxHr(saved.max_heart_rate == null ? "" : String(saved.max_heart_rate));
       setOriginalMaxHr(saved.max_heart_rate == null ? "" : String(saved.max_heart_rate));
       setOriginalBirthday(saved.birthday ?? "");
       setColorMode(normalizeRowColorMode(saved.row_color_mode, saved.color_rows ? "hr" : "off"));
       setHrs(saved.intensities);
+      setPriorK(String(normalizePersonalPriorK(saved.personal_prior_k)));
       setAge(saved.age);
       setStationId(saved.amedas_station_id);
       setRunStationInit(normalizeRunStationInit(saved.run_station_init));
-      setWbgtReady(saved.wbgt_ready_count);
-      setRunCount(saved.run_count);
       setOnboarding(!saved.onboarding_complete);
       if (onboarding && saved.onboarding_complete) {
         router.push("/");
         router.refresh();
         return;
       }
-      setNotice(
-        saved.run_count
-          ? `設定を保存しました（WBGT 付きの走行 ${saved.wbgt_ready_count} / ${saved.run_count} 件）`
-          : "設定を保存しました",
-      );
+      setNotice("設定を保存しました");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "保存に失敗しました");
@@ -118,6 +129,19 @@ export default function SettingsPage() {
   }
 
   const colorLocked = !maxHr;
+
+  useEffect(() => {
+    if (!advancedOpen) {
+      return;
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setAdvancedOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [advancedOpen]);
 
   return (
     <>
@@ -140,6 +164,7 @@ export default function SettingsPage() {
             value={stationId}
             onChange={setStationId}
             allowGps
+            helpText={STATION_HELP}
             onGpsMessage={(message, kind) => {
               if (kind === "error") {
                 setNotice(null);
@@ -150,30 +175,6 @@ export default function SettingsPage() {
               setNotice(message);
             }}
           />
-          <p className="meta">
-            気象の取得と推定 WBGT に使います。未設定時は東京（44132）。都道府県で絞り、観測所番号順です。「GPSで探す」は HTTPS か http://127.0.0.1 で使えます。
-            {runCount ? ` WBGT 付きの走行: ${wbgtReady} / ${runCount} 件` : ""}
-          </p>
-          <p className="meta">走行記録を追加するときの初期地点</p>
-          <label className="choice">
-            <input
-              type="radio"
-              name="run-station-init"
-              checked={runStationInit === "profile"}
-              onChange={() => setRunStationInit("profile")}
-            />
-            設定どおりのアメダスを出す
-          </label>
-          <label className="choice">
-            <input
-              type="radio"
-              name="run-station-init"
-              checked={runStationInit === "gps"}
-              onChange={() => setRunStationInit("gps")}
-            />
-            GPS で近くのアメダスを探す
-          </label>
-          <p className="meta">許可が取れない・測位できないときは設定地点に戻します。GPS の測位は「GPSで探す」と同じです。</p>
           <label>
             誕生日
             <input
@@ -200,98 +201,153 @@ export default function SettingsPage() {
           ) : age != null ? (
             <p className="meta">満年齢: {age} 歳</p>
           ) : null}
-          <label>
-            最大心拍数
-            <input
-              type="number"
-              min="80"
-              max="230"
-              value={maxHr}
-              onChange={(event) => {
-                setMaxHr(event.target.value);
-                if (!event.target.value && colorMode === "hr") {
-                  setColorMode("off");
-                }
-              }}
-              onBlur={() => {
-                if (maxHr && maxHr !== originalMaxHr && window.confirm("強度別心拍数を変更しますか？")) {
-                  setHrs(suggestedHrs(Number(maxHr)));
-                }
-              }}
-            />
-          </label>
-          <p className="meta">走行記録の色分け</p>
-          <label className="choice">
-            <input
-              type="radio"
-              name="row-color-mode"
-              checked={colorMode === "hr"}
-              disabled={colorLocked}
-              onChange={() => setColorMode("hr")}
-            />
-            心拍{colorLocked ? "（最大心拍数が未入力のため選べません）" : ""}
-          </label>
-          <label className="choice">
-            <input
-              type="radio"
-              name="row-color-mode"
-              checked={colorMode === "wbgt"}
-              onChange={() => setColorMode("wbgt")}
-            />
-            気象条件（WBGT）
-          </label>
-          <label className="choice">
-            <input
-              type="radio"
-              name="row-color-mode"
-              checked={colorMode === "off"}
-              onChange={() => setColorMode("off")}
-            />
-            色分けしない
-          </label>
+          <section className="settings-card" aria-label="走行記録の色分け">
+            <h2>走行記録の色分け</h2>
+            {colorOpen ? (
+              <>
+                <label className="choice">
+                  <input
+                    type="radio"
+                    name="row-color-mode"
+                    checked={colorMode === "hr"}
+                    disabled={colorLocked}
+                    onChange={() => setColorMode("hr")}
+                  />
+                  心拍{colorLocked ? "（最大心拍数が未入力のため選べません）" : ""}
+                </label>
+                <label className="choice">
+                  <input
+                    type="radio"
+                    name="row-color-mode"
+                    checked={colorMode === "wbgt"}
+                    onChange={() => setColorMode("wbgt")}
+                  />
+                  気象条件（WBGT）
+                </label>
+                <label className="choice">
+                  <input
+                    type="radio"
+                    name="row-color-mode"
+                    checked={colorMode === "off"}
+                    onChange={() => setColorMode("off")}
+                  />
+                  色分けしない
+                </label>
+              </>
+            ) : (
+              <p className="settings-card__value">{COLOR_MODE_LABEL[colorMode]}</p>
+            )}
+            <button type="button" className="button" onClick={() => setColorOpen((open) => !open)}>
+              {colorOpen ? "閉じる" : "設定する"}
+            </button>
+          </section>
 
-          <h2>強度別心拍数</h2>
-          <p className="meta">初期値は最大心拍数からの算出です。必要なら個別に上書きできます。</p>
-          <label>
-            低強度（60〜70%）
-            <input type="number" min="30" max="230" value={fieldValue(hrs.low)} onChange={(event) => setHr("low", event.target.value)} />
-          </label>
-          <label>
-            中強度（70〜80%）
-            <input type="number" min="30" max="230" value={fieldValue(hrs.medium)} onChange={(event) => setHr("medium", event.target.value)} />
-          </label>
-          <label>
-            高強度（80〜90%）
-            <input type="number" min="30" max="230" value={fieldValue(hrs.high)} onChange={(event) => setHr("high", event.target.value)} />
-          </label>
-          <div className="panel">
-            <div className="section-head">
-              <h2>レースペース</h2>
-              <button type="button" className="button secondary" onClick={() => setRaceOpen((current) => !current)}>
-                {raceOpen ? "閉じる" : "開く"}
-              </button>
-            </div>
-            {raceOpen ? (
-              <div className="stack">
-                <label>
-                  5km（90〜100%）
-                  <input type="number" min="30" max="230" value={fieldValue(hrs.race_5k)} onChange={(event) => setHr("race_5k", event.target.value)} />
-                </label>
-                <label>
-                  10km（90〜95%）
-                  <input type="number" min="30" max="230" value={fieldValue(hrs.race_10k)} onChange={(event) => setHr("race_10k", event.target.value)} />
-                </label>
-                <label>
-                  ハーフマラソン（85〜92%）
-                  <input type="number" min="30" max="230" value={fieldValue(hrs.race_half)} onChange={(event) => setHr("race_half", event.target.value)} />
-                </label>
-                <label>
-                  フルマラソン（75〜88%）
-                  <input type="number" min="30" max="230" value={fieldValue(hrs.race_full)} onChange={(event) => setHr("race_full", event.target.value)} />
-                </label>
+          <button type="button" className="button secondary" onClick={() => setAdvancedOpen(true)}>
+            高度な設定
+          </button>
+          {advancedOpen
+            ? createPortal(
+            <div className="modal-backdrop settings-backdrop" onClick={() => setAdvancedOpen(false)}>
+              <div
+                className="modal-panel settings-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="advanced-settings-title"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <ModalCloseButton onClick={() => setAdvancedOpen(false)} />
+                <h2 id="advanced-settings-title">高度な設定</h2>
+                <div className="stack">
+                  <label>
+                    最大心拍数
+                    <input
+                      type="number"
+                      min="80"
+                      max="230"
+                      value={maxHr}
+                      onChange={(event) => {
+                        setMaxHr(event.target.value);
+                        if (!event.target.value && colorMode === "hr") {
+                          setColorMode("off");
+                        }
+                      }}
+                      onBlur={() => {
+                        if (maxHr && maxHr !== originalMaxHr && window.confirm("強度別心拍数を変更しますか？")) {
+                          setHrs(suggestedHrs(Number(maxHr)));
+                        }
+                      }}
+                    />
+                  </label>
+                  <h3>走行記録を追加するときの初期地点</h3>
+                  <label className="choice">
+                    <input
+                      type="radio"
+                      name="run-station-init"
+                      checked={runStationInit === "profile"}
+                      onChange={() => setRunStationInit("profile")}
+                    />
+                    設定どおりのアメダスを出す
+                  </label>
+                  <label className="choice">
+                    <input
+                      type="radio"
+                      name="run-station-init"
+                      checked={runStationInit === "gps"}
+                      onChange={() => setRunStationInit("gps")}
+                    />
+                    GPS で近くのアメダスを探す
+                  </label>
+                  <p className="meta">許可が取れない・測位できないときは設定地点に戻します。GPS の測位は「GPSで探す」と同じです。</p>
+                  <h3>強度別心拍数</h3>
+                  <p className="meta">初期値は最大心拍数からの算出です。必要なら個別に上書きできます。</p>
+                  <label>
+                    低強度（60〜70%）
+                    <input type="number" min="30" max="230" value={fieldValue(hrs.low)} onChange={(event) => setHr("low", event.target.value)} />
+                  </label>
+                  <label>
+                    中強度（70〜80%）
+                    <input type="number" min="30" max="230" value={fieldValue(hrs.medium)} onChange={(event) => setHr("medium", event.target.value)} />
+                  </label>
+                  <label>
+                    高強度（80〜90%）
+                    <input type="number" min="30" max="230" value={fieldValue(hrs.high)} onChange={(event) => setHr("high", event.target.value)} />
+                  </label>
+                  <h3>レースペース心拍数</h3>
+                  <label>
+                    5km（90〜100%）
+                    <input type="number" min="30" max="230" value={fieldValue(hrs.race_5k)} onChange={(event) => setHr("race_5k", event.target.value)} />
+                  </label>
+                  <label>
+                    10km（90〜95%）
+                    <input type="number" min="30" max="230" value={fieldValue(hrs.race_10k)} onChange={(event) => setHr("race_10k", event.target.value)} />
+                  </label>
+                  <label>
+                    ハーフマラソン（85〜92%）
+                    <input type="number" min="30" max="230" value={fieldValue(hrs.race_half)} onChange={(event) => setHr("race_half", event.target.value)} />
+                  </label>
+                  <label>
+                    フルマラソン（75〜88%）
+                    <input type="number" min="30" max="230" value={fieldValue(hrs.race_full)} onChange={(event) => setHr("race_full", event.target.value)} />
+                  </label>
+                  <label>
+                    <HelpTip label="個人記録の重み設定" text={PRIOR_K_HELP} />
+                    <input
+                      aria-label="個人記録の重み設定"
+                      type="number"
+                      min="0.1"
+                      max="1000"
+                      step="0.1"
+                      value={priorK}
+                      onChange={(event) => setPriorK(event.target.value)}
+                    />
+                  </label>
+                  <p className="meta">未入力で保存すると 10 になります。ユーザー名・地点・誕生日とは別に保存します。</p>
+                </div>
               </div>
-            ) : null}
-          </div>
+            </div>,
+            document.body,
+          )
+            : null}
         </form>
       ) : (
         <p className="empty">読み込み中...</p>

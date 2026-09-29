@@ -100,6 +100,7 @@ export async function POST(request: Request) {
       intensityKey,
       intensityLabel: intensityLabel(intensityKey) || INTENSITY_LABELS[intensityKey] || intensityKey,
       targetHr,
+      personalPriorK: profile.personal_prior_k,
     });
     if (result == null) {
       throw new ApiError(400, "WBGT が付いた走行記録がまだ無いため、予測できません");

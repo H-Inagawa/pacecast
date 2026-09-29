@@ -36,7 +36,10 @@ describe("走行追加の初期地点設定", () => {
     const user = userEvent.setup();
     render(<SettingsPage />);
 
-    const gps = await screen.findByLabelText("GPS で近くのアメダスを探す");
+    expect(screen.queryByLabelText("GPS で近くのアメダスを探す")).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "高度な設定" }));
+
+    const gps = screen.getByLabelText("GPS で近くのアメダスを探す");
     expect(screen.getByLabelText("設定どおりのアメダスを出す")).toBeChecked();
     await user.click(gps);
     await user.click(screen.getByRole("button", { name: "保存" }));

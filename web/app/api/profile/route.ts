@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { attachOnboardingCookie, requireUser } from "../../../lib/server/auth";
 import { ApiError, toErrorResponse } from "../../../lib/server/errors";
 import { getOrCreateProfile, saveProfile, serializeProfile } from "../../../lib/server/profile";
+import { normalizePersonalPriorK } from "../../../lib/personalPredict";
 import { normalizeRunStationInit } from "../../../lib/run-station-init";
 import { resolveStation } from "../../../lib/server/amedas";
 import { backfillRunWbgt } from "../../../lib/server/weather";
@@ -32,6 +33,7 @@ export async function PUT(request: Request) {
       intensities?: Partial<IntensityHrs>;
       amedas_station_id?: string | null;
       run_station_init?: string | null;
+      personal_prior_k?: number | null;
     };
     const profile = await getOrCreateProfile(user);
     const displayName = (payload.display_name || "").trim();
@@ -70,6 +72,7 @@ export async function PUT(request: Request) {
       profile.amedas_station_name = station.name;
     }
     profile.run_station_init = normalizeRunStationInit(payload.run_station_init);
+    profile.personal_prior_k = normalizePersonalPriorK(payload.personal_prior_k);
     const saved = await saveProfile(profile);
     if (payload.amedas_station_id && payload.amedas_station_id !== previousStation) {
       await backfillRunWbgt(saved);

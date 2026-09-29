@@ -101,6 +101,7 @@ def _clone_profile(source: UserProfile, auth_user_id: int) -> UserProfile:
         amedas_station_id=source.amedas_station_id,
         amedas_station_name=source.amedas_station_name,
         run_station_init=normalize_run_station_init(getattr(source, "run_station_init", None)),
+        personal_prior_k=float(getattr(source, "personal_prior_k", None) or 10),
         updated_at=datetime.now(),
     )
 

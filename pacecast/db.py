@@ -121,6 +121,7 @@ def migrate_schema(bind=None) -> None:
             ("row_color_mode", "TEXT"),
             ("auth_user_id", "INTEGER"),
             ("run_station_init", "TEXT"),
+            ("personal_prior_k", "REAL"),
         ),
         "running_records": (
             ("amedas_station_id", "TEXT"),
@@ -145,6 +146,9 @@ def migrate_schema(bind=None) -> None:
                 )
         _fill_legacy_color_mode(connection)
         _fill_legacy_station_ids(connection)
+        profile_cols = {row[1] for row in connection.execute(text("PRAGMA table_info(user_profiles)")).fetchall()}
+        if "personal_prior_k" in profile_cols:
+            connection.execute(text("UPDATE user_profiles SET personal_prior_k = 10 WHERE personal_prior_k IS NULL"))
         _ensure_runner_owner_indexes(connection)
     _rebuild_weather_unique_if_needed(target)
 

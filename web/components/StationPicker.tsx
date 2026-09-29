@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { HelpTip } from "./WeatherDistanceHelp";
 import { prefectureFromStationId, prefecturesInStations } from "../lib/amedas-prefecture";
 import { canUseGeolocation, geolocationUnavailableReason, requestCurrentPosition } from "../lib/geolocation";
 import { nearestStation } from "../lib/nearest-station";
@@ -13,6 +14,8 @@ type Props = {
   disabled?: boolean;
   label?: string;
   allowGps?: boolean;
+  /** 地点名の横に出す説明。 */
+  helpText?: string;
   /** 記録追加モーダル向け。地点名の下に都道府県と観測所を横並びにする。 */
   layout?: "stack" | "run";
   onGpsMessage?: (message: string, kind: "ok" | "error") => void;
@@ -25,6 +28,7 @@ export function StationPicker({
   disabled = false,
   label = "アメダス地点",
   allowGps = false,
+  helpText,
   layout = "stack",
   onGpsMessage,
 }: Props) {
@@ -158,7 +162,7 @@ export function StationPicker({
       </label>
       <div className="station-pick-row">
         <label>
-          {label}
+          {helpText ? <HelpTip label={label} text={helpText} /> : label}
           {stationSelect}
         </label>
         {gpsButton}

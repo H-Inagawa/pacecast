@@ -36,7 +36,17 @@ describe("設定の色分け", () => {
     const user = userEvent.setup();
     render(<SettingsPage />);
 
-    const weather = await screen.findByLabelText("気象条件（WBGT）");
+    expect(screen.queryByLabelText("気象条件（WBGT）")).not.toBeInTheDocument();
+    const card = await screen.findByRole("region", { name: "走行記録の色分け" });
+    expect(card).toHaveTextContent("心拍");
+    await user.click(screen.getByRole("button", { name: "設定する" }));
+    expect(screen.getByRole("button", { name: "閉じる" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.queryByLabelText("気象条件（WBGT）")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "設定する" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "設定する" }));
+    const weather = screen.getByLabelText("気象条件（WBGT）");
     expect(screen.getByLabelText("心拍")).toBeEnabled();
     expect(screen.getByLabelText("色分けしない")).toBeInTheDocument();
 

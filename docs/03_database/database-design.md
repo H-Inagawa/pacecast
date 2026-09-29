@@ -72,6 +72,7 @@ DDL: `supabase/schema.sql`
 | amedas_station_id | TEXT | NULL | アメダス観測所 ID（未設定時は東京 44132） |
 | amedas_station_name | TEXT | NULL | 地点名（例: 東京） |
 | run_station_init | TEXT | NOT NULL | 記録追加の初期地点。`profile`（設定どおり）または `gps`（最寄り）。既定は `profile` |
+| personal_prior_k | REAL | NOT NULL | 個人 WBGT 補正の重み K。`α = n_eff / (n_eff + K)`。未設定は 10。設定の高度な設定で変える |
 | updated_at | DATETIME | NOT NULL | 更新日時 |
 
 走行・設定は `auth_user_id` でアカウントに紐づく。気象行は地点単位で共有する。

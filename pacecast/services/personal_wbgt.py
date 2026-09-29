@@ -7,6 +7,21 @@ from dataclasses import dataclass
 from datetime import datetime
 
 PERSONAL_PRIOR_K = 10
+
+
+def normalize_personal_prior_k(value: float | None) -> float:
+    """
+    個人記録の重み K を正規化する。
+
+    Args:
+        value: 設定値。未設定や範囲外は初期値。
+
+    Returns:
+        0.1 以上 1000 以下の K。それ以外は 10。
+    """
+    if value is None or value < 0.1 or value > 1000:
+        return PERSONAL_PRIOR_K
+    return value
 MIN_PERSONAL_HR_RUNS = 6
 HALF_LIFE_DAYS = 180
 WBGT_SIGMA = 5.0
@@ -220,6 +235,7 @@ def try_personal_prediction(
     distance_km: float,
     target_hr: float,
     as_of: datetime,
+    prior_k: float = PERSONAL_PRIOR_K,
 ) -> PersonalFit | None:
     """
     目標心拍と WBGT・距離からペース（秒/km）を推定する。
@@ -230,6 +246,7 @@ def try_personal_prediction(
         distance_km: 予測する距離（km）。
         target_hr: 目標心拍（bpm）。
         as_of: 直近重みの基準日時。
+        prior_k: 個人記録の重み K。未設定は 10。
 
     Returns:
         予測。心拍の傾きが使えないときは None。
@@ -317,7 +334,7 @@ def try_personal_prediction(
         recency = 2 ** (-_days_between(as_of, run.started_at) / HALF_LIFE_DAYS)
         kernel_weight = recency * _kernel(run.wbgt_c - target_wbgt, WBGT_SIGMA) * _kernel(run.distance_km - distance_km, DISTANCE_SIGMA)
         n_eff += kernel_weight * factor
-    alpha = n_eff / (n_eff + PERSONAL_PRIOR_K)
+    alpha = n_eff / (n_eff + normalize_personal_prior_k(prior_k))
     general = _general_effect(distance_km, target_wbgt, base_pace)
     personal = personal_at(target_wbgt)
     final_effect = _clamp((1 - alpha) * general + alpha * personal, -0.15, 0.5)

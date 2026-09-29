@@ -172,6 +172,7 @@ def _profile_out(profile: UserProfile, db: Session) -> ProfileOut:
         amedas_station_id=station.station_id,
         amedas_station_name=station.name,
         run_station_init=normalize_run_station_init(getattr(profile, "run_station_init", None)),
+        personal_prior_k=float(getattr(profile, "personal_prior_k", None) or 10),
         wbgt_ready_count=ready,
         run_count=run_count,
     )
@@ -467,6 +468,8 @@ def update_profile(
         profile.amedas_station_id = station.station_id
         profile.amedas_station_name = station.name
     profile.run_station_init = normalize_run_station_init(payload.run_station_init)
+    stored_k = payload.personal_prior_k
+    profile.personal_prior_k = 10 if stored_k is None or stored_k < 0.1 or stored_k > 1000 else stored_k
 
     saved = save_profile(db, profile)
     if payload.amedas_station_id and payload.amedas_station_id != previous_station:
@@ -552,6 +555,7 @@ def predict(
             intensity_label=intensity_label,
             target_hr=target_hr,
             auth_user_id=user.id,
+            prior_k=float(getattr(profile, "personal_prior_k", None) or 10),
         )
     except (ValueError, ForecastError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

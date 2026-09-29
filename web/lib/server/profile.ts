@@ -12,6 +12,7 @@ import {
 } from "../intensity";
 import { classifyWbgtZone } from "../weatherZone";
 import { profileNeedsOnboarding } from "../onboarding";
+import { PERSONAL_PRIOR_K, normalizePersonalPriorK } from "../personalPredict";
 import { normalizeRunStationInit } from "../run-station-init";
 import type { IntensityHrs, Profile } from "../types";
 import { ApiError } from "./errors";
@@ -172,6 +173,7 @@ export async function serializeProfile(profile: ProfileRow): Promise<Profile> {
     amedas_station_id: station.stationId,
     amedas_station_name: station.name,
     run_station_init: normalizeRunStationInit(profile.run_station_init),
+    personal_prior_k: normalizePersonalPriorK(profile.personal_prior_k),
     wbgt_ready_count: ready,
     run_count: runCount,
     onboarding_complete: Boolean(profile.display_name?.trim()),
@@ -248,6 +250,7 @@ export async function saveProfile(profile: ProfileRow): Promise<ProfileRow> {
     amedas_station_id: profile.amedas_station_id,
     amedas_station_name: profile.amedas_station_name,
     run_station_init: normalizeRunStationInit(profile.run_station_init),
+    personal_prior_k: normalizePersonalPriorK(profile.personal_prior_k),
     updated_at: toDbTimestamp(new Date()),
   };
   const updated = await client.from("user_profiles").update(values).eq("id", profile.id).select("*").single();
@@ -255,6 +258,18 @@ export async function saveProfile(profile: ProfileRow): Promise<ProfileRow> {
     const { run_station_init: _ignored, ...withoutInit } = values;
     const fallback = await client.from("user_profiles").update(withoutInit).eq("id", profile.id).select("*").single();
     return (await requireData(fallback)) as ProfileRow;
+  }
+  if (updated.error && isMissingColumn(updated.error.message, "personal_prior_k")) {
+    const { personal_prior_k: storedK, ...withoutK } = values;
+    const fallback = await client.from("user_profiles").update(withoutK).eq("id", profile.id).select("*").single();
+    const saved = (await requireData(fallback)) as ProfileRow;
+    if (storedK !== PERSONAL_PRIOR_K) {
+      throw new ApiError(
+        500,
+        "ほかの設定は保存しました。個人記録の重みは、Supabase で supabase/personal-prior-k.sql を実行してからもう一度保存してください",
+      );
+    }
+    return saved;
   }
   return (await requireData(updated)) as ProfileRow;
 }

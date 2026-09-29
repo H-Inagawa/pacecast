@@ -258,6 +258,7 @@ def main() -> None:
                 "amedas_station_id": row["amedas_station_id"],
                 "amedas_station_name": row["amedas_station_name"],
                 "run_station_init": row["run_station_init"] if "run_station_init" in row.keys() else "profile",
+                "personal_prior_k": row["personal_prior_k"] if "personal_prior_k" in row.keys() else 10,
                 "updated_at": to_timestamptz(row["updated_at"]),
             }
             for row in fetch_rows(db, "user_profiles")

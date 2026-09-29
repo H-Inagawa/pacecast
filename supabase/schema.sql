@@ -71,6 +71,7 @@ create table if not exists user_profiles (
   amedas_station_id text,
   amedas_station_name text,
   run_station_init text not null default 'profile',
+  personal_prior_k double precision not null default 10,
   updated_at timestamptz not null
 );
 

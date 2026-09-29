@@ -55,6 +55,7 @@ export type Profile = {
   amedas_station_id: string;
   amedas_station_name: string;
   run_station_init: "profile" | "gps";
+  personal_prior_k: number;
   wbgt_ready_count: number;
   run_count: number;
   onboarding_complete: boolean;

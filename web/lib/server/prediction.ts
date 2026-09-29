@@ -75,6 +75,7 @@ export type PredictPerformanceOptions = {
   intensityLabel?: string;
   targetHr?: number | null;
   asOf?: Date | null;
+  personalPriorK?: number | null;
 };
 
 export function weatherDistance(wbgtA: number, wbgtB: number): number {
@@ -260,6 +261,7 @@ export function predictPerformance(
           distanceKm,
           Number(targetHr),
           asOfDt,
+          options.personalPriorK ?? undefined,
         )
       : null;
   if (personal) {

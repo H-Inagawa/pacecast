@@ -83,6 +83,7 @@ class ProfileOut(BaseModel):
     amedas_station_id: str
     amedas_station_name: str
     run_station_init: str = "profile"
+    personal_prior_k: float = 10
     wbgt_ready_count: int = 0
     run_count: int = 0
 
@@ -98,6 +99,7 @@ class ProfileWrite(BaseModel):
     intensities: IntensityHrs = IntensityHrs()
     amedas_station_id: str | None = None
     run_station_init: str | None = None
+    personal_prior_k: float | None = None
 
 
 class AmedasStationOut(BaseModel):

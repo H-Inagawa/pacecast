@@ -69,7 +69,7 @@ export function AboutModal({ open, onClose }: Props) {
           </li>
           <li>
             <strong>設定</strong>
-            表示名、アメダス地点、最大心拍、強度別心拍を保存します。
+            表示名、アメダス地点、誕生日を保存します。最大心拍・記録の初期地点・強度別心拍・個人記録の重みは「高度な設定」にあります。
           </li>
         </ul>
 

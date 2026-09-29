@@ -35,6 +35,7 @@ export const profileFixture: Profile = {
   amedas_station_id: "44071",
   amedas_station_name: "練馬",
   run_station_init: "profile",
+  personal_prior_k: 10,
   wbgt_ready_count: 39,
   run_count: 39,
   onboarding_complete: true,
