@@ -1613,3 +1613,53 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
     border-width: 1rem;
   }
 }
+
+.course-form {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.course-form label,
+.course-form fieldset {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.course-form fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.course-map {
+  height: 18rem;
+  margin: 0.5rem 0 1rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.course-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.course-card {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--card);
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.course-card.is-selected {
+  border-color: var(--accent);
+}

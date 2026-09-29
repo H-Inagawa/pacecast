@@ -40,9 +40,9 @@ export default function HomePage() {
         />
         <HomeCard
           size="md"
-          href="/analyze"
-          imageSrc="/images/home/home-card-analyze.png?v=6"
-          label="分析結果"
+          href="/courses"
+          imageSrc="/images/home/home-card-course.svg?v=1"
+          label="コースを作る"
         />
         <HomeCard
           size="sm"

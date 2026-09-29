@@ -10,15 +10,16 @@ describe("ホーム", () => {
     const predict = screen.getByRole("link", { name: /パフォーマンスを予測/ });
     const runs = screen.getByRole("link", { name: /走行記録/ });
     const forecast = screen.getByRole("link", { name: /ランニング天気予報/ });
-    const analyze = screen.getByRole("link", { name: /^分析結果$/ });
+    const courses = screen.getByRole("link", { name: /^コースを作る$/ });
     const about = screen.getByRole("button", { name: /PaceCastとは？/ });
 
     expect(predict).toHaveAttribute("href", "/predict");
     expect(runs).toHaveAttribute("href", "/runs");
     expect(forecast).toHaveAttribute("href", "/forecast");
-    expect(analyze).toHaveAttribute("href", "/analyze");
+    expect(courses).toHaveAttribute("href", "/courses");
+    expect(screen.queryByRole("link", { name: /^分析結果$/ })).not.toBeInTheDocument();
 
-    const cards = [predict, runs, forecast, analyze, about];
+    const cards = [predict, runs, forecast, courses, about];
     for (let i = 1; i < cards.length; i += 1) {
       expect(
         cards[i - 1].compareDocumentPosition(cards[i]) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -48,7 +49,8 @@ describe("ホーム", () => {
     expect(dialog).toHaveTextContent("走行記録");
     expect(dialog).toHaveTextContent("パフォーマンスを予測");
     expect(dialog).toHaveTextContent("ランニング天気予報");
-    expect(dialog).toHaveTextContent("分析結果");
+    expect(dialog).toHaveTextContent("コースを作る");
+    expect(dialog).not.toHaveTextContent("分析結果");
     expect(dialog).toHaveTextContent("設定");
     expect(dialog).toHaveTextContent("Open-Meteo");
     expect(dialog).toHaveTextContent("ライセンスは、まだ決めていません");

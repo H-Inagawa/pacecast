@@ -12,6 +12,7 @@
 | 認証 | アプリ独自（PBKDF2 + Cookie） | 既存の確認メールと開発テスト１を維持する。Supabase Auth は使わない |
 | 計算のテスト | FastAPI + SQLite + pytest | 予測・WBGT の回帰テストを Python のまま残す |
 | 予報・再解析 | Open-Meteo | API キー不要。気温・湿度に加え風速・日射を取り、推定 WBGT に使う |
+| 周回コース | 公開の徒歩ルート、Overpass、Open-Meteo 標高 | サーバだけが叩く。円周の中間点と、大通りの交差点を3〜4点つなぐ作り方。折り返しは、元の距離と差し引いた距離の両方が範囲内なら残す。保存しない（[#57](https://github.com/H-Inagawa/pacecast/issues/57)） |
 | アメダス | 気象庁 bosai JSON | 地点マスタと、直近数日の気温・湿度・風 |
 | 確認メール | Gmail SMTP（`smtp.gmail.com:587` / STARTTLS） | API キー不要。アプリパスワードを `.env` に置く |
 

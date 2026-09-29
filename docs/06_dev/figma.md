@@ -52,7 +52,7 @@ PaceCast の画面はすでに動いています。ラフスケッチはしま�
 6. `05 設定`
 7. `06 ログイン・新規登録・メール確認`
 8. `07 パスワード再設定`
-9. `08 分析結果`
+9. `08 コースを作る`（分析結果の概形は置かない。#41 は削除済み。フレームは [#58](https://github.com/H-Inagawa/pacecast/issues/58)）
 10. `09 ランニング天気予報`
 
 各ページに、その画面の GitHub Issue の URL をテキストで書いておくと探しやすいです。
@@ -93,7 +93,7 @@ Figma の変数画面は、左がコレクション、中央が名前と値の�
 
 ### カードにモノクロ透過画像を載せる
 
-ホームの導線は、塗りつぶしボタンではなく **カード** にし、背景にモノクロで透過した画像を重ねる想定です。並びは上から「パフォーマンスを予測」「走行記録」「ランニング天気予報」「分析結果」「PaceCastとは？」。スマホ寸法は大 320×160（先頭3つ）／分析 320×100／について 320×80。指定は [#22](https://github.com/H-Inagawa/pacecast/issues/22) です。
+ホームの導線は、塗りつぶしボタンではなく **カード** にし、背景にモノクロで透過した画像を重ねる想定です。並びは上から「パフォーマンスを予測」「走行記録」「ランニング天気予報」「コースを作る」「PaceCastとは？」。スマホ寸法は大 320×160（先頭3つ）／コース 320×100／について 320×80。指定は [#22](https://github.com/H-Inagawa/pacecast/issues/22) です。分析結果（`08`）は削除済み。コース画面は [#57](https://github.com/H-Inagawa/pacecast/issues/57)。
 
 Figma での重ね方（下から）:
 
@@ -235,5 +235,5 @@ Auto layout（部品を選んで Shift+A）を使うと、余白を数値で持�
 | 5 | 設定 | [#28](https://github.com/H-Inagawa/pacecast/issues/28) |
 | 6 | ログイン・新規登録・メール確認 | [#42](https://github.com/H-Inagawa/pacecast/issues/42) |
 | 7 | パスワード再設定 | [#53](https://github.com/H-Inagawa/pacecast/issues/53) |
-| 8 | 分析結果 | [#41](https://github.com/H-Inagawa/pacecast/issues/41) |
+| 8 | コースを作る | [#58](https://github.com/H-Inagawa/pacecast/issues/58) |
 | 9 | ランニング天気予報 | [#55](https://github.com/H-Inagawa/pacecast/issues/55) |
