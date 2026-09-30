@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { ModalCloseButton } from "./ModalCloseButton";
 
 type Props = {
@@ -8,6 +9,19 @@ type Props = {
 };
 
 export function CourseScoreGuideModal({ open, onClose }: Props) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose, open]);
+
   if (!open) {
     return null;
   }
@@ -24,18 +38,20 @@ export function CourseScoreGuideModal({ open, onClose }: Props) {
         <ModalCloseButton onClick={onClose} />
         <h2 id="course-score-guide-title">採点基準</h2>
         <p>
-          画面の点数は、今回出たコースの中でいちばん高い素点を100点にした相対評価です。ほかのコースは、その素点との比で点数を付け直します。表の各点数も同じ比で伸び縮みし、合計がカードの点数になります。
+          画面の評価は、今回出たコースの中でいちばん高い実スコアを100点にした相対評価です。ほかのコースは、その実スコアとの比で評価を付け直します。各項目のカッコ内は実スコアで、評価の行は相対、実スコアの行は素点の合計です。
         </p>
         <p>素点は100点満点です。配点は次のとおりです。</p>
         <ul className="course-score-guide">
-          <li>道路重複 28点。同じ道の往復が0%なら満点、全距離の30%で0点です。50%を超える案は候補から除きます。</li>
-          <li>大通り 22点。走った距離のうち、幹線・主要道から30m以内の割合です。全部大通りなら満点です。</li>
-          <li>曲がり角 18点。4回まで満点で、10回で0点です。その間は直線で下がります。</li>
-          <li>距離への近さ 12点。指定距離とぴったりなら満点です。指定の±20%と±2kmのうち、狭い方の端で0点になります。</li>
-          <li>直進 10点。辺の平均と最長辺が、指定距離の4分の1に近いほど高くなります。120mより短い辺があると下がります。</li>
-          <li>信号 6点。0基なら満点です。距離1kmあたり2基で0点です。信号は地図データ上の数です。</li>
-          <li>交差点 4点。大通りどうしの交点です。0なら満点で、距離（km）と6の大きい方の個数で0点です。</li>
-          <li>上りと下りは点数に入れません。</li>
+          <li>曲がり角 34点。実距離1kmあたり1か所以下なら満点、5回で0点です。</li>
+          <li>
+            設定距離からの距離 26点。指定距離とぴったりなら満点です。5kmまでは、指定の±20%と±2kmのうち狭い方の端で0点になります。指定が5kmから3km増えるごとに、このきつさを5点下げます。5点が下限です。
+          </li>
+          <li>道路重複 20点。同じ道の往復が0%なら満点、全距離の20%で0点です。65%を超える案は候補から除きます。</li>
+          <li>直進 12点。辺の平均と最長辺が、指定距離の4分の1に近いほど高くなります。120mより短い辺があると下がります。</li>
+          <li>
+            信号 8点。0基なら満点です。実距離1kmあたり5基で0点です。曲がって渡る信号と、信号のある交差点で道路を横断する信号を数えます。道なりに直進して横を通る信号は入れません。同じ曲がりにある信号は1つにまとめます。
+          </li>
+          <li>大通り、交差点、上り、下りは点数に入れません。</li>
         </ul>
       </div>
     </div>

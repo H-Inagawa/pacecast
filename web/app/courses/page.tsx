@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BackHome } from "../../components/BackHome";
-import { CourseDetailModal, type CourseDetail } from "../../components/CourseDetailModal";
+import { type CourseDetail } from "../../components/CourseDetailModal";
+import { CourseScoreTable } from "../../components/CourseScoreTable";
 import { CourseMap } from "../../components/CourseMap";
 import { CourseMethodModal } from "../../components/CourseMethodModal";
 import { StickyActions } from "../../components/StickyActions";
 import { apiPostCourses } from "../../lib/api";
-import { formatDistanceKm } from "../../lib/format";
 import { readGeolocationError, requestCurrentPosition } from "../../lib/geolocation";
 import { beginLoading, endLoading } from "../../lib/loading";
 
@@ -32,7 +32,6 @@ export default function CoursesPage() {
   const [result, setResult] = useState<CourseResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [methodOpen, setMethodOpen] = useState(false);
-  const [detailId, setDetailId] = useState<string | null>(null);
   const plotWait = useRef(false);
 
   const distanceKm = Number(distance);
@@ -98,9 +97,6 @@ export default function CoursesPage() {
     }
   }
 
-  const detailIndex = result?.courses.findIndex((course) => course.id === detailId) ?? -1;
-  const detailCourse = detailIndex >= 0 ? (result?.courses[detailIndex] ?? null) : null;
-
   return (
     <>
       <header className="page-heading">
@@ -109,7 +105,7 @@ export default function CoursesPage() {
           作成方法
         </button>
       </header>
-      <p className="lede">走りたい距離の周回を、点数の高い順に最大3つ出します。</p>
+      <p className="lede">走りたい距離の周回を、点数の高い順に最大5つ出します。</p>
       <p className="meta">コースの作成には、数分かかることがあります。</p>
       <CourseMethodModal open={methodOpen} onClose={() => setMethodOpen(false)} />
       {error ? <p className="error">{error}</p> : null}
@@ -140,37 +136,14 @@ export default function CoursesPage() {
         onStartPlotted={finishPlotWait}
       />
 
-      {result ? (
-        <div className="course-list">
-          {result.courses.map((course, index) => {
-            const selected = course.id === selectedId;
-            const name = `コース ${index + 1}`;
-            return (
-              <article key={course.id} className={selected ? "course-card is-selected" : "course-card"}>
-                <button
-                  type="button"
-                  className="course-card-main"
-                  aria-pressed={selected}
-                  aria-label={name}
-                  onClick={() => setSelectedId(course.id)}
-                >
-                  <strong>{name}</strong>
-                  <span>実距離 {formatDistanceKm(course.distance_km)}</span>
-                  <span>評価 {course.score.toFixed(1)}点</span>
-                </button>
-                <button type="button" className="button course-card-detail" onClick={() => setDetailId(course.id)}>
-                  評価詳細
-                </button>
-              </article>
-            );
-          })}
-        </div>
+      {result && result.courses.length > 0 ? (
+        <CourseScoreTable
+          courses={result.courses}
+          targetKm={distanceKm}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
       ) : null}
-      <CourseDetailModal
-        course={detailCourse}
-        title={detailIndex >= 0 ? `コース ${detailIndex + 1} の評価詳細` : "評価詳細"}
-        onClose={() => setDetailId(null)}
-      />
 
       <StickyActions>
         <button type="button" className="button action-lg" disabled={!ready} onClick={() => void onSubmit()}>

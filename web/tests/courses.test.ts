@@ -7,15 +7,22 @@ import {
   courseSearchLabel,
   courseSearchPercent,
   relativeCourseScores,
+  countCrossedSignals,
   countNearRoute,
   destinationPoint,
   elevationChange,
   featureLengthKm,
   dropRetraces,
   isParkOrRiverbank,
+  courseAdoptStrictness,
+  courseKeepLimit,
+  courseSearchSteps,
   keepCourseDistance,
   MAP_SERVICE_MESSAGE,
   loopWaypointSets,
+  shouldContinueShapeAdjust,
+  shuffleWaypointSets,
+  stepShapeScale,
   majorIntersections,
   nearestOnLines,
   orderLoopVias,
@@ -44,18 +51,48 @@ describe("周回コースの計算", () => {
   it("実距離は指定の±20%かつ±2kmまで残す", () => {
     expect(acceptCourseDistance(9.1, 10)).toBe(true);
     expect(acceptCourseDistance(8.5, 10)).toBe(true);
-    expect(acceptCourseDistance(7.9, 10)).toBe(false);
+    expect(acceptCourseDistance(7.9, 10)).toBe(true);
+    expect(acceptCourseDistance(7.4, 10)).toBe(false);
     expect(acceptCourseDistance(6, 5)).toBe(true);
     expect(acceptCourseDistance(6.1, 5)).toBe(false);
     expect(acceptCourseDistance(12, 10)).toBe(true);
-    expect(acceptCourseDistance(12.1, 10)).toBe(false);
+    expect(acceptCourseDistance(12.1, 10)).toBe(true);
+    expect(acceptCourseDistance(12.6, 10)).toBe(false);
     expect(acceptCourseDistance(6, 5)).toBe(true);
     expect(acceptCourseDistance(6.1, 5)).toBe(false);
     expect(acceptCourseDistance(22, 20)).toBe(true);
-    expect(acceptCourseDistance(23, 20)).toBe(false);
-    expect(acceptCourseDistance(17, 20)).toBe(false);
+    expect(acceptCourseDistance(30, 20)).toBe(true);
+    expect(acceptCourseDistance(31, 20)).toBe(false);
     expect(keepCourseDistance(6.4, 5)).toBe(true);
-    expect(keepCourseDistance(6.8, 5)).toBe(false);
+    expect(keepCourseDistance(6.8, 5)).toBe(true);
+    expect(keepCourseDistance(7.6, 5)).toBe(false);
+    expect(courseSearchSteps(5)).toBe(0);
+    expect(courseSearchSteps(7.9)).toBe(0);
+    expect(courseSearchSteps(8)).toBe(1);
+    expect(courseSearchSteps(11)).toBe(2);
+    expect(courseAdoptStrictness(5)).toBe(26);
+    expect(courseAdoptStrictness(8)).toBe(21);
+    expect(courseAdoptStrictness(20)).toBe(5);
+    expect(courseAdoptStrictness(50)).toBe(5);
+    expect(courseKeepLimit(5)).toBe(25);
+    expect(courseKeepLimit(8)).toBe(20);
+    expect(courseKeepLimit(11)).toBe(15);
+    expect(courseKeepLimit(20)).toBe(5);
+    expect(courseKeepLimit(50)).toBe(5);
+    expect(
+      courseScoreParts({
+        distanceKm: 9.6,
+        targetKm: 8,
+        majorRatio: 0,
+        turnCount: 0,
+        signalCount: 0,
+        junctionCount: 0,
+        overlapRatio: 0,
+        meanLegMeters: 1000,
+        longestLegMeters: 1000,
+        shortLegCount: 0,
+      }).distance,
+    ).toBeCloseTo(5, 0);
   });
 
   it("大きく曲がった頂点だけを曲がり角にする", () => {
@@ -76,6 +113,24 @@ describe("周回コースの計算", () => {
     const near = { lat: 35.7355, lon: 139.65005 };
     const far = { lat: 35.74, lon: 139.66 };
     expect(countNearRoute(route, [near, far], 20)).toBe(1);
+    const east = destinationPoint(start, 90, 0.4);
+    const north = destinationPoint(east, 0, 0.3);
+    const beside = destinationPoint({ lat: (start.lat + east.lat) / 2, lon: (start.lon + east.lon) / 2 }, 0, 0.012);
+    expect(countCrossedSignals([start, east], [beside])).toBe(0);
+    const twin = destinationPoint(east, 45, 0.008);
+    expect(countCrossedSignals([start, east, north], [east, twin])).toBe(1);
+    const corner = destinationPoint(start, 0, 0.25);
+    const farCorner = destinationPoint(east, 0, 0.25);
+    const loop = [start, east, farCorner, corner, start];
+    expect(countCrossedSignals(loop, [start])).toBe(1);
+    const mid = { lat: (start.lat + east.lat) / 2, lon: (start.lon + east.lon) / 2 };
+    const onPath = mid;
+    expect(countCrossedSignals([start, east], [onPath])).toBe(1);
+    const offset = destinationPoint(mid, 0, 0.015);
+    const crossRoad = [destinationPoint(offset, 180, 0.05), destinationPoint(offset, 0, 0.05)];
+    const alongRoad = [destinationPoint(offset, 270, 0.05), destinationPoint(offset, 90, 0.05)];
+    expect(countCrossedSignals([start, east], [offset], 20, [crossRoad])).toBe(1);
+    expect(countCrossedSignals([start, east], [offset], 20, [alongRoad])).toBe(0);
   });
 
   it("公園の中と川の近くの距離を合わせる", () => {
@@ -195,13 +250,23 @@ describe("周回コースの計算", () => {
       lon: points[1].lon - points[0].lon,
     }));
     const firstClockwise = routeLengthKm([sets[0][0], sets[0][1]]);
-    expect(firstClockwise).toBeGreaterThan(0.8);
-    expect(firstClockwise).toBeLessThan(1.2);
+    expect(firstClockwise).toBeGreaterThan(0.7);
+    const shuffled = shuffleWaypointSets(sets, () => 0);
+    expect(shuffled).toHaveLength(sets.length);
+    expect(shuffled[0]).not.toEqual(sets[0]);
+    expect(stepShapeScale(1, 6, 5)).toBeCloseTo(0.98);
+    expect(stepShapeScale(1, 4, 5)).toBeCloseTo(1.02);
+    expect(shouldContinueShapeAdjust(24, 6.5, 5, 0)).toBe(true);
+    expect(shouldContinueShapeAdjust(25, 6.5, 5, 0)).toBe(false);
+    expect(shouldContinueShapeAdjust(10, 5, 5, 0)).toBe(false);
+    expect(shouldContinueShapeAdjust(19, 10, 8, 0)).toBe(true);
+    expect(shouldContinueShapeAdjust(20, 10, 8, 0)).toBe(false);
+    expect(firstClockwise).toBeLessThan(0.9);
     expect(sets[0][1].lon).toBeGreaterThan(here.lon);
-    expect(firstLegs.some((leg) => leg.km > 1.4 && leg.km < 1.8 && Math.abs(leg.lat) < 0.004)).toBe(true);
-    expect(firstLegs.some((leg) => leg.km > 1.4 && leg.km < 1.8 && leg.lat > 0.01 && Math.abs(leg.lon) < 0.004)).toBe(true);
+    expect(firstLegs.some((leg) => leg.km > 1.2 && leg.km < 1.55 && Math.abs(leg.lat) < 0.004)).toBe(true);
+    expect(firstLegs.some((leg) => leg.km > 1.2 && leg.km < 1.55 && leg.lat > 0.01 && Math.abs(leg.lon) < 0.004)).toBe(true);
     expect(
-      firstLegs.some((leg) => leg.km > 1.4 && leg.km < 1.8 && Math.abs(leg.lat) > 0.008 && Math.abs(leg.lon) > 0.008),
+      firstLegs.some((leg) => leg.km > 1.2 && leg.km < 1.55 && Math.abs(leg.lat) > 0.008 && Math.abs(leg.lon) > 0.008),
     ).toBe(true);
   });
 
@@ -230,24 +295,37 @@ describe("周回コースの計算", () => {
       shortLegCount: 1,
     };
     const retraced = courseScore({ ...sharedOverlap, distanceKm: 5.05, overlapRatio: 0.22 });
-    const clean = courseScore({ ...sharedOverlap, distanceKm: 5.4, overlapRatio: 0.02 });
+    const clean = courseScore({ ...sharedOverlap, distanceKm: 5.05, overlapRatio: 0.02 });
     expect(clean).toBeGreaterThan(retraced);
     const arterial = courseScore({ ...sharedOverlap, distanceKm: 5.2, majorRatio: 0.95, turnCount: 5, overlapRatio: 0.02 });
     const sideStreet = courseScore({ ...sharedOverlap, distanceKm: 5.05, majorRatio: 0.25, turnCount: 5, overlapRatio: 0.02 });
-    expect(arterial).toBeGreaterThan(sideStreet);
-    const fewerTurns = courseScore({ ...sharedOverlap, distanceKm: 5.3, majorRatio: 0.6, turnCount: 4, overlapRatio: 0.02 });
-    const manyTurns = courseScore({ ...sharedOverlap, distanceKm: 5.05, majorRatio: 0.6, turnCount: 10, overlapRatio: 0.02 });
+    expect(sideStreet).toBeGreaterThan(arterial);
+    const fewerTurns = courseScore({ ...sharedOverlap, distanceKm: 5.05, majorRatio: 0.6, turnCount: 4, overlapRatio: 0.02 });
+    const manyTurns = courseScore({ ...sharedOverlap, distanceKm: 5.05, majorRatio: 0.6, turnCount: 20, overlapRatio: 0.02 });
     expect(fewerTurns).toBeGreaterThan(manyTurns);
     const parts = courseScoreParts({ ...sharedOverlap, distanceKm: 5.2, majorRatio: 0.95, turnCount: 5, overlapRatio: 0.02 });
     expect(parts.total).toBeCloseTo(courseScore({ ...sharedOverlap, distanceKm: 5.2, majorRatio: 0.95, turnCount: 5, overlapRatio: 0.02 }));
-    expect(parts.major).toBeGreaterThan(parts.turns);
+    expect(parts.turns).toBeGreaterThan(parts.major);
+    const matched = { ...sharedOverlap, distanceKm: 5, overlapRatio: 0.02 };
+    const farther = courseScore({ ...matched, distanceKm: 5.9 });
+    const closer = courseScore(matched);
+    expect(closer - farther).toBeGreaterThan(18);
+    expect(courseScoreParts({ ...matched, overlapRatio: 0.2 }).overlap).toBe(0);
+    expect(courseScoreParts({ ...matched, overlapRatio: 0.1 }).overlap).toBeGreaterThan(0);
+    expect(courseScoreParts({ ...matched, overlapRatio: 0, turnCount: 0, signalCount: 0 }).turns).toBe(34);
+    expect(courseScoreParts({ ...matched, turnCount: 5 }).turns).toBe(34);
+    expect(courseScoreParts({ ...matched, turnCount: 25, signalCount: 25 }).turns).toBe(0);
+    expect(courseScoreParts({ ...matched, turnCount: 25, signalCount: 25 }).signals).toBe(0);
     const scaled = relativeCourseScores([
       { score: 40, scoreParts: { ...parts, total: 40 } },
-      { score: 20, scoreParts: { distance: 10, major: 4, straight: 2, turns: 2, overlap: 2, signals: 0, junctions: 0, total: 20 } },
+      { score: 20, scoreParts: { distance: 10, major: 0, straight: 2, turns: 2, overlap: 6, signals: 0, junctions: 0, total: 20 } },
     ]);
     expect(scaled[0].score).toBe(100);
+    expect(scaled[0].rawScore).toBe(40);
     expect(scaled[1].score).toBe(50);
+    expect(scaled[1].rawScore).toBe(20);
     expect(scaled[1].scoreParts.distance).toBe(25);
+    expect(scaled[1].rawScoreParts.distance).toBe(10);
   });
 
   it("大通りが交わる点を3〜4点選ぶ", () => {
@@ -293,8 +371,8 @@ describe("周回コースの計算", () => {
     expect(courseSearchPercent(0, 0)).toBe(0);
     expect(courseSearchPercent(1, 4)).toBe(25);
     expect(courseSearchPercent(4, 4)).toBe(100);
-    expect(courseSearchLabel(0)).toBe("コース検索中です...(0%)");
-    expect(courseSearchLabel(25.4)).toBe("コース検索中です...(25%)");
+    expect(courseSearchLabel(0, 0)).toBe("コース検索中です...(0% / 合格ルート: 0件)");
+    expect(courseSearchLabel(25.4, 4)).toBe("コース検索中です...(25% / 合格ルート: 4件)");
   });
 
   it("ルータと地図の応答から経路と信号を読む", () => {

@@ -112,7 +112,7 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
 
 export async function apiPostCourses<T>(path: string, body: unknown): Promise<T> {
   return withLoading(async () => {
-    setLoadingMessage(courseSearchLabel(0));
+    setLoadingMessage(courseSearchLabel(0, 0));
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...((await sessionHeaders()) as Record<string, string>),
@@ -133,9 +133,16 @@ export async function apiPostCourses<T>(path: string, body: unknown): Promise<T>
       throw new Error("周回コースを作れませんでした");
     }
     let shown = 0;
-    return readCourseSearchEvents<T>(response.body, (percent) => {
-      shown = percent === 0 ? 0 : Math.max(shown, percent);
-      setLoadingMessage(courseSearchLabel(shown));
+    let passedShown = 0;
+    return readCourseSearchEvents<T>(response.body, (percent, passed) => {
+      if (percent === 0) {
+        shown = 0;
+        passedShown = 0;
+      } else {
+        shown = Math.max(shown, percent);
+        passedShown = Math.max(passedShown, passed);
+      }
+      setLoadingMessage(courseSearchLabel(shown, passedShown));
     });
   });
 }

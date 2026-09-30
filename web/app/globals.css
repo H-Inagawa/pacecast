@@ -1679,38 +1679,43 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   background: var(--card);
 }
 
-.course-list {
-  display: grid;
-  gap: 0.75rem;
+.course-board {
   margin-bottom: 1rem;
 }
 
-.course-card {
-  display: grid;
-  gap: 0.7rem;
-  width: 100%;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: 1rem;
-  background: var(--card);
-  color: var(--ink);
-  text-align: left;
+.course-board-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.4rem;
 }
 
-.course-card-main {
-  display: grid;
-  gap: 0.25rem;
-  padding: 0;
-  border: 0;
+.course-column-button {
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
   background: transparent;
   color: inherit;
-  text-align: left;
   font: inherit;
   cursor: pointer;
 }
 
-.course-card-detail {
-  justify-self: start;
+.course-column-button.is-selected {
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.course-compare-scroll {
+  overflow-x: auto;
+}
+
+.course-compare-table {
+  width: max-content;
+  min-width: 100%;
+}
+
+.course-compare-table th,
+.course-compare-table td {
+  white-space: nowrap;
 }
 
 .course-score-table {
@@ -1729,8 +1734,4 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 .course-score-table thead th {
   color: var(--muted);
   font-weight: 500;
-}
-
-.course-card.is-selected {
-  border-color: var(--accent);
 }

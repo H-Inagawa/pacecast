@@ -1,8 +1,10 @@
 import {
   acceptCourseDistance,
+  courseKeepLimit,
   COURSE_POOL_LIMIT,
   COURSE_PROPOSAL_LIMIT,
   keepCourseDistance,
+  countCrossedSignals,
   countNearRoute,
   courseScoreParts,
   elevationChange,
@@ -19,11 +21,14 @@ import {
   parseOsrmRoute,
   parseOverpass,
   preferDistinctRoutes,
-  radiusScaleFromLengths,
   routeLengthKm,
   sampleRoute,
   shouldRetryMapService,
+  SHAPE_ADJUST_LIMIT,
+  shouldContinueShapeAdjust,
+  shuffleWaypointSets,
   SIGNAL_NEAR_METERS,
+  stepShapeScale,
   straightStats,
   turnCount,
   type CourseScoreParts,
@@ -215,7 +220,7 @@ async function collectRoutes(
   start: LatLon,
   loopKm: number,
   majors: LatLon[][],
-  onProgress?: (finished: number, total: number) => void,
+  onProgress?: (finished: number, total: number, passed: number) => void,
 ): Promise<BuiltRoute[]> {
   const bearing = nearestMajorBearing(start, majors);
   let scale = 1;
@@ -224,16 +229,26 @@ async function collectRoutes(
   let answered = 0;
   let finished = 0;
   let total = 0;
-  for (let pass = 0; pass < 2; pass += 1) {
-    const sets = loopWaypointSets(start, loopKm, bearing, majors, scale);
+  for (let pass = 0; pass <= SHAPE_ADJUST_LIMIT; pass += 1) {
+    const sets = shuffleWaypointSets(loopWaypointSets(start, loopKm, bearing, majors, scale));
     total += sets.length;
-    const planned = pass === 0 ? total + sets.length : total;
-    const reportPlanned = () => onProgress?.(finished, planned);
+    const planned = pass < SHAPE_ADJUST_LIMIT ? total + sets.length : total;
+    const passedNow = () =>
+      gathered.filter(
+        (route) => keepCourseDistance(route.distanceKm, loopKm) && overlapRatio(route.coordinates) <= OVERLAP_REJECT_RATIO,
+      ).length;
+    const reportPlanned = () => onProgress?.(finished, planned, passedNow());
     reportPlanned();
+    const passAccepted: number[] = [];
+    const passKept: number[] = [];
     let cursor = 0;
     let stop = false;
     async function searchOne(): Promise<void> {
       while (cursor < sets.length && !stop) {
+        if (passedNow() >= courseKeepLimit(loopKm)) {
+          stop = true;
+          break;
+        }
         const points = sets[cursor];
         cursor += 1;
         let result: Awaited<ReturnType<typeof routeOnFoot>>;
@@ -250,37 +265,34 @@ async function collectRoutes(
         answered += 1;
         const kept = keepCourse(result);
         gathered.push(...kept);
-        const passed = kept.filter(
-          (route) => keepCourseDistance(route.distanceKm, loopKm) && overlapRatio(route.coordinates) <= OVERLAP_REJECT_RATIO,
-        ).length;
-        if (passed > 0) {
-          const inBandNow = gathered.filter(
-            (route) => keepCourseDistance(route.distanceKm, loopKm) && overlapRatio(route.coordinates) <= OVERLAP_REJECT_RATIO,
-          ).length;
-          if (inBandNow > COURSE_PROPOSAL_LIMIT) {
-            stop = true;
+        for (const route of kept) {
+          passKept.push(route.distanceKm);
+          if (keepCourseDistance(route.distanceKm, loopKm) && overlapRatio(route.coordinates) <= OVERLAP_REJECT_RATIO) {
+            passAccepted.push(route.distanceKm);
           }
+        }
+        if (passedNow() >= courseKeepLimit(loopKm)) {
+          stop = true;
+          onProgress?.(finished, finished, passedNow());
         }
       }
     }
     await Promise.all(Array.from({ length: Math.min(2, sets.length) }, () => searchOne()));
-    if (pass > 0) {
-      break;
-    }
-    const lengths = gathered.map((route) => route.distanceKm);
     const inBand = gathered.filter(
       (route) => keepCourseDistance(route.distanceKm, loopKm) && overlapRatio(route.coordinates) <= OVERLAP_REJECT_RATIO,
     ).length;
-    if (lengths.length === 0 || inBand > COURSE_PROPOSAL_LIMIT || acceptCourseDistance(medianNumber(lengths), loopKm)) {
+    const medianSource = passAccepted.length > 0 ? passAccepted : passKept;
+    const median = medianSource.length > 0 ? medianNumber(medianSource) : 0;
+    if (!shouldContinueShapeAdjust(inBand, median, loopKm, pass)) {
       if (finished > 0) {
-        onProgress?.(finished, finished);
+        onProgress?.(finished, finished, inBand);
       }
       break;
     }
-    const next = radiusScaleFromLengths(lengths, loopKm);
-    if (Math.abs(next - scale) <= 0.05) {
+    const next = stepShapeScale(scale, median, loopKm);
+    if (Math.abs(next - scale) < 1e-9) {
       if (finished > 0) {
-        onProgress?.(finished, finished);
+        onProgress?.(finished, finished, inBand);
       }
       break;
     }
@@ -306,7 +318,7 @@ function medianNumber(values: number[]): number {
 async function proposeCoursesOnce(
   start: LatLon,
   distanceKm: number,
-  onProgress?: (finished: number, total: number) => void,
+  onProgress?: (finished: number, total: number, passed: number) => void,
 ): Promise<CourseProposalSet> {
   const mapContext = await loadMapContext(start, distanceKm);
   const routes = await collectRoutes(start, distanceKm, mapContext.majors, onProgress);
@@ -316,7 +328,12 @@ async function proposeCoursesOnce(
       const majorKm = lengthNearLinesKm(route.coordinates, mapContext.majors, MAJOR_ROAD_NEAR_METERS);
       const overlap = overlapRatio(route.coordinates);
       const straight = straightStats(route.coordinates);
-      const signalCount = countNearRoute(route.coordinates, mapContext.signals, SIGNAL_NEAR_METERS);
+      const signalCount = countCrossedSignals(
+        route.coordinates,
+        mapContext.signals,
+        SIGNAL_NEAR_METERS,
+        mapContext.majors,
+      );
       const featureKm = featureLengthKm(route.coordinates, mapContext.parks, mapContext.waters);
       const junctionCount = countNearRoute(route.coordinates, junctions, 25);
       const scoreParts = courseScoreParts({
@@ -362,18 +379,18 @@ async function proposeCoursesOnce(
 export async function proposeCourses(
   start: LatLon,
   distanceKm: number,
-  onProgress?: (finished: number, total: number) => void,
+  onProgress?: (finished: number, total: number, passed: number) => void,
 ): Promise<CourseProposalSet> {
   const started = Date.now();
   try {
-    onProgress?.(0, 0);
+    onProgress?.(0, 0, 0);
     return await proposeCoursesOnce(start, distanceKm, onProgress);
   } catch (error) {
     if (!(error instanceof CourseRouteError) || !shouldRetryMapService(Date.now() - started, error.retryable)) {
       throw error;
     }
     await new Promise((resolve) => setTimeout(resolve, MAP_RETRY_PAUSE_MS));
-    onProgress?.(0, 0);
+    onProgress?.(0, 0, 0);
     return await proposeCoursesOnce(start, distanceKm, onProgress);
   }
 }

@@ -23,6 +23,7 @@ function coursePayload(proposed: CourseProposalSet) {
       descent_m: course.descentM,
       junction_count: course.junctionCount,
       score: course.score,
+      raw_score: course.rawScore,
       score_parts: {
         distance: course.scoreParts.distance,
         major: course.scoreParts.major,
@@ -31,6 +32,15 @@ function coursePayload(proposed: CourseProposalSet) {
         overlap: course.scoreParts.overlap,
         signals: course.scoreParts.signals,
         junctions: course.scoreParts.junctions,
+      },
+      raw_score_parts: {
+        distance: course.rawScoreParts.distance,
+        major: course.rawScoreParts.major,
+        straight: course.rawScoreParts.straight,
+        turns: course.rawScoreParts.turns,
+        overlap: course.rawScoreParts.overlap,
+        signals: course.rawScoreParts.signals,
+        junctions: course.rawScoreParts.junctions,
       },
     })),
   };
@@ -64,8 +74,8 @@ export async function POST(request: Request) {
           const proposed = await proposeCourses(
             { lat: payload.latitude as number, lon: payload.longitude as number },
             distance,
-            (finished, total) => {
-              write({ type: "progress", percent: courseSearchPercent(finished, total) });
+            (finished, total, passed) => {
+              write({ type: "progress", percent: courseSearchPercent(finished, total), passed });
             },
           );
           write({ type: "result", ...coursePayload(proposed) });

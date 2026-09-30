@@ -1,5 +1,5 @@
 type CourseSearchEvent =
-  | { type: "progress"; percent: number }
+  | { type: "progress"; percent: number; passed: number }
   | { type: "error"; detail: string }
   | { type: "result"; payload: Record<string, unknown> };
 
@@ -17,9 +17,9 @@ function parseCourseSearchLine(line: string): CourseSearchEvent | null {
   if (typeof parsed !== "object" || parsed == null) {
     throw new Error("周回コースを作れませんでした");
   }
-  const event = parsed as { type?: string; percent?: number; detail?: string };
+  const event = parsed as { type?: string; percent?: number; passed?: number; detail?: string };
   if (event.type === "progress" && typeof event.percent === "number") {
-    return { type: "progress", percent: event.percent };
+    return { type: "progress", percent: event.percent, passed: typeof event.passed === "number" ? event.passed : 0 };
   }
   if (event.type === "error") {
     return {
@@ -36,12 +36,22 @@ function parseCourseSearchLine(line: string): CourseSearchEvent | null {
 
 export async function readCourseSearchEvents<T>(
   stream: ReadableStream<Uint8Array>,
-  onProgress: (percent: number) => void,
+  onProgress: (percent: number, passed: number) => void,
 ): Promise<T> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   let result: T | null = null;
+  const take = (event: CourseSearchEvent): T | null => {
+    if (event.type === "progress") {
+      onProgress(event.percent, event.passed);
+      return null;
+    }
+    if (event.type === "error") {
+      throw new Error(event.detail);
+    }
+    return event.payload as T;
+  };
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -53,12 +63,10 @@ export async function readCourseSearchEvents<T>(
         if (event == null) {
           continue;
         }
-        if (event.type === "progress") {
-          onProgress(event.percent);
-        } else if (event.type === "error") {
-          throw new Error(event.detail);
-        } else {
-          result = event.payload as T;
+        const found = take(event);
+        if (found) {
+          result = found;
+          return result;
         }
       }
       if (done) {
@@ -67,16 +75,16 @@ export async function readCourseSearchEvents<T>(
     }
     if (buffer.trim()) {
       const event = parseCourseSearchLine(buffer);
-      if (event?.type === "progress") {
-        onProgress(event.percent);
-      } else if (event?.type === "error") {
-        throw new Error(event.detail);
-      } else if (event?.type === "result") {
-        result = event.payload as T;
+      if (event) {
+        const found = take(event);
+        if (found) {
+          result = found;
+        }
       }
     }
   } finally {
-    reader.releaseLock();
+    // 結果の行のあと、接続の終了通知が来なくてもスピナーを閉じる
+    void reader.cancel().catch(() => undefined);
   }
   if (result == null) {
     throw new Error("周回コースを作れませんでした");
