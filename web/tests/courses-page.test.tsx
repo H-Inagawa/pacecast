@@ -42,14 +42,27 @@ describe("コースを作る", () => {
     render(<CoursesPage />);
     expect(screen.getByRole("button", { name: "コースを作る" })).toBeDisabled();
     expect(screen.getByText("コースの作成には、数分かかることがあります。")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("作成方法を開くと説明が出て、閉じると消える", async () => {
+    const user = userEvent.setup();
+    render(<CoursesPage />);
+    await user.click(screen.getByRole("button", { name: "作成方法" }));
+    expect(screen.getByRole("dialog", { name: "作成方法" })).toBeInTheDocument();
+    expect(screen.getByText(/同じ道の往復/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("地図の起点と距離で作成し、3案から選ぶ", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
-        JSON.stringify({
-          station_name: "練馬",
+        [
+          JSON.stringify({ type: "progress", percent: 25 }),
+          JSON.stringify({
+          type: "result",
           courses: [
             {
               id: "1",
@@ -60,29 +73,45 @@ describe("コースを作る", () => {
               ],
               turn_count: 4,
               signal_count: 2,
+              major_km: 3.2,
+              overlap_ratio: 0.02,
               ascent_m: 12,
               descent_m: 11,
-              prediction: {
-                pace_sec_per_km: 330,
-                duration_sec: 1683,
-                rmse_sec_per_km: 15,
-                confidence: "medium",
-                sample_count: 8,
-                r_squared: 0.55,
+              junction_count: 3,
+              score: 74.2,
+              score_parts: {
+                distance: 10.8,
+                major: 13.8,
+                straight: 8.1,
+                turns: 18,
+                overlap: 26.1,
+                signals: 4.2,
+                junctions: 3.2,
               },
             },
           ],
         }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
+        ].join("\n"),
+        { status: 200, headers: { "Content-Type": "application/x-ndjson" } },
       ),
     );
     render(<CoursesPage />);
     await user.click(screen.getByRole("button", { name: "地図をタップ" }));
     await user.click(screen.getByRole("button", { name: "コースを作る" }));
-    expect(await screen.findByText("コース 1")).toBeInTheDocument();
-    expect(screen.getByText(/練馬/)).toBeInTheDocument();
-    expect(screen.getByText(/信号 2回/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /コース 1/ })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("button", { name: "コース 1" })).toBeInTheDocument();
+    expect(screen.getByText(/実距離 5.10km/)).toBeInTheDocument();
+    expect(screen.getByText(/評価 74.2点/)).toBeInTheDocument();
+    expect(screen.queryByText(/予想ペース/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "中" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "コース 1" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "評価詳細" }));
+    expect(screen.getByRole("dialog", { name: "コース 1 の評価詳細" })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /信号 2回 4.2/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /大通り 3.20km 13.8/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /上り 12m/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "採点基準" }));
+    expect(screen.getByRole("dialog", { name: "採点基準" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("道路重複 28点");
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/courses",
       expect.objectContaining({
@@ -91,7 +120,6 @@ describe("コースを作る", () => {
           distance_km: 5,
           latitude: 35.74,
           longitude: 139.65,
-          intensity: "medium",
         }),
       }),
     );

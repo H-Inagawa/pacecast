@@ -1277,7 +1277,7 @@ input:disabled, select:disabled {
 .choice { display: flex; align-items: center; gap: 0.5rem; }
 .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .notice { background: var(--notice-bg); color: var(--notice-ink); padding: 0.62rem 0.62rem; border-radius: 0.62rem; }
-.error { background: var(--error-bg); color: var(--error-ink); padding: 0.62rem 0.62rem; border-radius: 0.62rem; }
+.error { background: var(--error-bg); color: var(--error-ink); padding: 0.62rem 0.62rem; border-radius: 0.62rem; white-space: pre-line; }
 .row-actions { display: flex; gap: 0.7rem; }
 button.linkish { background: none; color: var(--danger); padding: 0; border-radius: 0; }
 button.text-link { background: none; color: var(--link); padding: 0; border-radius: 0; }
@@ -1327,6 +1327,29 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 .modal-panel h2 {
   margin-top: 0;
   padding-right: 2.4rem;
+}
+
+.modal-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+  padding-right: 2.4rem;
+}
+
+.modal-heading h2 {
+  margin: 0;
+  padding-right: 0;
+}
+
+.course-guide-backdrop {
+  z-index: 60;
+}
+
+.course-score-guide {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
 }
 
 .settings-backdrop {
@@ -1549,6 +1572,19 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   background: var(--overlay);
 }
 
+.loading-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.loading-label {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 500;
+}
+
 .loading-spinner {
   width: 2.6rem;
   height: 2.6rem;
@@ -1633,6 +1669,9 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 }
 
 .course-map {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
   height: 18rem;
   margin: 0.5rem 0 1rem;
   border-radius: 1rem;
@@ -1648,7 +1687,7 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 
 .course-card {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.7rem;
   width: 100%;
   padding: 0.85rem 1rem;
   border: 1px solid var(--line);
@@ -1656,8 +1695,40 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   background: var(--card);
   color: var(--ink);
   text-align: left;
+}
+
+.course-card-main {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
   font: inherit;
   cursor: pointer;
+}
+
+.course-card-detail {
+  justify-self: start;
+}
+
+.course-score-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.8rem;
+}
+
+.course-score-table th,
+.course-score-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.course-score-table thead th {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .course-card.is-selected {

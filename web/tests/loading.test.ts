@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { beginLoading, endLoading, getLoadingCount, isAppNavigation, resetLoadingForTests } from "../lib/loading";
+import { beginLoading, endLoading, getLoadingCount, getLoadingMessage, isAppNavigation, resetLoadingForTests, setLoadingMessage } from "../lib/loading";
 
 function anchor(attrs: Record<string, string>): HTMLAnchorElement {
   const el = document.createElement("a");
@@ -29,6 +29,14 @@ describe("loading store", () => {
     expect(getLoadingCount()).toBe(1);
     endLoading();
     expect(getLoadingCount()).toBe(0);
+  });
+
+  it("待ちの文言は終了で消える", () => {
+    beginLoading();
+    setLoadingMessage("コース検索中です...(40%)");
+    expect(getLoadingMessage()).toBe("コース検索中です...(40%)");
+    endLoading();
+    expect(getLoadingMessage()).toBe("");
   });
 });
 

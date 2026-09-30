@@ -2,60 +2,37 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BackHome } from "../../components/BackHome";
+import { CourseDetailModal, type CourseDetail } from "../../components/CourseDetailModal";
 import { CourseMap } from "../../components/CourseMap";
+import { CourseMethodModal } from "../../components/CourseMethodModal";
 import { StickyActions } from "../../components/StickyActions";
-import { apiSend } from "../../lib/api";
-import {
-  confidenceLabel,
-  formatDistanceKm,
-  formatDurationRange,
-  formatPaceRange,
-} from "../../lib/format";
+import { apiPostCourses } from "../../lib/api";
+import { formatDistanceKm } from "../../lib/format";
 import { readGeolocationError, requestCurrentPosition } from "../../lib/geolocation";
 import { beginLoading, endLoading } from "../../lib/loading";
-
-const INTENSITIES = [
-  { key: "low", label: "低" },
-  { key: "medium", label: "中" },
-  { key: "high", label: "高" },
-] as const;
 
 type CoursePoint = {
   lat: number;
   lon: number;
 };
 
-type CourseResult = {
-  id: string;
-  distance_km: number;
+type CourseResult = CourseDetail & {
   coordinates: CoursePoint[];
-  turn_count: number;
-  signal_count: number;
-  ascent_m: number;
-  descent_m: number;
-  prediction: {
-    pace_sec_per_km: number;
-    duration_sec: number;
-    rmse_sec_per_km: number;
-    confidence: string;
-    sample_count: number;
-    r_squared: number;
-  } | null;
 };
 
 type CourseResponse = {
-  station_name: string;
   courses: CourseResult[];
 };
 
 export default function CoursesPage() {
   const [distance, setDistance] = useState("5");
-  const [intensity, setIntensity] = useState("medium");
   const [start, setStart] = useState<CoursePoint | null>(null);
   const [placeNote, setPlaceNote] = useState("地図をタップするか、現在地を使ってください");
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CourseResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [methodOpen, setMethodOpen] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const plotWait = useRef(false);
 
   const distanceKm = Number(distance);
@@ -109,28 +86,32 @@ export default function CoursesPage() {
     }
     setError(null);
     try {
-      const payload = await apiSend<CourseResponse>("/api/courses", "POST", {
+      const payload = await apiPostCourses<CourseResponse>("/api/courses", {
         distance_km: distanceKm,
         latitude: start.lat,
         longitude: start.lon,
-        intensity,
       });
       setResult(payload);
       setSelectedId(payload.courses[0]?.id ?? null);
     } catch (err) {
-      setResult(null);
-      setSelectedId(null);
       setError(err instanceof Error ? err.message : "コースを作れませんでした");
     }
   }
 
+  const detailIndex = result?.courses.findIndex((course) => course.id === detailId) ?? -1;
+  const detailCourse = detailIndex >= 0 ? (result?.courses[detailIndex] ?? null) : null;
+
   return (
     <>
-      <h1>コースを作る</h1>
-      <p className="lede">
-        走りたい距離の周回を、最大3つ提案します。実距離は指定の±20%まで、かつ±2kmまでです。折り返しがあるときは、元の距離と、折り返し分を除いた距離の両方がこの範囲に入るものだけ出します。予想タイムは、起点に近いアメダスの現在の予報で計算します。
-      </p>
+      <header className="page-heading">
+        <h1>コースを作る</h1>
+        <button type="button" className="heading-help" onClick={() => setMethodOpen(true)}>
+          作成方法
+        </button>
+      </header>
+      <p className="lede">走りたい距離の周回を、点数の高い順に最大3つ出します。</p>
       <p className="meta">コースの作成には、数分かかることがあります。</p>
+      <CourseMethodModal open={methodOpen} onClose={() => setMethodOpen(false)} />
       {error ? <p className="error">{error}</p> : null}
 
       <section className="course-form">
@@ -145,21 +126,6 @@ export default function CoursesPage() {
             onChange={(event) => setDistance(event.target.value)}
           />
         </label>
-        <fieldset>
-          <legend>走行強度</legend>
-          {INTENSITIES.map((item) => (
-            <label key={item.key}>
-              <input
-                type="radio"
-                name="course-intensity"
-                value={item.key}
-                checked={intensity === item.key}
-                onChange={() => setIntensity(item.key)}
-              />
-              {item.label}
-            </label>
-          ))}
-        </fieldset>
         <p className="meta">{placeNote}</p>
         <button type="button" className="button" onClick={() => void useHere()}>
           現在地を使う
@@ -175,49 +141,36 @@ export default function CoursesPage() {
       />
 
       {result ? (
-        <>
-          <p className="meta">気象は {result.station_name} の現在の予報です。信号は地図データ上の数です。</p>
-          <div className="course-list">
-            {result.courses.map((course, index) => {
-              const selected = course.id === selectedId;
-              const timeError = course.prediction
-                ? course.prediction.rmse_sec_per_km * (course.prediction.duration_sec / course.prediction.pace_sec_per_km)
-                : 0;
-              return (
+        <div className="course-list">
+          {result.courses.map((course, index) => {
+            const selected = course.id === selectedId;
+            const name = `コース ${index + 1}`;
+            return (
+              <article key={course.id} className={selected ? "course-card is-selected" : "course-card"}>
                 <button
-                  key={course.id}
                   type="button"
-                  className={selected ? "course-card is-selected" : "course-card"}
+                  className="course-card-main"
                   aria-pressed={selected}
+                  aria-label={name}
                   onClick={() => setSelectedId(course.id)}
                 >
-                  <strong>コース {index + 1}</strong>
+                  <strong>{name}</strong>
                   <span>実距離 {formatDistanceKm(course.distance_km)}</span>
-                  {course.prediction ? (
-                    <>
-                      <span>
-                        予想ペース {formatPaceRange(course.prediction.pace_sec_per_km, course.prediction.rmse_sec_per_km)}
-                      </span>
-                      <span>予想タイム {formatDurationRange(course.prediction.duration_sec, timeError)}</span>
-                      <span className="meta">
-                        信頼度 {confidenceLabel(course.prediction.confidence)} / 参考 {course.prediction.sample_count}件 /
-                        R² {course.prediction.r_squared.toFixed(2)}
-                      </span>
-                    </>
-                  ) : (
-                    <span>予想タイムは出せません。WBGT が付いた走行記録が足りません。</span>
-                  )}
-                  <span>信号 {course.signal_count}回</span>
-                  <span>曲がり角 {course.turn_count}回</span>
-                  <span>
-                    上り {course.ascent_m}m / 下り {course.descent_m}m
-                  </span>
+                  <span>評価 {course.score.toFixed(1)}点</span>
                 </button>
-              );
-            })}
-          </div>
-        </>
+                <button type="button" className="button course-card-detail" onClick={() => setDetailId(course.id)}>
+                  評価詳細
+                </button>
+              </article>
+            );
+          })}
+        </div>
       ) : null}
+      <CourseDetailModal
+        course={detailCourse}
+        title={detailIndex >= 0 ? `コース ${detailIndex + 1} の評価詳細` : "評価詳細"}
+        onClose={() => setDetailId(null)}
+      />
 
       <StickyActions>
         <button type="button" className="button action-lg" disabled={!ready} onClick={() => void onSubmit()}>

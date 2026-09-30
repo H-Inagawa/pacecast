@@ -1,5 +1,7 @@
 import { AUTH_PAGES } from "./auth-pages";
-import { beginLoading, endLoading } from "./loading";
+import { readCourseSearchEvents } from "./course-search";
+import { courseSearchLabel } from "./courses";
+import { beginLoading, endLoading, setLoadingMessage } from "./loading";
 
 function apiUrl(path: string): string {
   if (typeof window === "undefined") {
@@ -105,5 +107,35 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
       throw new Error(await readError(response));
     }
     return response.json() as Promise<T>;
+  });
+}
+
+export async function apiPostCourses<T>(path: string, body: unknown): Promise<T> {
+  return withLoading(async () => {
+    setLoadingMessage(courseSearchLabel(0));
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...((await sessionHeaders()) as Record<string, string>),
+    };
+    const response = await fetch(apiUrl(path), {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (response.status === 401) {
+      redirectToLogin();
+    }
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    if (response.body == null) {
+      throw new Error("周回コースを作れませんでした");
+    }
+    let shown = 0;
+    return readCourseSearchEvents<T>(response.body, (percent) => {
+      shown = percent === 0 ? 0 : Math.max(shown, percent);
+      setLoadingMessage(courseSearchLabel(shown));
+    });
   });
 }

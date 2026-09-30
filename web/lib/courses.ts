@@ -18,6 +18,43 @@ export const RETRACE_CORRIDOR_METERS = 25;
 export const RETRACE_MIN_ALONG_METERS = 150;
 export const RETRACE_JOIN_METERS = 400;
 export const RETRACE_LIMIT_METERS = 120;
+export const OVERLAP_REJECT_RATIO = 0.5;
+export const SHORT_LEG_METERS = 120;
+export const COURSE_POOL_LIMIT = 10;
+export const COURSE_PROPOSAL_LIMIT = 3;
+export const MAP_SERVICE_RETRY_MS = 60_000;
+
+export function shouldRetryMapService(elapsedMs: number, retryable: boolean): boolean {
+  return retryable && elapsedMs >= 0 && elapsedMs < MAP_SERVICE_RETRY_MS;
+}
+
+export function courseSearchPercent(finished: number, total: number): number {
+  if (!(total > 0) || !(finished >= 0)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round((finished / total) * 100)));
+}
+
+export function courseSearchLabel(percent: number): string {
+  const shown = Math.max(0, Math.min(100, Math.round(percent)));
+  return `コース検索中です...(${shown}%)`;
+}
+
+export type CourseScoreParts = {
+  distance: number;
+  major: number;
+  straight: number;
+  turns: number;
+  overlap: number;
+  signals: number;
+  junctions: number;
+  total: number;
+};
+
+export const MAP_SERVICE_MESSAGE =
+  "周回コースを作れませんでした。道路データを取る公開の地図サービスが混み合っていて、一時的に応答できませんでした。\n1〜2分ほど待ってから、もう一度「コースを作る」を押してください。";
+export const COURSE_DISTANCE_HARD_TOLERANCE = 0.35;
+export const COURSE_DISTANCE_HARD_CAP_KM = 3.5;
 
 const MAJOR_HIGHWAY = /^(trunk|primary|secondary|tertiary)(_link)?$/;
 
@@ -32,6 +69,10 @@ export function acceptCourseDistance(
   }
   const limitKm = Math.min(targetKm * tolerance, capKm);
   return Math.abs(actualKm - targetKm) <= limitKm;
+}
+
+export function keepCourseDistance(actualKm: number, targetKm: number): boolean {
+  return acceptCourseDistance(actualKm, targetKm, COURSE_DISTANCE_HARD_TOLERANCE, COURSE_DISTANCE_HARD_CAP_KM);
 }
 
 export function destinationPoint(start: LatLon, bearingDeg: number, distanceKmValue: number): LatLon {
@@ -93,6 +134,56 @@ function bearingDeg(from: LatLon, to: LatLon): number {
 function turnDelta(fromDeg: number, toDeg: number): number {
   const delta = Math.abs(toDeg - fromDeg) % 360;
   return delta > 180 ? 360 - delta : delta;
+}
+
+export type StraightStats = {
+  meanLegMeters: number;
+  longestLegMeters: number;
+  shortLegCount: number;
+};
+
+export function straightStats(
+  coordinates: LatLon[],
+  minTurnDeg = TURN_MIN_DEG,
+  minLegMeters = TURN_MIN_LEG_METERS,
+  shortLegMeters = SHORT_LEG_METERS,
+): StraightStats {
+  const legs: number[] = [];
+  let legMeters = 0;
+  let heading: number | null = null;
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const step =
+      distanceKm(
+        coordinates[index - 1].lat,
+        coordinates[index - 1].lon,
+        coordinates[index].lat,
+        coordinates[index].lon,
+      ) * 1000;
+    if (step < 1) {
+      continue;
+    }
+    const next = bearingDeg(coordinates[index - 1], coordinates[index]);
+    if (heading != null && step >= minLegMeters && turnDelta(heading, next) >= minTurnDeg && legMeters > 0) {
+      legs.push(legMeters);
+      legMeters = 0;
+    }
+    legMeters += step;
+    if (step >= minLegMeters) {
+      heading = next;
+    }
+  }
+  if (legMeters > 0) {
+    legs.push(legMeters);
+  }
+  if (legs.length === 0) {
+    return { meanLegMeters: 0, longestLegMeters: 0, shortLegCount: 0 };
+  }
+  const total = legs.reduce((sum, leg) => sum + leg, 0);
+  return {
+    meanLegMeters: total / legs.length,
+    longestLegMeters: Math.max(...legs),
+    shortLegCount: legs.filter((leg) => leg < shortLegMeters).length,
+  };
 }
 
 export function turnCount(
@@ -402,15 +493,12 @@ export function retraceMeters(
   return (flaggedCount / samples.length) * length;
 }
 
-export function distanceWithoutRetraceKm(distanceKm: number, coordinates: LatLon[]): number {
-  return Math.max(0, distanceKm - retraceMeters(coordinates) / 1000);
-}
-
-export function acceptRetracedCourse(distanceKm: number, coordinates: LatLon[], targetKm: number): boolean {
-  return (
-    acceptCourseDistance(distanceKm, targetKm) &&
-    acceptCourseDistance(distanceWithoutRetraceKm(distanceKm, coordinates), targetKm)
-  );
+export function overlapRatio(coordinates: LatLon[]): number {
+  const totalMeters = routeLengthKm(coordinates) * 1000;
+  if (!(totalMeters > 0)) {
+    return 1;
+  }
+  return retraceMeters(coordinates) / totalMeters;
 }
 
 export function dropRetraces(coordinates: LatLon[], corridorMeters = 18, allow?: (point: LatLon) => boolean): LatLon[] {
@@ -603,24 +691,292 @@ export function elevationChange(meters: number[]): { ascentM: number; descentM: 
   return { ascentM: Math.round(ascent), descentM: Math.round(descent) };
 }
 
-export type CourseRank = {
+export type CourseScoreInput = {
+  distanceKm: number;
+  targetKm: number;
   majorRatio: number;
   turnCount: number;
   signalCount: number;
-  featureKm: number;
+  junctionCount: number;
+  overlapRatio: number;
+  meanLegMeters: number;
+  longestLegMeters: number;
+  shortLegCount: number;
 };
 
-export function compareCourses(left: CourseRank, right: CourseRank): number {
-  if (left.majorRatio !== right.majorRatio) {
-    return right.majorRatio - left.majorRatio;
+export function courseScoreParts(input: CourseScoreInput): CourseScoreParts {
+  const limitKm = Math.min(input.targetKm * COURSE_DISTANCE_TOLERANCE, COURSE_DISTANCE_CAP_KM);
+  const distanceFit = limitKm > 0 ? Math.max(0, 1 - Math.abs(input.distanceKm - input.targetKm) / limitKm) : 0;
+  const sideMeters = (input.targetKm * 1000) / 4;
+  const meanFit = sideMeters > 0 ? Math.min(1, input.meanLegMeters / sideMeters) : 0;
+  const longestFit = sideMeters > 0 ? Math.min(1, input.longestLegMeters / sideMeters) : 0;
+  const straightFit = Math.max(0, meanFit * 0.5 + longestFit * 0.5 - Math.min(0.5, input.shortLegCount * 0.08));
+  const turnFit = Math.max(0, 1 - Math.max(0, input.turnCount - 4) / 6);
+  const overlapFit = Math.max(0, 1 - Math.min(1, input.overlapRatio / 0.3));
+  const signalFit = Math.max(0, 1 - Math.min(1, input.signalCount / Math.max(1, input.targetKm * 2)));
+  const junctionFit = Math.max(0, 1 - Math.min(1, input.junctionCount / Math.max(6, input.targetKm)));
+  const distance = 12 * distanceFit;
+  const major = 22 * Math.min(1, Math.max(0, input.majorRatio));
+  const straight = 10 * straightFit;
+  const turns = 18 * turnFit;
+  const overlap = 28 * overlapFit;
+  const signals = 6 * signalFit;
+  const junctions = 4 * junctionFit;
+  return {
+    distance,
+    major,
+    straight,
+    turns,
+    overlap,
+    signals,
+    junctions,
+    total: distance + major + straight + turns + overlap + signals + junctions,
+  };
+}
+
+export function courseScore(input: CourseScoreInput): number {
+  return courseScoreParts(input).total;
+}
+
+const SCORE_PART_KEYS = ["distance", "major", "straight", "turns", "overlap", "signals", "junctions"] as const;
+
+function roundScorePoint(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+export function relativeCourseScores<T extends { score: number; scoreParts: CourseScoreParts }>(courses: T[]): T[] {
+  const top = courses.reduce((max, course) => Math.max(max, course.score), 0);
+  if (!(top > 0)) {
+    return courses;
   }
-  if (left.turnCount !== right.turnCount) {
-    return left.turnCount - right.turnCount;
+  return courses.map((course) => {
+    const factor = 100 / top;
+    const parts: CourseScoreParts = {
+      distance: 0,
+      major: 0,
+      straight: 0,
+      turns: 0,
+      overlap: 0,
+      signals: 0,
+      junctions: 0,
+      total: 0,
+    };
+    for (const key of SCORE_PART_KEYS) {
+      parts[key] = roundScorePoint(course.scoreParts[key] * factor);
+    }
+    let sum = roundScorePoint(SCORE_PART_KEYS.reduce((total, key) => total + parts[key], 0));
+    const target = course.score >= top - 1e-9 ? 100 : sum;
+    const drift = roundScorePoint(target - sum);
+    if (drift !== 0) {
+      const key = SCORE_PART_KEYS.reduce((best, current) => (parts[current] > parts[best] ? current : best));
+      parts[key] = roundScorePoint(parts[key] + drift);
+      sum = roundScorePoint(SCORE_PART_KEYS.reduce((total, item) => total + parts[item], 0));
+    }
+    parts.total = sum;
+    return { ...course, score: sum, scoreParts: parts };
+  });
+}
+
+export function sameCourseLine(left: LatLon[], right: LatLon[], nearMeters = 40): boolean {
+  const samples = sampleRoute(left, 200, 40);
+  if (samples.length === 0 || right.length < 2) {
+    return false;
   }
-  if (left.signalCount !== right.signalCount) {
-    return left.signalCount - right.signalCount;
+  let near = 0;
+  for (const sample of samples) {
+    const close = right.some((_, index) => {
+      if (index === 0) {
+        return false;
+      }
+      return distanceToSegmentMeters(sample, right[index - 1], right[index]) <= nearMeters;
+    });
+    if (close) {
+      near += 1;
+    }
   }
-  return right.featureKm - left.featureKm;
+  return near / samples.length >= 0.92;
+}
+
+export function preferDistinctRoutes<T extends { coordinates: LatLon[]; score: number; featureKm?: number }>(
+  routes: T[],
+  limit = COURSE_PROPOSAL_LIMIT,
+): T[] {
+  const ranked = [...routes].sort(
+    (left, right) => right.score - left.score || (right.featureKm ?? 0) - (left.featureKm ?? 0),
+  );
+  const kept: T[] = [];
+  for (const route of ranked) {
+    if (kept.some((existing) => sameCourseLine(existing.coordinates, route.coordinates))) {
+      continue;
+    }
+    kept.push(route);
+    if (kept.length >= limit) {
+      break;
+    }
+  }
+  return kept;
+}
+
+export function nearestMajorBearing(start: LatLon, lines: LatLon[][]): number {
+  let bestMeters = Number.POSITIVE_INFINITY;
+  let bearing = 0;
+  for (const line of lines) {
+    for (let index = 1; index < line.length; index += 1) {
+      const meters = distanceToSegmentMeters(start, line[index - 1], line[index]);
+      if (meters < bestMeters) {
+        bestMeters = meters;
+        bearing = bearingDeg(line[index - 1], line[index]);
+      }
+    }
+  }
+  return bearing;
+}
+
+function shiftPoint(origin: LatLon, headingDeg: number, alongKm: number, rightKm: number): LatLon {
+  const moved = destinationPoint(origin, headingDeg, alongKm);
+  return destinationPoint(moved, (headingDeg + 90 + 360) % 360, rightKm);
+}
+
+function closeLoop(start: LatLon, vias: LatLon[]): LatLon[] | null {
+  const kept: LatLon[] = [];
+  for (const point of vias) {
+    if (distanceKm(start.lat, start.lon, point.lat, point.lon) * 1000 < 80) {
+      return null;
+    }
+    if (kept.some((existing) => distanceKm(existing.lat, existing.lon, point.lat, point.lon) * 1000 < 80)) {
+      return null;
+    }
+    kept.push(point);
+  }
+  if (kept.length < 3) {
+    return null;
+  }
+  return [start, ...kept, start];
+}
+
+function shapeLoop(
+  start: LatLon,
+  headingDeg: number,
+  longKm: number,
+  shortKm: number,
+  startIndex: number,
+  majors: LatLon[][],
+  loopKm: number,
+): LatLon[] | null {
+  const roles = [
+    { along: 0, right: 0 },
+    { along: longKm / 2, right: 0 },
+    { along: longKm, right: 0 },
+    { along: longKm, right: shortKm / 2 },
+    { along: longKm, right: shortKm },
+    { along: longKm / 2, right: shortKm },
+    { along: 0, right: shortKm },
+    { along: 0, right: shortKm / 2 },
+  ];
+  const origin = roles[startIndex];
+  const limit = snapLimitMeters(loopKm);
+  const vias: LatLon[] = [];
+  for (let step = 1; step <= roles.length; step += 1) {
+    const index = (startIndex + step) % roles.length;
+    if (index === startIndex || index % 2 !== 0) {
+      continue;
+    }
+    const role = roles[index];
+    const ideal = shiftPoint(start, headingDeg, role.along - origin.along, role.right - origin.right);
+    vias.push(nearestOnLines(ideal, majors, limit) ?? ideal);
+  }
+  return closeLoop(start, vias);
+}
+
+function turnLoop(
+  start: LatLon,
+  loopKm: number,
+  headingDeg: number,
+  turnDeg: number,
+  majors: LatLon[][],
+  scale: number,
+): LatLon[] | null {
+  const legKm = (loopKm / 4) * scale;
+  const limit = snapLimitMeters(loopKm);
+  let cursor = start;
+  let face = headingDeg;
+  const vias: LatLon[] = [];
+  for (let turn = 0; turn < 3; turn += 1) {
+    const ideal = destinationPoint(cursor, face, legKm);
+    const snapped = nearestOnLines(ideal, majors, limit) ?? ideal;
+    vias.push(snapped);
+    cursor = snapped;
+    face = (face + turnDeg + 360) % 360;
+  }
+  return closeLoop(start, vias);
+}
+
+function dedupeWaypointSets(sets: LatLon[][]): LatLon[][] {
+  const unique: LatLon[][] = [];
+  const seen = new Set<string>();
+  for (const set of sets) {
+    const key = set.map((point) => `${point.lat.toFixed(3)},${point.lon.toFixed(3)}`).join("|");
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    unique.push(set);
+  }
+  return unique;
+}
+
+function appendLoopShapes(
+  sets: LatLon[][],
+  start: LatLon,
+  headingDeg: number,
+  sideKm: number,
+  longKm: number,
+  shortKm: number,
+  majors: LatLon[][],
+  loopKm: number,
+  includeSquare: boolean,
+) {
+  for (let index = 0; index < 8; index += 1) {
+    if (includeSquare) {
+      const square = shapeLoop(start, headingDeg, sideKm, sideKm, index, majors, loopKm);
+      if (square) {
+        sets.push(square);
+      }
+    }
+    const rectangle = shapeLoop(start, headingDeg, longKm, shortKm, index, majors, loopKm);
+    if (rectangle) {
+      sets.push(rectangle);
+    }
+  }
+}
+
+export function loopWaypointSets(
+  start: LatLon,
+  loopKm: number,
+  bearingDeg: number,
+  majors: LatLon[][],
+  scale = 1,
+): LatLon[][] {
+  const sets: LatLon[][] = [];
+  const sideKm = (loopKm / 4) * scale;
+  const shortKm = (loopKm / 10) * scale;
+  const longKm = shortKm * 4;
+  for (const offset of [0, 90, 180, 270]) {
+    const heading = (bearingDeg + offset + 360) % 360;
+    const clockwise = turnLoop(start, loopKm, heading, 90, majors, scale);
+    if (clockwise) {
+      sets.push(clockwise);
+      continue;
+    }
+    const counter = turnLoop(start, loopKm, heading, -90, majors, scale);
+    if (counter) {
+      sets.push(counter);
+    }
+  }
+  appendLoopShapes(sets, start, bearingDeg, sideKm, longKm, shortKm, majors, loopKm, true);
+  appendLoopShapes(sets, start, bearingDeg + 45, sideKm, longKm, shortKm, majors, loopKm, true);
+  appendLoopShapes(sets, start, 0, sideKm, longKm, shortKm, majors, loopKm, false);
+  return dedupeWaypointSets(sets);
 }
 
 export function snapLimitMeters(loopKm: number): number {

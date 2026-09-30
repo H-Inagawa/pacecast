@@ -5,9 +5,17 @@ import { LOADING_SHOW_DELAY_MS, subscribeLoading } from "../lib/loading";
 
 export function LoadingOverlay() {
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
   const [visible, setVisible] = useState(false);
 
-  useEffect(() => subscribeLoading((count) => setBusy(count > 0)), []);
+  useEffect(
+    () =>
+      subscribeLoading((state) => {
+        setBusy(state.count > 0);
+        setMessage(state.message);
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!busy) {
@@ -24,8 +32,10 @@ export function LoadingOverlay() {
 
   return (
     <div className="loading-overlay" role="status" aria-live="polite" aria-busy="true">
-      <div className="loading-spinner" aria-hidden="true" />
-      <span className="visually-hidden">処理中</span>
+      <div className="loading-stack">
+        <div className="loading-spinner" aria-hidden="true" />
+        {message ? <p className="loading-label">{message}</p> : <span className="visually-hidden">処理中</span>}
+      </div>
     </div>
   );
 }
