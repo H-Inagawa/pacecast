@@ -18,7 +18,8 @@ export const RETRACE_CORRIDOR_METERS = 25;
 export const RETRACE_MIN_ALONG_METERS = 150;
 export const RETRACE_JOIN_METERS = 400;
 export const RETRACE_LIMIT_METERS = 120;
-export const OVERLAP_REJECT_RATIO = 0.65;
+export const OVERLAP_REJECT_RATIO = 0.1;
+export const NEAR_COURSE_NOTICE = "希望の距離のコースが作れませんでした。\n指定条件に近かったコースを表示します。";
 export const SHORT_LEG_METERS = 120;
 export const COURSE_POOL_LIMIT = 10;
 export const COURSE_KEEP_LIMIT = 25;
@@ -29,21 +30,25 @@ export const COURSE_DISTANCE_BASE_KM = 5;
 export const COURSE_DISTANCE_STEP_KM = 3;
 export const COURSE_RELAX_POINTS = 5;
 export const COURSE_RELAX_ROUTES = 5;
-export const OVERLAP_ZERO_RATIO = 0.2;
+export const OVERLAP_ZERO_RATIO = 0.1;
 export const TURN_FULL_PER_KM = 1;
-export const TURN_ZERO_PER_KM = 5;
+export const TURN_ZERO_PER_KM = 3;
 export const SIGNAL_ZERO_PER_KM = 5;
+export const COURSE_CANDIDATE_LIMIT = 50;
 export const COURSE_SHAPE_SCALE = 0.8;
 export const SHAPE_SCALE_STEP = 0.02;
 export const SHAPE_SCALE_MIN = 0.6;
 export const SHAPE_SCALE_MAX = 1.4;
 export const SHAPE_ADJUST_LIMIT = 10;
-export const SCORE_OVERLAP = 20;
-export const SCORE_DISTANCE = 26;
-export const SCORE_MAJOR = 0;
-export const SCORE_TURNS = 34;
-export const SCORE_STRAIGHT = 12;
-export const SCORE_SIGNALS = 8;
+export const SCORE_OVERLAP = 10;
+export const SCORE_DISTANCE = 20;
+export const SCORE_EASY = 30;
+export const SCORE_TURNS = 10;
+export const SCORE_STRAIGHT = 10;
+export const SCORE_SIGNALS = 0;
+export const SCORE_CLOCKWISE = 5;
+export const SCORE_UTURN = 5;
+export const SCORE_MINOR = 10;
 export const SCORE_JUNCTIONS = 0;
 const SIGNAL_CROSS_WINDOW_METERS = 35;
 const SIGNAL_CLUSTER_METERS = 40;
@@ -88,13 +93,42 @@ export function courseKeepLimit(targetKm: number): number {
   return Math.max(COURSE_KEEP_FLOOR, COURSE_KEEP_LIMIT - courseSearchSteps(targetKm) * COURSE_RELAX_ROUTES);
 }
 
+/** 短い距離のとき、大通りと河川敷から探す起点の上限。 */
+export const COURSE_ROAD_START_LIMIT = 5;
+
+/** 起点が1本のとき足す、別方向の探索の上限。 */
+export const COURSE_STEM_SEARCH_LIMIT = 8;
+
+/**
+ * 指定距離が長いほど、周回の起点にする大通りと河川敷の本数を減らす。
+ * 5kmまでは5本。5kmを超えて3km伸びるごとに1本減らし、17km以上は1本。
+ * @param targetKm 指定距離（km）
+ * @returns 探す起点の上限
+ */
+export function courseRoadStartLimit(targetKm: number): number {
+  return Math.max(1, COURSE_ROAD_START_LIMIT - courseSearchSteps(targetKm));
+}
+
+/**
+ * 起点が1本のとき、別方向を足す探索の回数。長い距離ほど減らす。
+ * 5kmまでは8回。3km伸びるごとに2回減らし、17km以上は足さない。
+ * @param targetKm 指定距離（km）
+ * @returns 追加探索の上限
+ */
+export function courseStemSearchLimit(targetKm: number): number {
+  return Math.max(0, COURSE_STEM_SEARCH_LIMIT - courseSearchSteps(targetKm) * 2);
+}
+
 export type CourseScoreParts = {
   distance: number;
-  major: number;
+  easy: number;
   straight: number;
   turns: number;
   overlap: number;
   signals: number;
+  clockwise: number;
+  uturn: number;
+  minor: number;
   junctions: number;
   total: number;
 };
@@ -106,21 +140,57 @@ export const COURSE_DISTANCE_HARD_CAP_KM = 5;
 
 const MAJOR_HIGHWAY = /^(trunk|primary|secondary|tertiary)(_link)?$/;
 
-export function acceptCourseDistance(
-  actualKm: number,
-  targetKm: number,
-  tolerance = COURSE_DISTANCE_TOLERANCE,
-  capKm = COURSE_DISTANCE_CAP_KM,
-): boolean {
+export function isMajorHighway(highway: string): boolean {
+  return MAJOR_HIGHWAY.test(highway);
+}
+
+const LOWER_STEPS: RegExp[] = [
+  /^(unclassified)(_link)?$/,
+  /^(residential)(_link)?$/,
+  /^(living_street)(_link)?$/,
+  /^(cycleway)(_link)?$/,
+  /^(path|footway|pedestrian)(_link)?$/,
+  /^(track|service)(_link)?$/,
+];
+
+/** 道の段階。0 は大通り。大きな数ほど一段低い。河川敷と公園内の道は段階に関係なく候補に残す。 */
+export function highwaySearchLevel(highway: string): number {
+  if (isMajorHighway(highway)) {
+    return 0;
+  }
+  const index = LOWER_STEPS.findIndex((pattern) => pattern.test(highway));
+  return index < 0 ? LOWER_STEPS.length : index + 1;
+}
+
+export const HIGHWAY_SEARCH_LEVEL_MAX = LOWER_STEPS.length;
+
+export function acceptCourseDistance(actualKm: number, targetKm: number): boolean {
   if (!(actualKm > 0) || !(targetKm > 0)) {
     return false;
   }
-  const limitKm = Math.min(targetKm * tolerance, capKm) * courseDistanceSlack(targetKm);
-  return Math.abs(actualKm - targetKm) <= limitKm;
+  return Math.abs(actualKm - targetKm) <= targetKm * COURSE_DISTANCE_TOLERANCE;
+}
+
+/** 合格が無いときに出す、距離ちがい1件と重複ちがい1件。同じ線は1本にまとめる。 */
+export function chooseNearMisses<T extends { coordinates: LatLon[] }>(
+  distanceMiss: T | null,
+  overlapMiss: T | null,
+): T[] {
+  const picked: T[] = [];
+  if (distanceMiss != null) {
+    picked.push(distanceMiss);
+  }
+  if (
+    overlapMiss != null &&
+    !picked.some((item) => sameCourseLine(item.coordinates, overlapMiss.coordinates))
+  ) {
+    picked.push(overlapMiss);
+  }
+  return picked;
 }
 
 export function keepCourseDistance(actualKm: number, targetKm: number): boolean {
-  return acceptCourseDistance(actualKm, targetKm, COURSE_DISTANCE_HARD_TOLERANCE, COURSE_DISTANCE_HARD_CAP_KM);
+  return acceptCourseDistance(actualKm, targetKm);
 }
 
 export function destinationPoint(start: LatLon, bearingDeg: number, distanceKmValue: number): LatLon {
@@ -546,7 +616,60 @@ export function overlapRatio(coordinates: LatLon[]): number {
   if (!(totalMeters > 0)) {
     return 1;
   }
-  return retraceMeters(coordinates) / totalMeters;
+  const stem = accessStem(coordinates);
+  const middle = totalMeters - stem.meters * 2;
+  const forgive = stem.meters >= 80 && middle >= Math.max(400, totalMeters * 0.2);
+  const allow = forgive
+    ? (point: LatLon) => nearPolyline(point, stem.line, RETRACE_CORRIDOR_METERS)
+    : undefined;
+  return retraceMeters(coordinates, RETRACE_CORRIDOR_METERS, RETRACE_MIN_ALONG_METERS, RETRACE_JOIN_METERS, allow) / totalMeters;
+}
+
+function accessStem(coordinates: LatLon[]): { meters: number; line: LatLon[] } {
+  if (coordinates.length < 4) {
+    return { meters: 0, line: [] };
+  }
+  const total = routeLengthKm(coordinates) * 1000;
+  if (!(total > 0)) {
+    return { meters: 0, line: [] };
+  }
+  const samples = densifyRoute(coordinates, Math.max(40, total / 500));
+  const along: number[] = [0];
+  for (let index = 1; index < samples.length; index += 1) {
+    along.push(
+      along[index - 1] + distanceKm(samples[index - 1].lat, samples[index - 1].lon, samples[index].lat, samples[index].lon) * 1000,
+    );
+  }
+  let meters = 0;
+  let inbound = samples.length - 1;
+  for (let outbound = 0; outbound < samples.length / 2; outbound += 1) {
+    const target = total - along[outbound];
+    while (inbound > outbound && along[inbound] > target + 50) {
+      inbound -= 1;
+    }
+    let near = Number.POSITIVE_INFINITY;
+    for (let cursor = inbound; cursor > outbound && along[cursor] >= target - 80; cursor -= 1) {
+      const across = distanceKm(samples[outbound].lat, samples[outbound].lon, samples[cursor].lat, samples[cursor].lon) * 1000;
+      if (across < near) {
+        near = across;
+      }
+    }
+    if (near > 60) {
+      break;
+    }
+    meters = along[outbound];
+  }
+  const line = samples.filter((_, index) => along[index] <= meters + 40);
+  return { meters, line };
+}
+
+function nearPolyline(point: LatLon, line: LatLon[], meters: number): boolean {
+  for (let index = 1; index < line.length; index += 1) {
+    if (distanceToSegmentMeters(point, line[index - 1], line[index]) <= meters) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function dropRetraces(coordinates: LatLon[], corridorMeters = 18, allow?: (point: LatLon) => boolean): LatLon[] {
@@ -577,6 +700,79 @@ export function dropRetraces(coordinates: LatLon[], corridorMeters = 18, allow?:
     kept.push(point);
   }
   return kept;
+}
+
+export function straightenShortSpikes(coordinates: LatLon[], maxDetourMeters = 250, rejoinMeters = 28): LatLon[] {
+  if (coordinates.length < 4) {
+    return coordinates;
+  }
+  const points = coordinates.map((point) => ({ ...point }));
+  for (let pass = 0; pass < 12; pass += 1) {
+    const along = [0];
+    for (let index = 1; index < points.length; index += 1) {
+      along.push(
+        along[index - 1] + distanceKm(points[index - 1].lat, points[index - 1].lon, points[index].lat, points[index].lon) * 1000,
+      );
+    }
+    let removed = false;
+    for (let start = 0; start < points.length - 2 && !removed; start += 1) {
+      for (let end = start + 2; end < points.length; end += 1) {
+        const detour = along[end] - along[start];
+        if (detour > maxDetourMeters) {
+          break;
+        }
+        if (detour < 30) {
+          continue;
+        }
+        const back = distanceKm(points[start].lat, points[start].lon, points[end].lat, points[end].lon) * 1000;
+        if (back > rejoinMeters || detour < back * 2.2) {
+          continue;
+        }
+        const leftover = along[along.length - 1] - detour;
+        if (leftover < Math.max(200, along[along.length - 1] * 0.45)) {
+          continue;
+        }
+        points.splice(start + 1, end - start - 1);
+        removed = true;
+        break;
+      }
+    }
+    if (!removed) {
+      break;
+    }
+  }
+  const compact: LatLon[] = [];
+  for (const point of points) {
+    const previous = compact[compact.length - 1];
+    if (previous && distanceKm(previous.lat, previous.lon, point.lat, point.lon) * 1000 < 8) {
+      continue;
+    }
+    compact.push(point);
+  }
+  return compact.length >= 4 ? compact : coordinates;
+}
+
+export function countUturns(coordinates: LatLon[], minLegMeters = TURN_MIN_LEG_METERS): number {
+  let count = 0;
+  let heading: number | null = null;
+  let anchor: LatLon | null = null;
+  for (const point of coordinates) {
+    if (anchor == null) {
+      anchor = point;
+      continue;
+    }
+    const legMeters = distanceKm(anchor.lat, anchor.lon, point.lat, point.lon) * 1000;
+    if (legMeters < minLegMeters) {
+      continue;
+    }
+    const next = bearingDeg(anchor, point);
+    if (heading != null && turnDelta(heading, next) >= 150) {
+      count += 1;
+    }
+    heading = next;
+    anchor = point;
+  }
+  return count;
 }
 
 function localMeters(origin: LatLon, point: LatLon): { x: number; y: number } {
@@ -633,6 +829,163 @@ export function lengthNearLinesKm(route: LatLon[], lines: LatLon[][], maxMeters:
     }
   }
   return total;
+}
+
+const PARK_EDGE_METERS = 12;
+
+/** 点が公園の輪の中か、輪の縁の近くか。穴の中は公園に入れない。 */
+export function pointInPark(point: LatLon, parks: LatLon[][], holes: LatLon[][] = []): boolean {
+  return segmentInPark(point, parks, holes);
+}
+
+export const PARK_ROAD_START_METERS = 800;
+
+const SAME_COURSE_ROAD_METERS = 150;
+const NARROW_FACE_METERS = 80;
+
+export type CourseRoadStart = { point: LatLon; meters: number };
+
+function projectOnCourseRoad(
+  start: LatLon,
+  road: { coordinates: LatLon[]; highway: string },
+  waters: LatLon[][],
+  maxMeters: number,
+): CourseRoadStart | null {
+  const major = isMajorHighway(road.highway);
+  let best: CourseRoadStart | null = null;
+  for (let index = 1; index < road.coordinates.length; index += 1) {
+    const from = road.coordinates[index - 1];
+    const to = road.coordinates[index];
+    if (!major) {
+      const mid = { lat: (from.lat + to.lat) / 2, lon: (from.lon + to.lon) / 2 };
+      if (nearestOnLines(mid, waters, WATER_NEAR_METERS) == null) {
+        continue;
+      }
+    }
+    const point = projectToSegment(start, from, to);
+    const meters = distanceKm(start.lat, start.lon, point.lat, point.lon) * 1000;
+    if (meters > maxMeters || (best != null && meters >= best.meters)) {
+      continue;
+    }
+    best = { point, meters };
+  }
+  return best;
+}
+
+/**
+ * 出発点から近いコース用の道（大通りと河川敷）を、近い順に返す。
+ * 150m以内に重なる点は、近い方だけ残す。本数の上限は指定距離が長いほど少ない。
+ * @param start 地図で選んだ地点
+ * @param roads 周囲の道
+ * @param waters 川の線
+ * @param maxMeters 道を探す上限（m）
+ * @param limit 返す本数の上限
+ * @returns 道の上の点とそこまでの距離
+ */
+export function courseRoadStarts(
+  start: LatLon,
+  roads: { coordinates: LatLon[]; highway: string }[],
+  waters: LatLon[][],
+  maxMeters = PARK_ROAD_START_METERS,
+  limit = COURSE_ROAD_START_LIMIT,
+): CourseRoadStart[] {
+  const raw = roads.flatMap((road) => {
+    const nearest = projectOnCourseRoad(start, road, waters, maxMeters);
+    return nearest == null ? [] : [nearest];
+  });
+  raw.sort((left, right) => left.meters - right.meters);
+  const cap = Math.max(1, Math.floor(limit));
+  const kept: CourseRoadStart[] = [];
+  for (const item of raw) {
+    const nearKept = kept.some(
+      (existing) => distanceKm(existing.point.lat, existing.point.lon, item.point.lat, item.point.lon) * 1000 < SAME_COURSE_ROAD_METERS,
+    );
+    if (nearKept) {
+      continue;
+    }
+    kept.push(item);
+    if (kept.length >= cap) {
+      break;
+    }
+  }
+  return kept;
+}
+
+/**
+ * いちばん近い道が、80m以内の細い道か園内の通路か。
+ * 大通りや河川敷の上にいるときは false。
+ * @param start 地図で選んだ地点
+ * @param roads 周囲の道
+ * @param waters 川の線
+ * @returns 細い道や通路に面しているとき true
+ */
+export function facesNarrowRoad(
+  start: LatLon,
+  roads: { coordinates: LatLon[]; highway: string }[],
+  waters: LatLon[][],
+): boolean {
+  let bestMeters = NARROW_FACE_METERS;
+  let course = false;
+  let found = false;
+  for (const road of roads) {
+    const major = isMajorHighway(road.highway);
+    for (let index = 1; index < road.coordinates.length; index += 1) {
+      const from = road.coordinates[index - 1];
+      const to = road.coordinates[index];
+      const point = projectToSegment(start, from, to);
+      const meters = distanceKm(start.lat, start.lon, point.lat, point.lon) * 1000;
+      if (meters > bestMeters) {
+        continue;
+      }
+      const mid = { lat: (from.lat + to.lat) / 2, lon: (from.lon + to.lon) / 2 };
+      const riverside = !major && nearestOnLines(mid, waters, WATER_NEAR_METERS) != null;
+      bestMeters = meters;
+      course = major || riverside;
+      found = true;
+    }
+  }
+  return found && !course;
+}
+
+function segmentInPark(point: LatLon, parks: LatLon[][], holes: LatLon[][]): boolean {
+  if (holes.some((ring) => ring.length >= 3 && pointInRing(point, ring))) {
+    return false;
+  }
+  return parks.some((ring) => {
+    if (ring.length < 3) {
+      return false;
+    }
+    return pointInRing(point, ring) || segmentNearLines(point, [ring], PARK_EDGE_METERS);
+  });
+}
+
+export function isEasyRoad(
+  highway: string,
+  coordinates: LatLon[],
+  parks: LatLon[][],
+  waters: LatLon[][],
+  parkHoles: LatLon[][] = [],
+): boolean {
+  if (isMajorHighway(highway)) {
+    return true;
+  }
+  if (lengthNearLinesKm(coordinates, waters, WATER_NEAR_METERS) > 0) {
+    return true;
+  }
+  const total = routeLengthKm(coordinates);
+  if (!(total > 0) || parks.length === 0) {
+    return false;
+  }
+  let inside = 0;
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const start = coordinates[index - 1];
+    const end = coordinates[index];
+    const mid = { lat: (start.lat + end.lat) / 2, lon: (start.lon + end.lon) / 2 };
+    if (segmentInPark(mid, parks, parkHoles)) {
+      inside += distanceKm(start.lat, start.lon, end.lat, end.lon);
+    }
+  }
+  return inside / total >= 0.5;
 }
 
 function distanceToSegmentMeters(point: LatLon, start: LatLon, end: LatLon): number {
@@ -859,7 +1212,8 @@ export function elevationChange(meters: number[]): { ascentM: number; descentM: 
 export type CourseScoreInput = {
   distanceKm: number;
   targetKm: number;
-  majorRatio: number;
+  easyRatio: number;
+  minorRatio: number;
   turnCount: number;
   signalCount: number;
   junctionCount: number;
@@ -867,11 +1221,12 @@ export type CourseScoreInput = {
   meanLegMeters: number;
   longestLegMeters: number;
   shortLegCount: number;
+  clockwiseDeg: number;
+  uturnCount: number;
 };
 
 export function courseScoreParts(input: CourseScoreInput): CourseScoreParts {
-  const limitKm =
-    Math.min(input.targetKm * COURSE_DISTANCE_TOLERANCE, COURSE_DISTANCE_CAP_KM) * courseDistanceSlack(input.targetKm);
+  const limitKm = input.targetKm * COURSE_DISTANCE_TOLERANCE;
   const distanceFit = limitKm > 0 ? Math.max(0, 1 - Math.abs(input.distanceKm - input.targetKm) / limitKm) : 0;
   const sideMeters = (input.targetKm * 1000) / 4;
   const meanFit = sideMeters > 0 ? Math.min(1, input.meanLegMeters / sideMeters) : 0;
@@ -883,22 +1238,30 @@ export function courseScoreParts(input: CourseScoreInput): CourseScoreParts {
   const turnFit = Math.max(0, 1 - Math.max(0, turnsPerKm - TURN_FULL_PER_KM) / turnSpan);
   const overlapFit = Math.max(0, 1 - Math.min(1, input.overlapRatio / OVERLAP_ZERO_RATIO));
   const signalFit = Math.max(0, 1 - input.signalCount / perKm / SIGNAL_ZERO_PER_KM);
+  const clockwiseFit = Math.max(0, 1 - Math.min(1, Math.abs(input.clockwiseDeg - 360) / 360));
+  const uturnFit = input.uturnCount <= 0 ? 1 : input.uturnCount === 1 ? 0.25 : 0;
   const distance = SCORE_DISTANCE * distanceFit;
-  const major = SCORE_MAJOR;
+  const easy = SCORE_EASY * Math.max(0, Math.min(1, input.easyRatio));
   const straight = SCORE_STRAIGHT * straightFit;
   const turns = SCORE_TURNS * turnFit;
   const overlap = SCORE_OVERLAP * overlapFit;
   const signals = SCORE_SIGNALS * signalFit;
+  const clockwise = SCORE_CLOCKWISE * clockwiseFit;
+  const uturn = SCORE_UTURN * uturnFit;
+  const minor = SCORE_MINOR * Math.max(0, 1 - Math.min(1, input.minorRatio));
   const junctions = SCORE_JUNCTIONS;
   return {
     distance,
-    major,
+    easy,
     straight,
     turns,
     overlap,
     signals,
+    clockwise,
+    uturn,
+    minor,
     junctions,
-    total: distance + major + straight + turns + overlap + signals + junctions,
+    total: distance + easy + straight + turns + overlap + signals + clockwise + uturn + minor + junctions,
   };
 }
 
@@ -906,7 +1269,17 @@ export function courseScore(input: CourseScoreInput): number {
   return courseScoreParts(input).total;
 }
 
-const SCORE_PART_KEYS = ["turns", "distance", "overlap", "straight", "signals"] as const;
+const SCORE_PART_KEYS = [
+  "easy",
+  "straight",
+  "distance",
+  "turns",
+  "minor",
+  "overlap",
+  "clockwise",
+  "uturn",
+  "signals",
+] as const;
 
 function roundScorePoint(value: number): number {
   return Math.round(value * 10) / 10;
@@ -915,11 +1288,14 @@ function roundScorePoint(value: number): number {
 function snapshotScoreParts(parts: CourseScoreParts, total: number): CourseScoreParts {
   return {
     distance: roundScorePoint(parts.distance),
-    major: roundScorePoint(parts.major),
+    easy: roundScorePoint(parts.easy),
     straight: roundScorePoint(parts.straight),
     turns: roundScorePoint(parts.turns),
     overlap: roundScorePoint(parts.overlap),
     signals: roundScorePoint(parts.signals),
+    clockwise: roundScorePoint(parts.clockwise),
+    uturn: roundScorePoint(parts.uturn),
+    minor: roundScorePoint(parts.minor),
     junctions: roundScorePoint(parts.junctions),
     total: roundScorePoint(total),
   };
@@ -938,11 +1314,14 @@ export function relativeCourseScores<T extends { score: number; scoreParts: Cour
     const factor = 100 / top;
     const parts: CourseScoreParts = {
       distance: 0,
-      major: 0,
+      easy: 0,
       straight: 0,
       turns: 0,
       overlap: 0,
       signals: 0,
+      clockwise: 0,
+      uturn: 0,
+      minor: 0,
       junctions: 0,
       total: 0,
     };
@@ -1270,18 +1649,65 @@ export function parseOsrmRoute(payload: unknown): { distanceKm: number; coordina
   return { distanceKm: route.distance / 1000, coordinates };
 }
 
+function closeEnough(left: LatLon, right: LatLon): boolean {
+  return distanceKm(left.lat, left.lon, right.lat, right.lon) * 1000 < 3;
+}
+
+function assembleRings(lines: LatLon[][]): LatLon[][] {
+  const pending = lines.filter((line) => line.length >= 2).map((line) => line.map((point) => ({ ...point })));
+  const rings: LatLon[][] = [];
+  while (pending.length > 0) {
+    const ring = pending.shift();
+    if (ring == null) {
+      break;
+    }
+    while (!closeEnough(ring[0], ring[ring.length - 1])) {
+      const end = ring[ring.length - 1];
+      const index = pending.findIndex((line) => closeEnough(line[0], end) || closeEnough(line[line.length - 1], end));
+      if (index < 0) {
+        break;
+      }
+      const next = pending.splice(index, 1)[0];
+      if (closeEnough(next[next.length - 1], end)) {
+        next.reverse();
+      }
+      ring.push(...next.slice(1));
+    }
+    if (ring.length >= 4 && closeEnough(ring[0], ring[ring.length - 1])) {
+      rings.push(ring);
+    }
+  }
+  return rings;
+}
+
+function geometryOf(value: unknown): LatLon[] {
+  if (!isRecord(value) || !Array.isArray(value.geometry)) {
+    return [];
+  }
+  return value.geometry.flatMap((node) => {
+    if (!isRecord(node) || typeof node.lat !== "number" || typeof node.lon !== "number") {
+      return [];
+    }
+    return [{ lat: node.lat, lon: node.lon }];
+  });
+}
+
 export function parseOverpass(payload: unknown): {
   signals: LatLon[];
   parks: LatLon[][];
+  parkHoles: LatLon[][];
   waters: LatLon[][];
   majors: LatLon[][];
+  roads: { coordinates: LatLon[]; highway: string }[];
 } {
   const signals: LatLon[] = [];
   const parks: LatLon[][] = [];
+  const parkHoles: LatLon[][] = [];
   const waters: LatLon[][] = [];
   const majors: LatLon[][] = [];
+  const roads: { coordinates: LatLon[]; highway: string }[] = [];
   if (!isRecord(payload) || !Array.isArray(payload.elements)) {
-    return { signals, parks, waters, majors };
+    return { signals, parks, parkHoles, waters, majors, roads };
   }
   for (const element of payload.elements) {
     if (!isRecord(element)) {
@@ -1291,6 +1717,27 @@ export function parseOverpass(payload: unknown): {
     if (element.type === "node" && tags.highway === "traffic_signals") {
       if (typeof element.lat === "number" && typeof element.lon === "number") {
         signals.push({ lat: element.lat, lon: element.lon });
+      }
+      continue;
+    }
+    if (element.type === "relation" && Array.isArray(element.members)) {
+      const parkArea = typeof tags.leisure === "string" || tags.landuse === "recreation_ground";
+      if (parkArea) {
+        const outers: LatLon[][] = [];
+        const inners: LatLon[][] = [];
+        for (const member of element.members) {
+          const line = geometryOf(member);
+          if (line.length < 2) {
+            continue;
+          }
+          if (isRecord(member) && member.role === "inner") {
+            inners.push(line);
+          } else {
+            outers.push(line);
+          }
+        }
+        parks.push(...assembleRings(outers));
+        parkHoles.push(...assembleRings(inners));
       }
       continue;
     }
@@ -1306,6 +1753,9 @@ export function parseOverpass(payload: unknown): {
     if (ring.length < 2) {
       continue;
     }
+    if (typeof tags.highway === "string" && tags.highway.length > 0) {
+      roads.push({ coordinates: ring, highway: tags.highway });
+    }
     if (typeof tags.highway === "string" && MAJOR_HIGHWAY.test(tags.highway)) {
       majors.push(ring);
     }
@@ -1315,7 +1765,7 @@ export function parseOverpass(payload: unknown): {
       waters.push(ring);
     }
   }
-  return { signals, parks, waters, majors };
+  return { signals, parks, parkHoles, waters, majors, roads };
 }
 
 export function parseElevations(payload: unknown): number[] {

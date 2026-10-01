@@ -1,7 +1,7 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LoadingOverlay } from "../components/LoadingOverlay";
-import { beginLoading, endLoading, LOADING_SHOW_DELAY_MS, resetLoadingForTests } from "../lib/loading";
+import { beginLoading, endLoading, LOADING_SHOW_DELAY_MS, resetLoadingForTests, setLoadingCancel, setLoadingMessage } from "../lib/loading";
 
 describe("LoadingOverlay", () => {
   afterEach(() => {
@@ -48,5 +48,21 @@ describe("LoadingOverlay", () => {
     });
 
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("検索の中止ボタンを押すと処理を止める", async () => {
+    vi.useFakeTimers();
+    const stop = vi.fn();
+    render(<LoadingOverlay />);
+    act(() => {
+      beginLoading();
+      setLoadingMessage("コース検索中です...(10% / 合格ルート: 0件)");
+      setLoadingCancel(stop);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(LOADING_SHOW_DELAY_MS);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "検索を中止" }));
+    expect(stop).toHaveBeenCalledOnce();
   });
 });

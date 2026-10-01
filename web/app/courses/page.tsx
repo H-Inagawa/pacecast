@@ -22,6 +22,7 @@ type CourseResult = CourseDetail & {
 
 type CourseResponse = {
   courses: CourseResult[];
+  notice?: string;
 };
 
 export default function CoursesPage() {
@@ -92,6 +93,7 @@ export default function CoursesPage() {
       });
       setResult(payload);
       setSelectedId(payload.courses[0]?.id ?? null);
+      setError(payload.notice ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "コースを作れませんでした");
     }

@@ -60,6 +60,14 @@ export function CourseScoreTable({ courses, targetKm, selectedId, onSelect }: Pr
               ))}
             </tr>
             <tr>
+              <th scope="row">付近の道まで</th>
+              {courses.map((course) => (
+                <td key={`${course.id}-road-gap`}>
+                  {course.road_gap_km == null ? "—" : formatDistanceKm(course.road_gap_km)}
+                </td>
+              ))}
+            </tr>
+            <tr>
               <th scope="row">評価</th>
               {courses.map((course) => (
                 <td key={`${course.id}-score`}>{formatScorePoint(course.score)}</td>

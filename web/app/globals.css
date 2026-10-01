@@ -1585,6 +1585,11 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   font-weight: 500;
 }
 
+.loading-cancel {
+  min-height: 50px;
+  min-width: 10rem;
+}
+
 .loading-spinner {
   width: 2.6rem;
   height: 2.6rem;

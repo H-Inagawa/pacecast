@@ -3,16 +3,18 @@ export const LOADING_SHOW_DELAY_MS = 150;
 export type LoadingState = {
   count: number;
   message: string;
+  cancel: (() => void) | null;
 };
 
 type Listener = (state: LoadingState) => void;
 
 let count = 0;
 let message = "";
+let cancel: (() => void) | null = null;
 const listeners = new Set<Listener>();
 
 function notify(): void {
-  const state = { count, message };
+  const state = { count, message, cancel };
   for (const listener of listeners) {
     listener(state);
   }
@@ -27,12 +29,18 @@ export function endLoading(): void {
   count = Math.max(0, count - 1);
   if (count === 0) {
     message = "";
+    cancel = null;
   }
   notify();
 }
 
 export function setLoadingMessage(text: string): void {
   message = text;
+  notify();
+}
+
+export function setLoadingCancel(next: (() => void) | null): void {
+  cancel = next;
   notify();
 }
 
@@ -55,6 +63,7 @@ export function subscribeLoading(listener: Listener): () => void {
 export function resetLoadingForTests(): void {
   count = 0;
   message = "";
+  cancel = null;
   notify();
 }
 

@@ -1,7 +1,7 @@
 import { AUTH_PAGES } from "./auth-pages";
 import { readCourseSearchEvents } from "./course-search";
 import { courseSearchLabel } from "./courses";
-import { beginLoading, endLoading, setLoadingMessage } from "./loading";
+import { beginLoading, endLoading, setLoadingCancel, setLoadingMessage } from "./loading";
 
 function apiUrl(path: string): string {
   if (typeof window === "undefined") {
@@ -112,37 +112,49 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
 
 export async function apiPostCourses<T>(path: string, body: unknown): Promise<T> {
   return withLoading(async () => {
+    const controller = new AbortController();
     setLoadingMessage(courseSearchLabel(0, 0));
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...((await sessionHeaders()) as Record<string, string>),
-    };
-    const response = await fetch(apiUrl(path), {
-      method: "POST",
-      credentials: "include",
-      headers,
-      body: JSON.stringify(body),
-    });
-    if (response.status === 401) {
-      redirectToLogin();
-    }
-    if (!response.ok) {
-      throw new Error(await readError(response));
-    }
-    if (response.body == null) {
-      throw new Error("周回コースを作れませんでした");
-    }
-    let shown = 0;
-    let passedShown = 0;
-    return readCourseSearchEvents<T>(response.body, (percent, passed) => {
-      if (percent === 0) {
-        shown = 0;
-        passedShown = 0;
-      } else {
-        shown = Math.max(shown, percent);
-        passedShown = Math.max(passedShown, passed);
+    setLoadingCancel(() => controller.abort());
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...((await sessionHeaders()) as Record<string, string>),
+      };
+      const response = await fetch(apiUrl(path), {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      if (response.status === 401) {
+        redirectToLogin();
       }
-      setLoadingMessage(courseSearchLabel(shown, passedShown));
-    });
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+      if (response.body == null) {
+        throw new Error("周回コースを作れませんでした");
+      }
+      let shown = 0;
+      let passedShown = 0;
+      return await readCourseSearchEvents<T>(response.body, (percent, passed) => {
+        if (percent === 0) {
+          shown = 0;
+          passedShown = 0;
+        } else {
+          shown = Math.max(shown, percent);
+          passedShown = Math.max(passedShown, passed);
+        }
+        setLoadingMessage(courseSearchLabel(shown, passedShown));
+      });
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error("検索を中止しました");
+      }
+      throw error;
+    } finally {
+      setLoadingCancel(null);
+    }
   });
 }
