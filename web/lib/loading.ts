@@ -54,7 +54,7 @@ export function getLoadingMessage(): string {
 
 export function subscribeLoading(listener: Listener): () => void {
   listeners.add(listener);
-  listener({ count, message });
+  listener({ count, message, cancel });
   return () => {
     listeners.delete(listener);
   };

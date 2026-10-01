@@ -386,7 +386,7 @@ async function proposeCoursesOnce(
   let notice: string | undefined;
   let explored = pool;
   if (explored.length === 0) {
-    explored = chooseNearMisses(distanceMiss, overlapMiss);
+    explored = chooseNearMisses<PlannedLoop>(distanceMiss, overlapMiss);
     if (explored.length > 0) {
       notice = NEAR_COURSE_NOTICE;
     }
