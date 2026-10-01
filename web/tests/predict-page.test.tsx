@@ -141,9 +141,9 @@ describe("予測フォーム", () => {
     await user.click(within(dialog).getByRole("button", { name: "設定する" }));
     await user.click(screen.getByRole("button", { name: "予測する" }));
 
-    expect(await screen.findByText(/天気: 晴れ/)).toBeInTheDocument();
-    expect(screen.getByText(/体感: 快適/)).toBeInTheDocument();
-    expect(screen.getByText(/WBGT: 18.4℃/)).toBeInTheDocument();
+    expect(await screen.findByText(/走りやすさ: 😄 93/)).toBeInTheDocument();
+    expect(screen.getByText(/天気: 🌤️ 晴れ/)).toBeInTheDocument();
+    expect(screen.getByText(/WBGT\(体感\): 18.4℃ 快適/)).toBeInTheDocument();
     expect(screen.getByText(/風速: 北 1.4m\/s/)).toBeInTheDocument();
     expect(screen.getByText("10km")).toBeInTheDocument();
   });

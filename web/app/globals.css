@@ -550,6 +550,35 @@ body:has(.sticky-actions) .page {
   padding-bottom: calc(3.75rem + 1rem + env(safe-area-inset-bottom, 0px));
 }
 
+.forecast-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(3.75rem + env(safe-area-inset-bottom, 0px));
+  z-index: 31;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.38rem;
+  height: 3.625rem;
+  padding: 0 0.62rem 0.5rem;
+  background: var(--page-bg);
+}
+
+.forecast-dock .button {
+  width: 100%;
+  height: 3.125rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  background: var(--btn-bar-sub-bg);
+  color: var(--btn-bar-sub-ink);
+}
+
+body:has(.forecast-dock) .page {
+  padding-bottom: calc(7.375rem + 1rem + env(safe-area-inset-bottom, 0px));
+}
+
 .sticky-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -1027,29 +1056,13 @@ form.run-form .actions button {
   font-size: 1rem;
 }
 
-.forecast-timeline {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0 0 1.5rem;
-}
-
-.forecast-axis-scroll,
-.forecast-table-scroll {
+.forecast-strip-scroll {
   overflow-x: auto;
   max-width: 100%;
   -webkit-overflow-scrolling: touch;
-}
-
-.forecast-chart-frame {
-  margin: 0;
-}
-
-.forecast-chart-frame .chart-timeline {
-  display: block;
-  width: auto;
-  min-width: 0;
-  max-width: none;
-  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--bg);
 }
 
 .table-scroll {
@@ -1063,35 +1076,34 @@ form.run-form .actions button {
   background: var(--bg);
 }
 
+.forecast-timeline {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+}
+
 .forecast-table {
   width: max-content;
   min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  table-layout: fixed;
+  overflow: visible;
 }
 
 .forecast-table th,
 .forecast-table td {
   white-space: nowrap;
-  padding: 0.55rem 0.35rem;
+  padding: 0.55rem 0.7rem;
   text-align: center;
   border-bottom: 1px solid var(--line);
+  background: var(--bg);
 }
 
-.forecast-table th[scope="row"],
-.forecast-table thead th:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  width: var(--forecast-label-col, 88px);
-  min-width: var(--forecast-label-col, 88px);
-  max-width: var(--forecast-label-col, 88px);
-  text-align: left;
-  padding-left: 0.7rem;
-  background: var(--bg);
-  box-shadow: 1px 0 0 var(--line);
-}
+.forecast-table td.wbgt-too_cold { background: var(--wbgt-too-cold); }
+.forecast-table td.wbgt-cold { background: var(--wbgt-cold); }
+.forecast-table td.wbgt-comfort { background: var(--wbgt-comfort); }
+.forecast-table td.wbgt-hot { background: var(--wbgt-hot); }
+.forecast-table td.wbgt-too_hot { background: var(--wbgt-too-hot); }
 
 .forecast-table thead th {
   position: sticky;
@@ -1101,15 +1113,54 @@ form.run-form .actions button {
   box-shadow: 0 1px 0 var(--line);
 }
 
-.forecast-table thead th:not(:first-child),
-.forecast-table tbody td {
-  width: var(--forecast-hour-col, 72px);
-  min-width: var(--forecast-hour-col, 72px);
-  max-width: var(--forecast-hour-col, 72px);
+.forecast-table th[scope="row"] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  text-align: left;
+  background: var(--bg);
+  box-shadow: 1px 0 0 var(--line);
 }
 
 .forecast-table thead th:first-child {
+  left: 0;
   z-index: 3;
+  text-align: left;
+}
+
+.forecast-now-table thead th,
+.forecast-now-table thead th:first-child {
+  position: static;
+  top: auto;
+  left: auto;
+  z-index: auto;
+  box-shadow: none;
+}
+
+.forecast-table .help-button {
+  margin-left: 0.35rem;
+}
+
+.forecast-table td.ease-cell {
+  position: relative;
+  min-width: 7rem;
+  background-color: var(--bg);
+  background-image: linear-gradient(to right, var(--wbgt-too-cold) var(--ease, 0%), transparent var(--ease, 0%));
+}
+
+.forecast-table td.ease-cell span {
+  position: relative;
+}
+
+.runnability-table {
+  width: 100%;
+  margin: 0.3rem 0 0.9rem;
+  font-size: 0.92rem;
+}
+
+.runnability-table th,
+.runnability-table td {
+  white-space: normal;
 }
 
 .month-block { margin: 1.6rem 0 2rem; }
@@ -1177,6 +1228,36 @@ input:focus-visible, select:focus-visible {
 input:disabled, select:disabled {
   background: var(--input-disabled-bg);
   color: var(--input-disabled-ink);
+}
+
+.station-pick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5rem;
+  column-gap: 0.7rem;
+  align-items: end;
+}
+
+.station-pick__fields {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.station-pick__gps {
+  box-sizing: border-box;
+  width: 7.5rem;
+  height: 7.5rem;
+  margin: 0;
+  padding: 0.45rem;
+  border-radius: 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: normal;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .station-pick-row {
@@ -1297,6 +1378,9 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 .modal-panel {
   position: relative;
   width: min(36rem, 100%);
+  max-height: calc(100vh - 2.5rem);
+  max-height: calc(100dvh - 2.5rem);
+  overflow-y: auto;
   background: var(--modal-panel);
   border: 1px solid var(--line);
   border-radius: 1rem;
@@ -1414,10 +1498,12 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   width: fit-content;
 }
 
+.station-pick__fields > label,
 .station-pick-row > label {
   min-width: 0;
 }
 
+.station-pick .help,
 .station-pick-row .help {
   display: flex;
   flex-wrap: wrap;
@@ -1426,6 +1512,7 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   max-width: 100%;
 }
 
+.station-pick .help-pop,
 .station-pick-row .help-pop {
   position: static;
   flex: 1 0 100%;
@@ -1631,12 +1718,21 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   }
 
   .modal-backdrop {
-    padding: 3.75rem 1.62rem 2rem;
+    z-index: 80;
+    align-items: flex-start;
+    padding: 0.75rem;
+    overflow: hidden;
   }
 
   .modal-panel {
     width: min(22.5rem, 100%);
-    border-radius: 3.12rem;
+    max-height: calc(100vh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+    border-radius: 1.5rem;
+  }
+
+  .modal-panel h2 {
+    padding-right: 4.2rem;
   }
 
   .modal-close {

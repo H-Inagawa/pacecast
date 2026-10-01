@@ -59,34 +59,49 @@ describe("ランニング天気予報", () => {
     });
   });
 
-  it("設定地点の予報を表とグラフで出す", async () => {
-    render(<ForecastPage />);
-    expect(await screen.findByRole("img", { name: "気温・湿度・WBGTの予報グラフ" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "9/21 0時" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "9/21 3時" })).toBeInTheDocument();
-    expect(screen.getByRole("rowheader", { name: "天気" })).toBeInTheDocument();
-    expect(screen.getByText("快晴")).toBeInTheDocument();
-    expect(screen.getByText("快適")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "現在の気象" })).toBeInTheDocument();
-    expect(screen.getByText("天気: 快晴")).toBeInTheDocument();
-    expect(screen.getByText("体感: 快適")).toBeInTheDocument();
-    expect(screen.getByText("WBGT: 18.2℃")).toBeInTheDocument();
-    expect(screen.getByText("風速: 北東 2.2m/s")).toBeInTheDocument();
-    expect(screen.getByText("北東 2.2m/s")).toBeInTheDocument();
-    expect(screen.queryByText(/時点/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "WBGTの説明" })).toBeInTheDocument();
-  });
-
-  it("表示項目設定で行を外せる", async () => {
+  it("時刻を縦に、走りやすさと現在の気象を出す", async () => {
     const user = userEvent.setup();
     render(<ForecastPage />);
-    await screen.findByText("快晴");
+    expect(await screen.findByRole("columnheader", { name: "日時" })).toBeInTheDocument();
+    expect(screen.getByRole("rowheader", { name: "9/21 0時" })).toBeInTheDocument();
+    expect(screen.getByRole("rowheader", { name: "9/21 3時" })).toBeInTheDocument();
+    expect(screen.getAllByText("😄 94").length).toBeGreaterThan(0);
+    expect(screen.getByText("😣 42")).toBeInTheDocument();
+    expect(screen.getAllByText("☀️ 快晴").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("18.2℃ 快適").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("img", { name: "気温・湿度・WBGTの予報グラフ" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "現在の気象" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "走りやすさ予報" })).toBeInTheDocument();
+    expect(screen.getByText("走りやすい時間を確認します。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "GPSで探す" })).toBeInTheDocument();
+    const forecastTable = screen.getByRole("rowheader", { name: "9/21 3時" }).closest("table");
+    expect(forecastTable).not.toBeNull();
+    expect(within(forecastTable as HTMLElement).queryByRole("columnheader", { name: "気温" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "走りやすさとは？" }));
+    const scoreDialog = screen.getByRole("dialog", { name: "走りやすさ" });
+    expect(scoreDialog).toHaveTextContent("100点満点で、走りやすさを採点します。");
+    expect(scoreDialog.querySelector("br")).not.toBeNull();
+    expect(within(scoreDialog).getAllByRole("table")).toHaveLength(3);
+    expect(within(scoreDialog).getByRole("columnheader", { name: "評価" })).toBeInTheDocument();
+    expect(scoreDialog).toHaveTextContent("90点以上");
+    await user.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.queryByRole("dialog", { name: "走りやすさ" })).not.toBeInTheDocument();
+  });
+
+  it("表示項目設定で任意の列を足せる。必須列は外せない", async () => {
+    const user = userEvent.setup();
+    render(<ForecastPage />);
+    await screen.findAllByText("☀️ 快晴");
     await user.click(screen.getByRole("button", { name: "表示項目設定" }));
     const dialog = screen.getByRole("dialog", { name: "表示項目設定" });
-    await user.click(within(dialog).getByLabelText("天気"));
-    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("天気（必須）")).toBeDisabled();
+    expect(within(dialog).queryByText("追加する列を選びます", { exact: false })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByLabelText("気温"));
     await user.click(screen.getByRole("button", { name: "閉じる" }));
-    expect(screen.queryByRole("rowheader", { name: "天気" })).not.toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "9/21 0時" })).toBeInTheDocument();
+    const forecastTable = screen.getByRole("rowheader", { name: "9/21 0時" }).closest("table");
+    expect(within(forecastTable as HTMLElement).getByRole("columnheader", { name: "天気" })).toBeInTheDocument();
+    expect(within(forecastTable as HTMLElement).getByRole("columnheader", { name: "気温" })).toBeInTheDocument();
+    expect(within(forecastTable as HTMLElement).getByText("20.1℃")).toBeInTheDocument();
   });
 });

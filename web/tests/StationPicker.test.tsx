@@ -19,6 +19,21 @@ describe("StationPicker", () => {
     expect(onChange).toHaveBeenCalledWith("11001");
   });
 
+  it("予報では都道府県を変えても地点を入れず、選ぶまで待つ", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<StationPicker stations={stationsFixture} value="44071" onChange={onChange} clearOnPrefecture />);
+
+    await user.selectOptions(screen.getByLabelText("都道府県"), "北海道");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("アメダス地点")).toHaveDisplayValue("地点を選択してください");
+    expect(screen.getByRole("option", { name: "11001 宗谷岬" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "44071 練馬" })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("アメダス地点"), "11001");
+    expect(onChange).toHaveBeenCalledWith("11001");
+  });
+
   it("無効のときは入力できない", () => {
     render(
       <StationPicker stations={stationsFixture} value="44071" onChange={vi.fn()} disabled label="予報の地点" />,

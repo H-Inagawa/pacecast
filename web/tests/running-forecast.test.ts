@@ -21,7 +21,7 @@ describe("runningForecast helpers", () => {
     expect(pickCurrentForecastHour(hours, now)?.observed_at).toBe("2026-09-21 03:00");
   });
 
-  it("横スクロール開始はいま以降の最初のスロット", () => {
+  it("初期表示の行はいま以降の最初のスロット", () => {
     const hours = [
       { observed_at: "2026-09-21 00:00" },
       { observed_at: "2026-09-21 03:00" },

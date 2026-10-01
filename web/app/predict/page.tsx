@@ -21,6 +21,7 @@ import {
   formatWeatherBrief,
 } from "../../lib/format";
 import { formatWindWithDirection } from "../../lib/wind";
+import { formatRunnability, formatWbgtFeel, formatWeatherWithMark } from "../../lib/runnability";
 import { weatherCodeLabel } from "../../lib/weatherCode";
 import { RUN_WEIGHT_HELP } from "../../lib/personalPredict";
 import { classifyWbgtZone, WBGT_FEEL_LABELS } from "../../lib/weatherZone";
@@ -92,11 +93,13 @@ function weatherSummary(saved: WeatherDraft | null, result: PredictResult | null
     const feel = zone === "none" ? "—" : WBGT_FEEL_LABELS[zone];
     const wind = condition.wind_ms == null ? "—" : formatWindWithDirection(condition.wind_ms, condition.wind_dir_deg);
     const solar = condition.solar_wm2 == null ? "—" : String(Math.round(condition.solar_wm2));
-    const wbgt = condition.wbgt_c == null ? "—" : `${condition.wbgt_c.toFixed(1)}℃`;
+    const weather = weatherCodeLabel(condition.weather_code);
+    const wbgt = condition.wbgt_c == null ? "—" : formatWbgtFeel(condition.wbgt_c, feel);
+    const ease = condition.wbgt_c == null ? "—" : formatRunnability(condition.wbgt_c, weather);
     return [
-      `天気: ${weatherCodeLabel(condition.weather_code)}`,
-      `体感: ${feel}`,
-      `WBGT: ${wbgt}`,
+      `走りやすさ: ${ease}`,
+      `天気: ${formatWeatherWithMark(weather)}`,
+      `WBGT(体感): ${wbgt}`,
       `気温: ${condition.temperature_c.toFixed(1)}℃`,
       `湿度: ${condition.humidity_pct.toFixed(0)}%`,
       `風速: ${wind}`,

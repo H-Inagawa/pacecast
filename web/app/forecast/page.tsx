@@ -3,20 +3,19 @@
 import { useEffect, useState } from "react";
 import { BackHome } from "../../components/BackHome";
 import { ForecastColumnsModal } from "../../components/ForecastColumnsModal";
-import { ForecastTimeline } from "../../components/ForecastTimeline";
+import { ForecastNowTable, ForecastTimeline } from "../../components/ForecastTimeline";
+import { RunnabilityModal } from "../../components/RunnabilityModal";
 import { StationPicker } from "../../components/StationPicker";
 import { StickyActions } from "../../components/StickyActions";
 import { apiGet } from "../../lib/api";
 import {
   loadForecastColumns,
   saveForecastColumns,
-  visibleForecastCount,
   DEFAULT_FORECAST_COLUMNS,
   type ForecastColumnVisibility,
   type OptionalForecastColumn,
 } from "../../lib/forecastColumns";
 import { pickCurrentForecastHour } from "../../lib/runningForecast";
-import { formatWindWithDirection } from "../../lib/wind";
 import type { AmedasStation, Profile, RunningForecast } from "../../lib/types";
 
 export default function ForecastPage() {
@@ -26,6 +25,7 @@ export default function ForecastPage() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [scoreOpen, setScoreOpen] = useState(false);
   const [columns, setColumns] = useState<ForecastColumnVisibility>(DEFAULT_FORECAST_COLUMNS);
 
   useEffect(() => {
@@ -60,9 +60,6 @@ export default function ForecastPage() {
   function setColumn(key: OptionalForecastColumn, visible: boolean) {
     setColumns((current) => {
       const next = { ...current, [key]: visible };
-      if (!visible && visibleForecastCount(next) < 1) {
-        return current;
-      }
       saveForecastColumns(next);
       return next;
     });
@@ -75,8 +72,8 @@ export default function ForecastPage() {
       <div className="page-heading">
         <h1>ランニング天気予報</h1>
       </div>
-      <p className="lede">これから3日の天気と推定 WBGT を見て、走りやすい時間を選びます。</p>
-      <StationPicker stations={stations} value={stationId} onChange={setStationId} />
+      <p className="lede">走りやすい時間を確認します。</p>
+      <StationPicker stations={stations} value={stationId} onChange={setStationId} allowGps clearOnPrefecture />
       {error ? <p className="error">{error}</p> : null}
       {!loaded ? (
         <p className="empty">読み込み中...</p>
@@ -84,27 +81,19 @@ export default function ForecastPage() {
         <p className="empty">予報がまだありません。</p>
       ) : (
         <>
-          {currentHour ? (
-            <div className="forecast-now-block">
-              <h2 className="forecast-now-title">現在の気象</h2>
-              <ul className="forecast-now">
-                <li>天気: {currentHour.weather_label}</li>
-                <li>体感: {currentHour.feel_label}</li>
-                <li>WBGT: {currentHour.wbgt_c.toFixed(1)}℃</li>
-                <li>気温: {currentHour.temperature_c.toFixed(1)}℃</li>
-                <li>湿度: {currentHour.humidity_pct.toFixed(0)}%</li>
-                <li>風速: {formatWindWithDirection(currentHour.wind_ms, currentHour.wind_dir_deg)}</li>
-                <li>日照: {currentHour.solar_wm2.toFixed(0)}</li>
-              </ul>
-            </div>
-          ) : null}
+          {currentHour ? <ForecastNowTable hour={currentHour} /> : null}
           <ForecastTimeline hours={forecast.hours} columns={columns} />
         </>
       )}
-      <StickyActions>
-        <button type="button" className="button action-lg" onClick={() => setColumnsOpen(true)}>
+      <div className="forecast-dock">
+        <button type="button" className="button" onClick={() => setColumnsOpen(true)}>
           表示項目設定
         </button>
+        <button type="button" className="button" onClick={() => setScoreOpen(true)}>
+          走りやすさとは？
+        </button>
+      </div>
+      <StickyActions>
         <BackHome variant="button" />
       </StickyActions>
       <ForecastColumnsModal
@@ -113,6 +102,7 @@ export default function ForecastPage() {
         onChange={setColumn}
         onClose={() => setColumnsOpen(false)}
       />
+      <RunnabilityModal open={scoreOpen} onClose={() => setScoreOpen(false)} />
     </>
   );
 }

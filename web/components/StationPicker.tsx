@@ -18,6 +18,8 @@ type Props = {
   helpText?: string;
   /** 記録追加モーダル向け。地点名の下に都道府県と観測所を横並びにする。 */
   layout?: "stack" | "run";
+  /** 都道府県を変えても地点を自動で入れず、「地点を選択してください」にする。 */
+  clearOnPrefecture?: boolean;
   onGpsMessage?: (message: string, kind: "ok" | "error") => void;
 };
 
@@ -31,6 +33,7 @@ export function StationPicker({
   helpText,
   layout = "stack",
   onGpsMessage,
+  clearOnPrefecture = false,
 }: Props) {
   const prefectures = useMemo(
     () => prefecturesInStations(stations.map((item) => item.station_id)),
@@ -41,12 +44,14 @@ export function StationPicker({
   );
   const [gpsReady, setGpsReady] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [awaitingStation, setAwaitingStation] = useState(false);
 
   useEffect(() => {
     const next = prefectureFromStationId(value);
     if (next) {
       setPrefecture(next);
     }
+    setAwaitingStation(false);
   }, [value]);
 
   useEffect(() => {
@@ -55,14 +60,18 @@ export function StationPicker({
 
   const options = useMemo(() => {
     const filtered = stations.filter((item) => prefectureFromStationId(item.station_id) === prefecture);
-    if (!value || filtered.some((item) => item.station_id === value)) {
+    if (awaitingStation || !value || filtered.some((item) => item.station_id === value)) {
       return filtered;
     }
     return [...filtered, ...stations.filter((item) => item.station_id === value)];
-  }, [prefecture, stations, value]);
+  }, [awaitingStation, prefecture, stations, value]);
 
   function onPrefectureChange(next: string) {
     setPrefecture(next);
+    if (clearOnPrefecture) {
+      setAwaitingStation(true);
+      return;
+    }
     const inPref = stations.filter((item) => prefectureFromStationId(item.station_id) === next);
     if (inPref.some((item) => item.station_id === value) || inPref.length === 0) {
       return;
@@ -109,11 +118,18 @@ export function StationPicker({
   const stationSelect = (
     <select
       aria-label={label}
-      value={value}
+      value={awaitingStation ? "" : value}
       disabled={disabled}
       required
-      onChange={(event) => onChange(event.target.value)}
+      onChange={(event) => {
+        if (!event.target.value) {
+          return;
+        }
+        setAwaitingStation(false);
+        onChange(event.target.value);
+      }}
     >
+      {awaitingStation ? <option value="">地点を選択してください</option> : null}
       {options.map((item) => (
         <option key={item.station_id} value={item.station_id}>
           {item.station_id} {item.name}
@@ -124,7 +140,7 @@ export function StationPicker({
   const gpsButton = allowGps ? (
     <button
       type="button"
-      className={layout === "run" ? "button run-station__gps" : "button"}
+      className={layout === "run" ? "button run-station__gps" : "button station-pick__gps"}
       disabled={disabled || !gpsReady || locating || stations.length === 0}
       title={gpsReady ? undefined : geolocationUnavailableReason()}
       onClick={() => void onFindByGps()}
@@ -154,19 +170,35 @@ export function StationPicker({
     );
   }
 
+  const stationLabel = (
+    <label>
+      {helpText ? <HelpTip label={label} text={helpText} /> : label}
+      {stationSelect}
+    </label>
+  );
+
+  if (gpsButton) {
+    return (
+      <div className="station-pick">
+        <div className="station-pick__fields">
+          <label>
+            都道府県
+            {prefectureSelect}
+          </label>
+          {stationLabel}
+        </div>
+        {gpsButton}
+      </div>
+    );
+  }
+
   return (
     <>
       <label>
         都道府県
         {prefectureSelect}
       </label>
-      <div className="station-pick-row">
-        <label>
-          {helpText ? <HelpTip label={label} text={helpText} /> : label}
-          {stationSelect}
-        </label>
-        {gpsButton}
-      </div>
+      {stationLabel}
     </>
   );
 }

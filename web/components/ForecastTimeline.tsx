@@ -1,22 +1,14 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties } from "react";
-import { HelpTip, FORECAST_WBGT_HELP_TEXT } from "./WeatherDistanceHelp";
-import { ForecastChart } from "./ForecastChart";
+import { useEffect, useRef } from "react";
 import {
   FORECAST_COLUMN_LABELS,
   FORECAST_OPTIONAL_COLUMNS,
   type ForecastColumnVisibility,
   type OptionalForecastColumn,
 } from "../lib/forecastColumns";
-import {
-  FORECAST_CHART_RIGHT_PX,
-  FORECAST_HOUR_COL_PX,
-  FORECAST_LABEL_COL_PX,
-  formatForecastColumnHeader,
-  forecastScrollStartIndex,
-  forecastTimelineWidthPx,
-} from "../lib/runningForecast";
+import { formatRunnability, formatWbgtFeel, formatWeatherWithMark, runnabilityScore } from "../lib/runnability";
+import { formatForecastColumnHeader, forecastScrollStartIndex } from "../lib/runningForecast";
 import { formatWindWithDirection } from "../lib/wind";
 import type { RunningForecastHour } from "../lib/types";
 
@@ -25,18 +17,8 @@ type Props = {
   columns: ForecastColumnVisibility;
 };
 
-function cellClass(hour: RunningForecastHour): string {
-  return `wbgt-${hour.weather_zone}`;
-}
-
-function formatMetric(key: OptionalForecastColumn, hour: RunningForecastHour): string {
+function optionalValue(key: OptionalForecastColumn, hour: RunningForecastHour): string {
   switch (key) {
-    case "weather":
-      return hour.weather_label;
-    case "feel":
-      return hour.feel_label;
-    case "wbgt":
-      return `${hour.wbgt_c.toFixed(1)}℃`;
     case "temperature":
       return `${hour.temperature_c.toFixed(1)}℃`;
     case "humidity":
@@ -48,89 +30,96 @@ function formatMetric(key: OptionalForecastColumn, hour: RunningForecastHour): s
   }
 }
 
+function EaseCell({ hour }: { hour: RunningForecastHour }) {
+  const score = runnabilityScore(hour.wbgt_c, hour.weather_label);
+  return (
+    <td className="ease-cell" style={{ ["--ease" as string]: `${score}%` }}>
+      <span>{formatRunnability(hour.wbgt_c, hour.weather_label)}</span>
+    </td>
+  );
+}
+
+export function ForecastNowTable({ hour }: { hour: RunningForecastHour }) {
+  return (
+    <div className="forecast-now-block">
+      <h2 className="forecast-now-title">現在の気象</h2>
+      <div className="forecast-strip-scroll">
+        <table className="forecast-table forecast-now-table">
+          <thead>
+            <tr>
+              <th scope="col">{FORECAST_COLUMN_LABELS.runnability}</th>
+              <th scope="col">{FORECAST_COLUMN_LABELS.weather}</th>
+              <th scope="col">{FORECAST_COLUMN_LABELS.wbgt_feel}</th>
+              <th scope="col">{FORECAST_COLUMN_LABELS.temperature}</th>
+              <th scope="col">{FORECAST_COLUMN_LABELS.humidity}</th>
+              <th scope="col">{FORECAST_COLUMN_LABELS.wind}</th>
+              <th scope="col">{FORECAST_COLUMN_LABELS.solar}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <EaseCell hour={hour} />
+              <td>{formatWeatherWithMark(hour.weather_label)}</td>
+              <td className={`wbgt-${hour.weather_zone}`}>{formatWbgtFeel(hour.wbgt_c, hour.feel_label)}</td>
+              <td>{optionalValue("temperature", hour)}</td>
+              <td>{optionalValue("humidity", hour)}</td>
+              <td>{optionalValue("wind", hour)}</td>
+              <td>{optionalValue("solar", hour)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export function ForecastTimeline({ hours, columns }: Props) {
-  const chartScrollRef = useRef<HTMLDivElement>(null);
-  const tableScrollRef = useRef<HTMLDivElement>(null);
-  const syncingRef = useRef(false);
-  const visibleMetrics = FORECAST_OPTIONAL_COLUMNS.filter((key) => columns[key]);
-  const tableWidth = forecastTimelineWidthPx(hours.length) - FORECAST_CHART_RIGHT_PX;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const startIndex = forecastScrollStartIndex(hours);
+  const visibleOptional = FORECAST_OPTIONAL_COLUMNS.filter((key) => columns[key]);
 
   useEffect(() => {
-    const startIndex = forecastScrollStartIndex(hours);
-    const scrollLeft = startIndex * FORECAST_HOUR_COL_PX;
-    const chart = chartScrollRef.current;
-    const table = tableScrollRef.current;
-    if (chart) {
-      chart.scrollLeft = scrollLeft;
+    const scroller = scrollRef.current;
+    if (!scroller) {
+      return;
     }
-    if (table) {
-      table.scrollLeft = scrollLeft;
+    const row = scroller.querySelector<HTMLTableRowElement>("[data-forecast-start='true']");
+    const header = scroller.querySelector("thead");
+    if (!row) {
+      return;
     }
+    const rowTop = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+    const headerHeight = header?.getBoundingClientRect().height ?? 0;
+    scroller.scrollTop = Math.max(0, rowTop - headerHeight);
   }, [hours]);
-
-  function syncScroll(source: "chart" | "table") {
-    if (syncingRef.current) {
-      return;
-    }
-    const chart = chartScrollRef.current;
-    const table = tableScrollRef.current;
-    if (!chart || !table) {
-      return;
-    }
-    const next = source === "chart" ? chart.scrollLeft : table.scrollLeft;
-    syncingRef.current = true;
-    if (source === "chart") {
-      table.scrollLeft = next;
-    } else {
-      chart.scrollLeft = next;
-    }
-    requestAnimationFrame(() => {
-      syncingRef.current = false;
-    });
-  }
-
-  const tableStyle = {
-    width: tableWidth,
-    ["--forecast-label-col" as string]: `${FORECAST_LABEL_COL_PX}px`,
-    ["--forecast-hour-col" as string]: `${FORECAST_HOUR_COL_PX}px`,
-  } as CSSProperties;
 
   return (
     <div className="forecast-timeline">
-      <figure className="chart-frame forecast-chart-frame">
-        <figcaption>
-          <span>気温・湿度は破線、WBGT は実線</span>
-        </figcaption>
-        <div className="forecast-axis-scroll" ref={chartScrollRef} onScroll={() => syncScroll("chart")}>
-          <ForecastChart hours={hours} />
-        </div>
-      </figure>
-      <div className="table-scroll forecast-table-scroll" ref={tableScrollRef} onScroll={() => syncScroll("table")}>
-        <table className="forecast-table" style={tableStyle}>
+      <h2 className="forecast-now-title">走りやすさ予報</h2>
+      <div className="table-scroll forecast-table-scroll" ref={scrollRef}>
+        <table className="forecast-table">
           <thead>
             <tr>
-              <th scope="col">項目</th>
-              {hours.map((hour) => (
-                <th key={hour.observed_at} scope="col">
-                  {formatForecastColumnHeader(hour.observed_at)}
+              <th scope="col">{FORECAST_COLUMN_LABELS.observed_at}</th>
+              <th scope="col">{FORECAST_COLUMN_LABELS.runnability}</th>
+              <th scope="col">{FORECAST_COLUMN_LABELS.weather}</th>
+              <th scope="col">{FORECAST_COLUMN_LABELS.wbgt_feel}</th>
+              {visibleOptional.map((key) => (
+                <th key={key} scope="col">
+                  {FORECAST_COLUMN_LABELS[key]}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {visibleMetrics.map((key) => (
-              <tr key={key}>
-                <th scope="row">
-                  {key === "wbgt" ? (
-                    <HelpTip label="WBGT" text={FORECAST_WBGT_HELP_TEXT} ariaLabel="WBGTの説明" />
-                  ) : (
-                    FORECAST_COLUMN_LABELS[key]
-                  )}
-                </th>
-                {hours.map((hour) => (
-                  <td key={`${key}-${hour.observed_at}`} className={cellClass(hour)}>
-                    {formatMetric(key, hour)}
-                  </td>
+            {hours.map((hour, index) => (
+              <tr key={hour.observed_at} data-forecast-start={index === startIndex ? "true" : undefined}>
+                <th scope="row">{formatForecastColumnHeader(hour.observed_at)}</th>
+                <EaseCell hour={hour} />
+                <td>{formatWeatherWithMark(hour.weather_label)}</td>
+                <td className={`wbgt-${hour.weather_zone}`}>{formatWbgtFeel(hour.wbgt_c, hour.feel_label)}</td>
+                {visibleOptional.map((key) => (
+                  <td key={key}>{optionalValue(key, hour)}</td>
                 ))}
               </tr>
             ))}

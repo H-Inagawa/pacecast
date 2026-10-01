@@ -61,7 +61,7 @@ export function AboutModal({ open, onClose }: Props) {
           </li>
           <li>
             <strong>ランニング天気予報</strong>
-            設定のアメダス地点から3日分の天気と推定 WBGT を、グラフと3時間ごとの表で見ます。
+            設定のアメダス地点から3日分の天気、推定 WBGT、走りやすさを表で見ます。地点は GPS でも探せます。
           </li>
           <li>
             <strong>コースを作る</strong>
