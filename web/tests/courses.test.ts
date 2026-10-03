@@ -12,13 +12,22 @@ import {
   elevationChange,
   featureLengthKm,
   dropRetraces,
+  flattenLaneHops,
+  cleanCourseGeometry,
   straightenShortSpikes,
+  canInheritNearbySidewalk,
+  hasNearbyDedicatedSidewalk,
+  isConnectorRoad,
+  isDedicatedSidewalk,
+  isEasyRoadConsideringSidewalks,
+  isTaggedCarriageway,
   isParkOrRiverbank,
   isEasyRoad,
-  courseRoadStarts,
-  courseRoadStartLimit,
+  loopCoversBbox,
+  wayAlongParkOrWater,
+  COURSE_NO_START_ROAD_MESSAGE,
   courseStemSearchLimit,
-  facesNarrowRoad,
+  nearestStartableRoad,
   keepCourseDistance,
   MAP_SERVICE_MESSAGE,
   majorIntersections,
@@ -34,7 +43,16 @@ import {
   turnCount,
   highwaySearchLevel,
 } from "../lib/courses";
-import { coursesWithAccessStem, departureBearings, exploreClockwiseLoops, loopTravelSector, loopsLeavingToward, returnToStartLoops } from "../lib/course-network";
+import {
+  coursesWithAccessStem,
+  departureBearings,
+  exploreClockwiseLoops,
+  featurePreferSectors,
+  loopTravelSector,
+  loopsLeavingToward,
+  NEAR_START_FULL_BRANCH_METERS,
+  returnToStartLoops,
+} from "../lib/course-network";
 
 const start = { lat: 35.735, lon: 139.65 };
 
@@ -142,6 +160,12 @@ describe("周回コースの計算", () => {
     ];
     expect(isEasyRoad("footway", footway, [park], [])).toBe(true);
     expect(isEasyRoad("footway", outside, [park], [])).toBe(false);
+    expect(isEasyRoad({ highway: "primary" }, outside, [], [])).toBe(false);
+    expect(isEasyRoad({ highway: "primary", sidewalk: "both" }, outside, [], [])).toBe(true);
+    expect(isEasyRoad({ highway: "footway", footway: "sidewalk" }, outside, [], [])).toBe(false);
+    expect(isEasyRoad({ highway: "residential", foot: "yes" }, outside, [], [])).toBe(true);
+    expect(isEasyRoad({ highway: "cycleway", bicycle: "designated", foot: "no" }, outside, [], [])).toBe(false);
+    expect(isEasyRoad({ highway: "steps" }, outside, [], [])).toBe(false);
   });
 
   it("標高の上りと下りを分ける", () => {
@@ -186,6 +210,13 @@ describe("周回コースの計算", () => {
     const cleaned = straightenShortSpikes(spiked);
     expect(cleaned.some((point) => point.lat > 35.6804)).toBe(false);
     expect(overlapRatio(cleaned)).toBeLessThan(overlapRatio(spiked));
+    // 交差点から少し南へ出て戻るパターン（再合流点が数十mずれていても落とす）
+    const junction = east(2);
+    const tip = { lat: junction.lat - 0.0018, lon: junction.lon + 0.0001 };
+    const rejoin = { lat: junction.lat + 0.0002, lon: junction.lon + 0.00035 };
+    const outAndBack = [east(0), east(1), junction, tip, rejoin, east(3), east(4), east(5)];
+    const fixed = cleanCourseGeometry(outAndBack);
+    expect(fixed.some((point) => point.lat < 35.6792)).toBe(false);
     const stem = [
       { lat: 35.7, lon: 139.6 },
       { lat: 35.704, lon: 139.6 },
@@ -196,6 +227,61 @@ describe("周回コースの計算", () => {
       { lat: 35.7, lon: 139.6 },
     ];
     expect(straightenShortSpikes(stem)).toHaveLength(stem.length);
+  });
+
+  it("車線乗り換えのような短い折れを直線に直す", () => {
+    // 北東へ進みつつ、途中だけ南東へ短く飛び出す V 字（添付2の乗り換え）
+    const line = [
+      { lat: 35.68, lon: 139.65 },
+      { lat: 35.6804, lon: 139.6504 },
+      { lat: 35.6802, lon: 139.6509 },
+      { lat: 35.6808, lon: 139.6509 },
+      { lat: 35.6812, lon: 139.6513 },
+    ];
+    const hop = line[2];
+    const flat = flattenLaneHops(line);
+    expect(flat).toEqual([line[0], line[1], line[3], line[4]]);
+    expect(flat.some((point) => Math.abs(point.lat - hop.lat) < 1e-9 && Math.abs(point.lon - hop.lon) < 1e-9)).toBe(false);
+  });
+
+  it("独立歩道は走りやすい道にせず、隣接する歩道タグ無しの車道を歩道付きとみなす", () => {
+    expect(isDedicatedSidewalk({ highway: "footway", footway: "sidewalk" })).toBe(true);
+    expect(isTaggedCarriageway({ highway: "primary", sidewalk: "both" })).toBe(true);
+    expect(isTaggedCarriageway({ highway: "footway", footway: "sidewalk" })).toBe(false);
+    expect(canInheritNearbySidewalk({ highway: "primary" })).toBe(true);
+    expect(canInheritNearbySidewalk({ highway: "primary", sidewalk: "both" })).toBe(false);
+    expect(canInheritNearbySidewalk({ highway: "footway", footway: "sidewalk" })).toBe(false);
+    const road = [
+      { lat: 35.68, lon: 139.65 },
+      { lat: 35.68, lon: 139.652 },
+    ];
+    const sidewalk = [
+      { lat: 35.6802, lon: 139.65 },
+      { lat: 35.6802, lon: 139.652 },
+    ];
+    const far = [
+      { lat: 35.69, lon: 139.65 },
+      { lat: 35.69, lon: 139.652 },
+    ];
+    expect(hasNearbyDedicatedSidewalk(road, [sidewalk])).toBe(true);
+    expect(hasNearbyDedicatedSidewalk(road, [far])).toBe(false);
+    expect(isEasyRoadConsideringSidewalks({ highway: "footway", footway: "sidewalk" }, sidewalk, [], [], [], [sidewalk])).toBe(false);
+    expect(isEasyRoadConsideringSidewalks({ highway: "primary" }, road, [], [], [], [sidewalk])).toBe(true);
+    expect(isEasyRoadConsideringSidewalks({ highway: "primary" }, road, [], [], [], [far])).toBe(false);
+    expect(isEasyRoadConsideringSidewalks({ highway: "primary", sidewalk: "both" }, road, [], [], [], [])).toBe(true);
+  });
+
+  it("生活道路は長さにかかわらず接続道路になり、歩道無しの幹線と独立歩道はならない", () => {
+    const long = [
+      { lat: 35.68, lon: 139.65 },
+      { lat: 35.68, lon: 139.66 },
+    ];
+    expect(routeLengthKm(long) * 1000).toBeGreaterThan(100);
+    expect(isConnectorRoad({ highway: "residential" }, long)).toBe(true);
+    expect(isConnectorRoad({ highway: "living_street" }, long)).toBe(true);
+    expect(isConnectorRoad({ highway: "primary" }, long)).toBe(false);
+    expect(isConnectorRoad({ highway: "primary", sidewalk: "both" }, long)).toBe(false);
+    expect(isConnectorRoad({ highway: "footway", footway: "sidewalk" }, long)).toBe(false);
   });
 
   it("大通りの四辺を時計回りにたどって出発点へ戻る", async () => {
@@ -215,6 +301,53 @@ describe("周回コースの計算", () => {
     expect(loops.length).toBeGreaterThan(0);
     expect(loops.some((loop) => loop.clockwiseDeg > 180)).toBe(true);
     expect(loops.every((loop) => Math.abs(loop.distanceKm - targetKm) <= targetKm * 0.2)).toBe(true);
+  });
+
+  it("同じ向きの曲がりを優先して周回を拾う", async () => {
+    const here = { lat: 35.74, lon: 139.64 };
+    const east = { lat: here.lat, lon: here.lon + 0.011 };
+    const northEast = { lat: here.lat + 0.011, lon: here.lon + 0.011 };
+    const north = { lat: here.lat + 0.011, lon: here.lon };
+    // 南へ出て東へ行き east に戻る枝は、最初の右折のあと左折が必要になりロリポップ寄り
+    const south = { lat: here.lat - 0.008, lon: here.lon };
+    const southEast = { lat: here.lat - 0.008, lon: here.lon + 0.011 };
+    const ways = [
+      { coordinates: [here, east], easy: true },
+      { coordinates: [east, northEast], easy: true },
+      { coordinates: [northEast, north], easy: true },
+      { coordinates: [north, here], easy: true },
+      { coordinates: [here, south], easy: true },
+      { coordinates: [south, southEast], easy: true },
+      { coordinates: [southEast, east], easy: true },
+    ];
+    const targetKm = routeLengthKm([here, east, northEast, north, here]);
+    const loops = await exploreClockwiseLoops(here, targetKm, ways, 12, () => 0);
+    expect(loops.length).toBeGreaterThan(0);
+    expect(loops.some((loop) => loop.clockwiseDeg > 120)).toBe(true);
+  });
+
+  it("出発から800m未満は分岐を絞り込まず探索する", async () => {
+    expect(NEAR_START_FULL_BRANCH_METERS).toBe(800);
+    const here = { lat: 35.74, lon: 139.64 };
+    const legKm = 0.35;
+    const ways: { coordinates: { lat: number; lon: number }[]; easy: boolean }[] = [];
+    for (const heading of [0, 72, 144, 216, 288]) {
+      const a = destinationPoint(here, heading, legKm);
+      const b = destinationPoint(a, heading + 90, legKm);
+      const c = destinationPoint(b, heading + 180, legKm);
+      ways.push(
+        { coordinates: [here, a], easy: true },
+        { coordinates: [a, b], easy: true },
+        { coordinates: [b, c], easy: true },
+        { coordinates: [c, here], easy: true },
+      );
+    }
+    const targetKm = legKm * 4;
+    // maxBranches=3 でも起点付近は全分岐するため、4方位を超える周回が残る
+    const loops = await exploreClockwiseLoops(here, targetKm, ways, 20, () => 0, 28, 3);
+    expect(loops.length).toBeGreaterThan(3);
+    const sectors = new Set(loops.map((loop) => loopTravelSector(here, loop.coordinates)));
+    expect(sectors.size).toBeGreaterThan(3);
   });
 
   it("大通りの一つ下の道でも周回を閉じられる", async () => {
@@ -328,8 +461,53 @@ describe("周回コースの計算", () => {
     expect(loops.length).toBeGreaterThan(0);
   });
 
-  it("公園や細い道の近くは、800m以内の大通りと河川敷をそれぞれ探す", () => {
-    const inside = { lat: 35.745, lon: 139.655 };
+  it("公園の縁・水域沿いの道を判定し、周回探索で優先する", async () => {
+    const here = { lat: 35.74, lon: 139.64 };
+    const east = { lat: here.lat, lon: here.lon + 0.014 };
+    const north = { lat: here.lat + 0.012, lon: here.lon };
+    const far = { lat: north.lat, lon: east.lon };
+    const midSouth = { lat: here.lat - 0.006, lon: here.lon + 0.007 };
+    const water = [
+      { lat: here.lat + 0.0002, lon: here.lon },
+      { lat: north.lat, lon: here.lon + 0.0002 },
+      { lat: far.lat + 0.0002, lon: east.lon },
+      { lat: east.lat + 0.0002, lon: east.lon },
+    ];
+    const park = [
+      { lat: here.lat + 0.001, lon: here.lon + 0.001 },
+      { lat: here.lat + 0.001, lon: east.lon - 0.001 },
+      { lat: far.lat - 0.001, lon: east.lon - 0.001 },
+      { lat: far.lat - 0.001, lon: here.lon + 0.001 },
+      { lat: here.lat + 0.001, lon: here.lon + 0.001 },
+    ];
+    const alongNorth = [here, north];
+    const inland = [here, midSouth, east];
+    expect(wayAlongParkOrWater(alongNorth, [park], [water])).toBe(true);
+    expect(wayAlongParkOrWater(inland, [], [])).toBe(false);
+    expect(
+      loopCoversBbox(
+        [here, east, far, north, here],
+        { minLat: here.lat + 0.002, maxLat: far.lat - 0.002, minLon: here.lon + 0.002, maxLon: east.lon - 0.002 },
+      ),
+    ).toBe(true);
+    const sectors = featurePreferSectors(here, 5, [park], [water], 2);
+    expect(sectors.length).toBeGreaterThan(0);
+    const targetKm = routeLengthKm([here, east, far, north, here]);
+    const ways = [
+      { coordinates: [here, east], easy: true, alongFeature: false },
+      { coordinates: [east, far], easy: true, alongFeature: true },
+      { coordinates: [far, north], easy: true, alongFeature: true },
+      { coordinates: [north, here], easy: true, alongFeature: true },
+      { coordinates: [here, midSouth], easy: true, alongFeature: false },
+      { coordinates: [midSouth, east], easy: true, alongFeature: false },
+    ];
+    const loops = await returnToStartLoops(here, targetKm, ways, 8);
+    expect(loops.length).toBeGreaterThan(0);
+    expect(loops.some((loop) => loop.coordinates.some((point) => Math.abs(point.lat - north.lat) < 0.001))).toBe(true);
+  });
+
+  it("面している細い道や公園内の通路からスタートし、遠い広場では道が無い", () => {
+    const besidePath = { lat: 35.745, lon: 139.655 };
     const path = [
       { lat: 35.745, lon: 139.654 },
       { lat: 35.745, lon: 139.656 },
@@ -338,39 +516,37 @@ describe("周回コースの計算", () => {
       { lat: 35.744, lon: 139.654 },
       { lat: 35.744, lon: 139.656 },
     ];
-    const river = [
-      { lat: 35.743, lon: 139.654 },
-      { lat: 35.743, lon: 139.656 },
-    ];
-    const water = [
-      { lat: 35.7431, lon: 139.654 },
-      { lat: 35.7431, lon: 139.656 },
-    ];
     const major = [
       { lat: 35.74, lon: 139.654 },
       { lat: 35.74, lon: 139.656 },
     ];
-    const roads = [
-      { coordinates: path, highway: "footway" },
-      { coordinates: street, highway: "residential" },
-      { coordinates: river, highway: "path" },
-      { coordinates: major, highway: "primary" },
-    ];
-    const starts = courseRoadStarts(inside, roads, [water]);
-    expect(starts.map((road) => road.point.lat)).toEqual([expect.closeTo(35.743, 3), expect.closeTo(35.74, 3)]);
-    expect(courseRoadStarts(inside, roads, [water], 800, 1).map((road) => road.point.lat)).toEqual([
-      expect.closeTo(35.743, 3),
+    const nearPath = nearestStartableRoad(besidePath, [
+      { coordinates: path, highway: "footway", tags: { highway: "footway" }, easy: true },
+      { coordinates: street, highway: "residential", tags: { highway: "residential" }, connector: true },
+      { coordinates: major, highway: "primary", tags: { highway: "primary", sidewalk: "both" }, easy: true },
     ]);
-    expect(courseRoadStartLimit(5)).toBe(5);
-    expect(courseRoadStartLimit(8)).toBe(4);
-    expect(courseRoadStartLimit(11)).toBe(3);
-    expect(courseRoadStartLimit(17)).toBe(1);
-    expect(courseRoadStartLimit(42)).toBe(1);
+    expect(nearPath?.point.lat).toBeCloseTo(35.745, 3);
+    expect(nearPath?.meters).toBeLessThan(80);
+
+    const besideStreet = { lat: 35.74405, lon: 139.655 };
+    const nearStreet = nearestStartableRoad(besideStreet, [
+      { coordinates: street, highway: "residential", tags: { highway: "residential" }, connector: true },
+      { coordinates: major, highway: "primary", tags: { highway: "primary", sidewalk: "both" }, easy: true },
+    ]);
+    expect(nearStreet?.point.lat).toBeCloseTo(35.744, 3);
+
+    const plaza = { lat: 35.75, lon: 139.66 };
+    expect(
+      nearestStartableRoad(plaza, [
+        { coordinates: path, highway: "footway", tags: { highway: "footway" }, easy: true },
+        { coordinates: street, highway: "residential", tags: { highway: "residential" }, connector: true },
+      ]),
+    ).toBeNull();
+    expect(COURSE_NO_START_ROAD_MESSAGE).toMatch(/スタートできる道がありません/);
+    expect(COURSE_NO_START_ROAD_MESSAGE).toMatch(/起点を道の近くに動かして/);
     expect(courseStemSearchLimit(5)).toBe(8);
     expect(courseStemSearchLimit(11)).toBe(4);
     expect(courseStemSearchLimit(17)).toBe(0);
-    expect(facesNarrowRoad(inside, roads, [water])).toBe(true);
-    expect(facesNarrowRoad(major[0], roads, [water])).toBe(false);
   });
 
   it("同じ道を往復する経路だけ往復距離が付く", () => {
@@ -482,12 +658,17 @@ describe("周回コースの計算", () => {
     const arterial = courseScore({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.95, minorRatio: 0.05, turnCount: 5, overlapRatio: 0.02 });
     const sideStreet = courseScore({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.25, minorRatio: 0.7, turnCount: 5, overlapRatio: 0.02 });
     expect(arterial).toBeGreaterThan(sideStreet);
-    const fewerTurns = courseScore({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.6, turnCount: 4, overlapRatio: 0.02 });
-    const manyTurns = courseScore({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.6, turnCount: 15, overlapRatio: 0.02 });
-    expect(fewerTurns).toBeGreaterThan(manyTurns);
+    const fewerSignals = courseScore({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.6, signalCount: 2, overlapRatio: 0.02 });
+    const manySignals = courseScore({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.6, signalCount: 25, overlapRatio: 0.02 });
+    expect(fewerSignals).toBeGreaterThan(manySignals);
     const parts = courseScoreParts({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.95, turnCount: 5, overlapRatio: 0.02 });
     expect(parts.total).toBeCloseTo(courseScore({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.95, turnCount: 5, overlapRatio: 0.02 }));
     expect(parts.easy).toBeGreaterThan(parts.turns);
+    expect(parts.clockwise).toBe(0);
+    expect(parts.uturn).toBe(0);
+    const lowMinor = courseScore({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.9, minorRatio: 0.05, overlapRatio: 0.02 });
+    const highMinor = courseScore({ ...sharedOverlap, distanceKm: 5.05, easyRatio: 0.6, minorRatio: 0.35, overlapRatio: 0.02 });
+    expect(lowMinor - highMinor).toBeGreaterThan(10);
     const matched = { ...sharedOverlap, distanceKm: 5, overlapRatio: 0.02 };
     const farther = courseScore({ ...matched, distanceKm: 5.9 });
     const closer = courseScore(matched);
@@ -495,9 +676,10 @@ describe("周回コースの計算", () => {
     expect(courseScoreParts({ ...matched, overlapRatio: 0.1 }).overlap).toBe(0);
     expect(courseScoreParts({ ...matched, overlapRatio: 0.05 }).overlap).toBeGreaterThan(0);
     expect(courseScoreParts({ ...matched, overlapRatio: 0, turnCount: 5, signalCount: 0 }).turns).toBe(10);
-    expect(courseScoreParts({ ...matched, turnCount: 15 }).turns).toBe(0);
+    expect(courseScoreParts({ ...matched, turnCount: 15, signalCount: 0 }).turns).toBe(0);
+    expect(courseScoreParts({ ...matched, signalCount: 0 }).signals).toBe(10);
     expect(courseScoreParts({ ...matched, turnCount: 15, signalCount: 25 }).signals).toBe(0);
-    expect(courseScoreParts({ ...matched, uturnCount: 1 }).uturn).toBe(1.25);
+    expect(courseScoreParts({ ...matched, uturnCount: 1 }).uturn).toBe(0);
     expect(courseScoreParts({ ...matched, uturnCount: 2 }).uturn).toBe(0);
     const scaled = relativeCourseScores([
       { score: 40, scoreParts: { ...parts, total: 40 } },
@@ -601,6 +783,16 @@ describe("周回コースの計算", () => {
               { lat: 4, lon: 6 },
             ],
           },
+          {
+            type: "way",
+            tags: { natural: "water", water: "moat" },
+            geometry: [
+              { lat: 7, lon: 8 },
+              { lat: 7, lon: 9 },
+              { lat: 8, lon: 9 },
+              { lat: 7, lon: 8 },
+            ],
+          },
         ],
       }),
     ).toEqual({
@@ -616,6 +808,12 @@ describe("周回コースの計算", () => {
         [
           { lat: 4, lon: 5 },
           { lat: 4, lon: 6 },
+        ],
+        [
+          { lat: 7, lon: 8 },
+          { lat: 7, lon: 9 },
+          { lat: 8, lon: 9 },
+          { lat: 7, lon: 8 },
         ],
       ],
       majors: [],

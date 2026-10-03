@@ -3,23 +3,26 @@ import {
   chooseNearMisses,
   COURSE_CANDIDATE_LIMIT,
   COURSE_PROPOSAL_LIMIT,
+  cleanCourseGeometry,
+  countCrossedSignals,
   countNearRoute,
   countUturns,
   courseScoreParts,
   elevationChange,
   featureLengthKm,
   HIGHWAY_SEARCH_LEVEL_MAX,
-  highwaySearchLevel,
-  isEasyRoad,
-  courseRoadStarts,
-  courseRoadStartLimit,
+  isConnectorRoad,
+  isDedicatedSidewalk,
+  isEasyRoadConsideringSidewalks,
   courseStemSearchLimit,
-  facesNarrowRoad,
-  pointInPark,
+  COURSE_NO_START_ROAD_MESSAGE,
+  loopCoversBbox,
+  nearestStartableRoad,
   lengthNearLinesKm,
   MAJOR_ROAD_NEAR_METERS,
   majorIntersections,
   MAP_SERVICE_MESSAGE,
+  MINOR_REJECT_RATIO,
   NEAR_COURSE_NOTICE,
   overlapRatio,
   OVERLAP_REJECT_RATIO,
@@ -28,16 +31,33 @@ import {
   routeLengthKm,
   sameCourseLine,
   sampleRoute,
+  SIGNAL_NEAR_METERS,
   shouldRetryMapService,
-  straightenShortSpikes,
   straightStats,
   turnCount,
+  wayAlongParkOrWater,
   type CourseScoreParts,
   type LatLon,
 } from "../courses";
-import { coursesWithAccessStem, departureBearings, exploreClockwiseLoops, loopTravelSector, nearestWayMeters, returnToStartLoops, SearchStopped, type ExploredLoop } from "../course-network";
+import {
+  coursesWithAccessStem,
+  departureBearings,
+  exploreClockwiseLoops,
+  featurePreferSectors,
+  loopTravelSector,
+  nearestWayMeters,
+  returnToStartLoops,
+  SearchStopped,
+  type ExploredLoop,
+} from "../course-network";
 
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+/** 診断用。皇居外周のおおよそ範囲。 */
+const PALACE_DIAG_BOX = { minLat: 35.677, maxLat: 35.691, minLon: 139.748, maxLon: 139.761 };
+
+const OVERPASS_URLS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+];
 const ELEVATION_URL = "https://api.open-meteo.com/v1/elevation";
 const USER_AGENT = "PaceCast/0.1 (course proposals)";
 
@@ -114,7 +134,6 @@ type BuiltRoute = {
   clockwiseDeg: number;
   overlapRatio: number;
   junctionCount: number;
-  roadGapKm: number | null;
   score: number;
   scoreParts: CourseScoreParts;
 };
@@ -122,6 +141,29 @@ type BuiltRoute = {
 export type CourseProposalSet = {
   courses: BuiltRoute[];
   notice?: string;
+};
+
+export type CoursePoolDiagEntry = {
+  distanceKm: number;
+  sector: number;
+  minLat: number;
+  maxLat: number;
+  minLon: number;
+  maxLon: number;
+  coversPalace: boolean;
+  featureKm: number;
+  status: "pool" | "distance" | "overlap" | "minor" | "crowded" | "same";
+};
+
+export type CourseProposalDiag = CourseProposalSet & {
+  diagnose: {
+    alongFeatureWays: number;
+    featureSectors: number[];
+    considered: CoursePoolDiagEntry[];
+    poolCount: number;
+    palaceInPool: number;
+    palaceInSelected: number;
+  };
 };
 
 async function fetchJson(
@@ -182,26 +224,67 @@ function searchBounds(start: LatLon, loopKm: number): { south: number; west: num
   };
 }
 
+async function fetchOverpass(query: string, signal?: AbortSignal): Promise<unknown> {
+  let lastError: unknown = null;
+  for (const url of OVERPASS_URLS) {
+    if (signal?.aborted) {
+      throw new SearchStopped();
+    }
+    try {
+      return await fetchJson(url, 55_000, MAP_SERVICE_MESSAGE, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(query)}`,
+      }, true, signal);
+    } catch (error) {
+      lastError = error;
+      if (error instanceof SearchStopped || signal?.aborted) {
+        throw error;
+      }
+    }
+  }
+  throw lastError instanceof CourseRouteError
+    ? lastError
+    : new CourseRouteError(MAP_SERVICE_MESSAGE, true);
+}
+
 async function loadMapContext(start: LatLon, loopKm: number, signal?: AbortSignal) {
   const box = searchBounds(start, loopKm);
-  const query = `[out:json][timeout:40];
+  // 道路・信号・公園を先に取る（必須）。堀・水域は別問い合わせで、失敗しても周回自体は続行する。
+  const coreQuery = `[out:json][timeout:40];
 (
-  way["highway"~"^(trunk|primary|secondary|tertiary)(_link)?$"](${box.south},${box.west},${box.north},${box.east});
-  way["highway"~"^(unclassified|residential|living_street|cycleway|path|footway|pedestrian|track|service)$"](${box.south},${box.west},${box.north},${box.east});
+  way["highway"](${box.south},${box.west},${box.north},${box.east});
   node["highway"="traffic_signals"](${box.south},${box.west},${box.north},${box.east});
+  node["crossing"="traffic_signals"](${box.south},${box.west},${box.north},${box.east});
+  node["highway"="crossing"](${box.south},${box.west},${box.north},${box.east});
   way["leisure"="park"](${box.south},${box.west},${box.north},${box.east});
   way["landuse"="recreation_ground"](${box.south},${box.west},${box.north},${box.east});
   relation["leisure"="park"](${box.south},${box.west},${box.north},${box.east});
   relation["landuse"="recreation_ground"](${box.south},${box.west},${box.north},${box.east});
-  way["waterway"~"river|stream|canal"](${box.south},${box.west},${box.north},${box.east});
+  way["waterway"~"river|stream|canal|riverbank"](${box.south},${box.west},${box.north},${box.east});
 );
 out geom;`;
-  const payload = await fetchJson(OVERPASS_URL, 50_000, MAP_SERVICE_MESSAGE, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `data=${encodeURIComponent(query)}`,
-  }, true, signal);
-  return parseOverpass(payload);
+  const waterQuery = `[out:json][timeout:25];
+(
+  way["natural"="water"](${box.south},${box.west},${box.north},${box.east});
+  way["water"="moat"](${box.south},${box.west},${box.north},${box.east});
+  relation["natural"="water"](${box.south},${box.west},${box.north},${box.east});
+  relation["water"="moat"](${box.south},${box.west},${box.north},${box.east});
+);
+out geom;`;
+  const core = parseOverpass(await fetchOverpass(coreQuery, signal));
+  try {
+    const water = parseOverpass(await fetchOverpass(waterQuery, signal));
+    return {
+      ...core,
+      waters: [...core.waters, ...water.waters],
+    };
+  } catch (error) {
+    if (error instanceof SearchStopped || signal?.aborted) {
+      throw error;
+    }
+    return core;
+  }
 }
 
 async function loadElevation(coordinates: LatLon[], signal?: AbortSignal): Promise<{ ascentM: number; descentM: number }> {
@@ -223,34 +306,87 @@ async function proposeCoursesOnce(
   distanceKm: number,
   onProgress?: (finished: number, total: number, passed: number) => void,
   signal?: AbortSignal,
-): Promise<CourseProposalSet> {
+  diagnose = false,
+): Promise<CourseProposalSet | CourseProposalDiag> {
   onProgress?.(0, 1, 0);
   const mapContext = await loadMapContext(start, distanceKm, signal);
-  const classified = mapContext.roads.map((road) => ({
-    coordinates: road.coordinates,
-    level: highwaySearchLevel(road.highway),
-    easy: isEasyRoad(road.highway, road.coordinates, mapContext.parks, mapContext.waters, mapContext.parkHoles),
-  }));
-  type PlannedLoop = ExploredLoop & { roadGapKm: number | null };
+  const sidewalkLines = mapContext.roads
+    .filter((road) => isDedicatedSidewalk(road.tags))
+    .map((road) => road.coordinates);
+  const classified = mapContext.roads.flatMap((road) => {
+    // 独立歩道 Way 自体はネットワークに入れず、隣接車道の判定材料だけに使う
+    if (isDedicatedSidewalk(road.tags)) {
+      return [];
+    }
+    const easy = isEasyRoadConsideringSidewalks(
+      road.tags,
+      road.coordinates,
+      mapContext.parks,
+      mapContext.waters,
+      mapContext.parkHoles,
+      sidewalkLines,
+    );
+    const alongFeature = wayAlongParkOrWater(road.coordinates, mapContext.parks, mapContext.waters);
+    return [
+      {
+        coordinates: road.coordinates,
+        highway: road.highway,
+        tags: road.tags,
+        easy,
+        sidewalk: false,
+        alongFeature,
+        connector: !easy && isConnectorRoad(road.tags, road.coordinates),
+      },
+    ];
+  });
+  type PlannedLoop = ExploredLoop;
   const pool: PlannedLoop[] = [];
+  const considered: CoursePoolDiagEntry[] = [];
   let distanceMiss: PlannedLoop | null = null;
   let overlapMiss: PlannedLoop | null = null;
-  const roadGap = { km: 0 as number | null };
   const presentLoop = (loop: ExploredLoop): PlannedLoop => {
-    const coordinates = straightenShortSpikes(loop.coordinates);
+    const coordinates = cleanCourseGeometry(loop.coordinates);
     return {
       ...loop,
       coordinates,
       distanceKm: routeLengthKm(coordinates),
       uturnCount: countUturns(coordinates),
-      roadGapKm: roadGap.km,
     };
+  };
+  const minorRatioOf = (loop: { minorMeters: number; distanceKm: number }) =>
+    loop.minorMeters / Math.max(loop.distanceKm * 1000, 1);
+  const bboxOf = (coordinates: LatLon[]) => {
+    let minLat = 90;
+    let maxLat = -90;
+    let minLon = 180;
+    let maxLon = -180;
+    for (const point of coordinates) {
+      minLat = Math.min(minLat, point.lat);
+      maxLat = Math.max(maxLat, point.lat);
+      minLon = Math.min(minLon, point.lon);
+      maxLon = Math.max(maxLon, point.lon);
+    }
+    return { minLat, maxLat, minLon, maxLon };
+  };
+  const recordDiag = (loop: PlannedLoop, courseStart: LatLon, status: CoursePoolDiagEntry["status"]) => {
+    if (!diagnose) {
+      return;
+    }
+    const box = bboxOf(loop.coordinates);
+    considered.push({
+      distanceKm: loop.distanceKm,
+      sector: loopTravelSector(courseStart, loop.coordinates),
+      ...box,
+      coversPalace: loopCoversBbox(loop.coordinates, PALACE_DIAG_BOX),
+      featureKm: featureLengthKm(loop.coordinates, mapContext.parks, mapContext.waters),
+      status,
+    });
   };
   const note = (raw: ExploredLoop) => {
     const loop = presentLoop(raw);
     const ratio = overlapRatio(loop.coordinates);
     if (acceptCourseDistance(loop.distanceKm, distanceKm)) {
-      if (ratio > OVERLAP_REJECT_RATIO) {
+      if (ratio > OVERLAP_REJECT_RATIO || minorRatioOf(loop) > MINOR_REJECT_RATIO) {
         const current = overlapMiss == null ? Number.POSITIVE_INFINITY : overlapRatio(overlapMiss.coordinates);
         const currentGap = overlapMiss == null ? Number.POSITIVE_INFINITY : Math.abs(overlapMiss.distanceKm - distanceKm);
         if (ratio < current || (ratio === current && Math.abs(loop.distanceKm - distanceKm) < currentGap)) {
@@ -264,27 +400,58 @@ async function proposeCoursesOnce(
       distanceMiss = loop;
     }
   };
+  const tryAddToPool = (loop: PlannedLoop, courseStart: LatLon): boolean => {
+    if (!acceptCourseDistance(loop.distanceKm, distanceKm)) {
+      recordDiag(loop, courseStart, "distance");
+      return false;
+    }
+    if (overlapRatio(loop.coordinates) > OVERLAP_REJECT_RATIO) {
+      recordDiag(loop, courseStart, "overlap");
+      return false;
+    }
+    if (minorRatioOf(loop) > MINOR_REJECT_RATIO) {
+      recordDiag(loop, courseStart, "minor");
+      return false;
+    }
+    const sector = loopTravelSector(courseStart, loop.coordinates);
+    const crowded = pool.filter((existing) => loopTravelSector(courseStart, existing.coordinates) === sector).length >= 2;
+    if (crowded) {
+      recordDiag(loop, courseStart, "crowded");
+      return false;
+    }
+    if (pool.some((existing) => sameCourseLine(existing.coordinates, loop.coordinates))) {
+      recordDiag(loop, courseStart, "same");
+      return false;
+    }
+    pool.push(loop);
+    recordDiag(loop, courseStart, "pool");
+    return true;
+  };
   let previousCount = -1;
-  const approach = classified.map((road) => ({ coordinates: road.coordinates, easy: road.easy }));
-  const inPark = pointInPark(start, mapContext.parks, mapContext.parkHoles);
-  const beside = courseRoadStarts(
-    start,
-    mapContext.roads,
-    mapContext.waters,
-    undefined,
-    courseRoadStartLimit(distanceKm),
-  );
-  const onCourseRoad = (beside[0]?.meters ?? Number.POSITIVE_INFINITY) <= 45;
-  const narrow = facesNarrowRoad(start, mapContext.roads, mapContext.waters);
-  const origins =
-    (inPark || narrow) && !onCourseRoad && beside.length > 0
-      ? beside.map((road) => ({ point: road.point, meters: road.meters as number | null }))
-      : [{ point: start, meters: (inPark || narrow) && !onCourseRoad ? null : 0 }];
+  const approach = classified
+    .filter((road) => road.easy || road.connector)
+    .map((road) => ({
+      coordinates: road.coordinates,
+      easy: road.easy,
+      sidewalk: road.sidewalk,
+      alongFeature: road.alongFeature,
+    }));
+  const snapped = nearestStartableRoad(start, classified);
+  if (snapped == null) {
+    throw new CourseRouteError(COURSE_NO_START_ROAD_MESSAGE);
+  }
+  const origins = [{ point: snapped.point }];
+  const featureSectors = featurePreferSectors(start, distanceKm, mapContext.parks, mapContext.waters, 2);
   let loopWays = approach.filter((road) => road.easy);
   for (let level = 0; level <= HIGHWAY_SEARCH_LEVEL_MAX; level += 1) {
     const ways = classified
-      .filter((road) => road.easy || road.level <= level)
-      .map((road) => ({ coordinates: road.coordinates, easy: road.easy }));
+      .filter((road) => road.easy || (level >= 1 && road.connector))
+      .map((road) => ({
+        coordinates: road.coordinates,
+        easy: road.easy,
+        sidewalk: road.sidewalk,
+        alongFeature: road.alongFeature,
+      }));
     if (ways.length === 0 || ways.length === previousCount) {
       continue;
     }
@@ -292,7 +459,6 @@ async function proposeCoursesOnce(
     loopWays = ways;
     onProgress?.(level, HIGHWAY_SEARCH_LEVEL_MAX + 1, pool.length);
     for (const origin of origins) {
-      roadGap.km = origin.meters == null ? null : origin.meters / 1000;
       const courseStart = origin.point;
       const blocked: number[] = [];
       const offStart = nearestWayMeters(courseStart, ways) > 45;
@@ -301,54 +467,56 @@ async function proposeCoursesOnce(
         const prepared = stemmed.map(presentLoop);
         for (const loop of prepared) {
           note(loop);
-          if (!acceptCourseDistance(loop.distanceKm, distanceKm) || overlapRatio(loop.coordinates) > OVERLAP_REJECT_RATIO) {
-            continue;
-          }
-          const sector = loopTravelSector(courseStart, loop.coordinates);
-          const crowded = pool.filter((existing) => loopTravelSector(courseStart, existing.coordinates) === sector).length >= 2;
-          if (crowded || pool.some((existing) => sameCourseLine(existing.coordinates, loop.coordinates))) {
-            continue;
-          }
-          pool.push(loop);
+          tryAddToPool(loop, courseStart);
         }
       }
       for (let attempt = 0; attempt < 2; attempt += 1) {
         if (signal?.aborted) {
           throw new SearchStopped();
         }
-        const returned = await returnToStartLoops(courseStart, distanceKm, ways, COURSE_CANDIDATE_LIMIT, blocked, null, note, signal);
-        const found = returned.length > 0
-          ? returned
-          : attempt === 0
-            ? await exploreClockwiseLoops(
-                courseStart,
-                distanceKm,
-                ways,
-                COURSE_CANDIDATE_LIMIT,
-                Math.random,
-                level === 0 ? 28 : Math.max(4, 16 - level * 2),
-                level === 0 ? 3 : 4,
-                note,
-                signal,
-              )
-            : [];
-        const foundLoops = found.map(presentLoop);
+        const found: ExploredLoop[] = [];
+        if (signal?.aborted) {
+          throw new SearchStopped();
+        }
+        // 公園・水域沿いは Dijkstra 内のごく弱いコスト優遇のみ（専用網の先回り探索はしない）
+        const returned = await returnToStartLoops(
+          courseStart,
+          distanceKm,
+          ways,
+          COURSE_CANDIDATE_LIMIT,
+          blocked,
+          null,
+          note,
+          signal,
+        );
+        for (const loop of returned) {
+          found.push(loop);
+        }
+        const explored =
+          found.length > 0
+            ? found
+            : attempt === 0
+              ? await exploreClockwiseLoops(
+                  courseStart,
+                  distanceKm,
+                  ways,
+                  COURSE_CANDIDATE_LIMIT,
+                  Math.random,
+                  level === 0 ? 36 : 52,
+                  level === 0 ? 3 : 4,
+                  note,
+                  signal,
+                )
+              : [];
+        const foundLoops = explored.map(presentLoop);
         for (const loop of foundLoops) {
           note(loop);
         }
-        const inBand = foundLoops.filter((loop) => acceptCourseDistance(loop.distanceKm, distanceKm));
-        const added: typeof inBand = [];
-        for (const loop of inBand) {
-          if (overlapRatio(loop.coordinates) > OVERLAP_REJECT_RATIO) {
-            continue;
+        const added: PlannedLoop[] = [];
+        for (const loop of foundLoops) {
+          if (tryAddToPool(loop, courseStart)) {
+            added.push(loop);
           }
-          const sector = loopTravelSector(courseStart, loop.coordinates);
-          const crowded = pool.filter((existing) => loopTravelSector(courseStart, existing.coordinates) === sector).length >= 2;
-          if (crowded || pool.some((existing) => sameCourseLine(existing.coordinates, loop.coordinates))) {
-            continue;
-          }
-          pool.push(loop);
-          added.push(loop);
         }
         if (added.length === 0 || headingsCoverReverse(blocked.concat(added.flatMap((loop) => departureBearings(courseStart, loop.coordinates))))) {
           break;
@@ -366,18 +534,10 @@ async function proposeCoursesOnce(
   const extraLimit = courseStemSearchLimit(distanceKm);
   if (origins.length === 1 && extraLimit > 0 && covered().size < COURSE_PROPOSAL_LIMIT) {
     const origin = origins[0];
-    roadGap.km = origin.meters == null ? null : origin.meters / 1000;
     const extras = (await coursesWithAccessStem(origin.point, distanceKm, approach, extraLimit, note, signal, loopWays)).map(presentLoop);
     for (const extra of extras) {
       note(extra);
-      if (!acceptCourseDistance(extra.distanceKm, distanceKm) || overlapRatio(extra.coordinates) > OVERLAP_REJECT_RATIO) {
-        continue;
-      }
-      const got = loopTravelSector(start, extra.coordinates);
-      if (covered().has(got) || pool.some((existing) => sameCourseLine(existing.coordinates, extra.coordinates))) {
-        continue;
-      }
-      pool.push(extra);
+      tryAddToPool(extra, origin.point);
       if (covered().size >= COURSE_PROPOSAL_LIMIT) {
         break;
       }
@@ -403,16 +563,22 @@ async function proposeCoursesOnce(
       const majorKm = lengthNearLinesKm(loop.coordinates, mapContext.majors, MAJOR_ROAD_NEAR_METERS);
       const overlap = overlapRatio(loop.coordinates);
       const straight = straightStats(loop.coordinates);
-      const signalCount = 0;
+      const signalCount = countCrossedSignals(
+        loop.coordinates,
+        mapContext.signals,
+        SIGNAL_NEAR_METERS,
+        mapContext.majors,
+      );
       const featureKm = featureLengthKm(loop.coordinates, mapContext.parks, mapContext.waters);
       const junctionCount = countNearRoute(loop.coordinates, junctions, 25);
+      const corners = turnCount(loop.coordinates);
       const totalMeters = Math.max(actualKm * 1000, 1);
       const scoreParts = courseScoreParts({
         distanceKm: actualKm,
         targetKm: distanceKm,
         easyRatio: loop.easyMeters / totalMeters,
         minorRatio: loop.minorMeters / totalMeters,
-        turnCount: turnCount(loop.coordinates),
+        turnCount: corners,
         signalCount,
         junctionCount,
         overlapRatio: overlap,
@@ -425,7 +591,7 @@ async function proposeCoursesOnce(
       return {
         distanceKm: actualKm,
         coordinates: loop.coordinates,
-        turnCount: turnCount(loop.coordinates),
+        turnCount: corners,
         signalCount,
         featureKm,
         ascentM: 0,
@@ -437,7 +603,6 @@ async function proposeCoursesOnce(
         clockwiseDeg: loop.clockwiseDeg,
         overlapRatio: overlap,
         junctionCount,
-        roadGapKm: loop.roadGapKm,
         score: scoreParts.total,
         scoreParts,
       };
@@ -455,19 +620,34 @@ async function proposeCoursesOnce(
       throw error;
     }
   });
-  return { courses, notice };
+  const result: CourseProposalSet = { courses, notice };
+  if (!diagnose) {
+    return result;
+  }
+  return {
+    ...result,
+    diagnose: {
+      alongFeatureWays: classified.filter((road) => road.alongFeature).length,
+      featureSectors,
+      considered,
+      poolCount: pool.length,
+      palaceInPool: considered.filter((entry) => entry.status === "pool" && entry.coversPalace).length,
+      palaceInSelected: courses.filter((course) => loopCoversBbox(course.coordinates, PALACE_DIAG_BOX)).length,
+    },
+  };
 }
 
-export async function proposeCourses(
+async function proposeCoursesInner(
   start: LatLon,
   distanceKm: number,
-  onProgress?: (finished: number, total: number, passed: number) => void,
-  signal?: AbortSignal,
-): Promise<CourseProposalSet> {
+  onProgress: ((finished: number, total: number, passed: number) => void) | undefined,
+  signal: AbortSignal | undefined,
+  diagnose: boolean,
+): Promise<CourseProposalSet | CourseProposalDiag> {
   const started = Date.now();
   try {
     onProgress?.(0, 0, 0);
-    return await proposeCoursesOnce(start, distanceKm, onProgress, signal);
+    return await proposeCoursesOnce(start, distanceKm, onProgress, signal, diagnose);
   } catch (error) {
     if (error instanceof SearchStopped || signal?.aborted) {
       throw new SearchStopped();
@@ -480,6 +660,32 @@ export async function proposeCourses(
       throw new SearchStopped();
     }
     onProgress?.(0, 0, 0);
-    return await proposeCoursesOnce(start, distanceKm, onProgress, signal);
+    return await proposeCoursesOnce(start, distanceKm, onProgress, signal, diagnose);
   }
+}
+
+export async function proposeCourses(
+  start: LatLon,
+  distanceKm: number,
+  onProgress?: (finished: number, total: number, passed: number) => void,
+  signal?: AbortSignal,
+): Promise<CourseProposalSet> {
+  return (await proposeCoursesInner(start, distanceKm, onProgress, signal, false)) as CourseProposalSet;
+}
+
+/**
+ * 周回提案に加え、プール投入の診断情報を返す（開発用）。
+ * @param start 出発点
+ * @param distanceKm 指定距離
+ * @param onProgress 進捗
+ * @param signal 中止信号
+ * @returns 提案と診断
+ */
+export async function proposeCoursesDiagnose(
+  start: LatLon,
+  distanceKm: number,
+  onProgress?: (finished: number, total: number, passed: number) => void,
+  signal?: AbortSignal,
+): Promise<CourseProposalDiag> {
+  return (await proposeCoursesInner(start, distanceKm, onProgress, signal, true)) as CourseProposalDiag;
 }

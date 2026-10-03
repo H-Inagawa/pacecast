@@ -51,8 +51,9 @@ describe("コースを作る", () => {
     render(<CoursesPage />);
     await user.click(screen.getByRole("button", { name: "作成方法" }));
     expect(screen.getByRole("dialog", { name: "作成方法" })).toBeInTheDocument();
-    expect(screen.getByText(/曲がりの少なさ/)).toBeInTheDocument();
-    expect(screen.getByText(/5kmを超えて3km伸びるごとに1本減らし/)).toBeInTheDocument();
+    expect(screen.getByText(/信号の少なさ/)).toBeInTheDocument();
+    expect(screen.getByText(/面している細い道や公園内の通路/)).toBeInTheDocument();
+    expect(screen.getByText(/近くにスタートできる道が無いとき/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "閉じる" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -84,7 +85,6 @@ describe("コースを作る", () => {
               ascent_m: 12,
               descent_m: 11,
               junction_count: 3,
-              road_gap_km: 0.45,
               score: 74.2,
               raw_score: 40.1,
               score_parts: {
@@ -133,32 +133,34 @@ describe("コースを作る", () => {
     const rows = screen.getAllByRole("row").map((row) => row.textContent ?? "");
     expect(rows[1]).toMatch(/距離/);
     expect(rows[1]).toMatch(/5\.10km/);
-    expect(rows[2]).toMatch(/付近の道まで/);
-    expect(rows[2]).toMatch(/0\.45km/);
-    expect(rows[3]).toBe("評価74.2");
-    expect(rows[4]).toBe("実スコア40.1");
-    expect(screen.queryByRole("row", { name: /信号/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("row", { name: /走りやすい道 4\.20km \(8\.2\)/ })).toBeInTheDocument();
+    expect(rows[2]).toBe("評価74.2");
+    expect(rows[3]).toBe("実スコア40.1");
+    expect(rows.some((row) => /付近の道まで/.test(row))).toBe(false);
+    expect(screen.getByRole("row", { name: /曲がり角 4回/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /信号 2回/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /走りやすい道 82% \(8\.2\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /細い道 8% \(1\.0\)/ })).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /上り 12m/ })).toBeInTheDocument();
-    expect(screen.getByRole("row", { name: /設定距離からの差 \+0\.10km \(5\.4\)/ })).toBeInTheDocument();
-    expect(screen.getByRole("row", { name: /時計回り 350度 \(3\.0\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /設定距離からの差 \+0\.10km \(\+2%\) \(5\.4\)/ })).toBeInTheDocument();
+    expect(screen.queryByRole("row", { name: /時計回り/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("row", { name: /Uターン/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("row", { name: /交差点/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "採点基準" }));
     expect(screen.getByRole("dialog", { name: "採点基準" })).toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("道路重複 10点");
     expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("全距離の10%で0点");
     expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("設定距離からの差 20点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("曲がり角 10点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("1kmあたり1か所以下");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("走りやすい道 30点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("公園内の道");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("信号 10点");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("1kmあたり5回");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("走りやすい道 20点");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("細い道 20点");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("公園内の通路");
     expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("直進 10点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("時計回り 5点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("Uターン 5点");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("曲がり角 10点");
     expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("配点の合計は100点です");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("信号は点数に入れません");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("付近の道までの距離も表に出しますが、点数には入れません");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("1kmあたり5基");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("3回で0点");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("時計回り 5点");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("Uターン 5点");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("付近の道まで");
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "採点基準" })).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
@@ -194,7 +196,6 @@ describe("コースを作る", () => {
       ascent_m: 12,
       descent_m: 11,
       junction_count: 3,
-      road_gap_km: null,
       score: 40,
       raw_score: 20,
       score_parts: {

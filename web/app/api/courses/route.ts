@@ -28,7 +28,6 @@ function coursePayload(proposed: CourseProposalSet) {
       ascent_m: course.ascentM,
       descent_m: course.descentM,
       junction_count: course.junctionCount,
-      road_gap_km: course.roadGapKm,
       score: course.score,
       raw_score: course.rawScore,
       score_parts: {
