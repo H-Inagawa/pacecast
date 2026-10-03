@@ -15,8 +15,12 @@ import {
   isDedicatedSidewalk,
   isEasyRoadConsideringSidewalks,
   courseStemSearchLimit,
+  COURSE_EMPTY_HINT_MESSAGE,
+  COURSE_NO_START_ROAD_HINT_MESSAGE,
   COURSE_NO_START_ROAD_MESSAGE,
   loopCoversBbox,
+  easyRoadHintsNearRoutes,
+  nearbyEasyRoadHints,
   nearestStartableRoad,
   lengthNearLinesKm,
   MAJOR_ROAD_NEAR_METERS,
@@ -141,6 +145,8 @@ type BuiltRoute = {
 export type CourseProposalSet = {
   courses: BuiltRoute[];
   notice?: string;
+  /** 起点移動の案内用。周辺の走りやすい道。 */
+  hintRoads?: LatLon[][];
 };
 
 export type CoursePoolDiagEntry = {
@@ -436,9 +442,15 @@ async function proposeCoursesOnce(
       sidewalk: road.sidewalk,
       alongFeature: road.alongFeature,
     }));
+  const hintRoads = () => nearbyEasyRoadHints(start, classified);
   const snapped = nearestStartableRoad(start, classified);
   if (snapped == null) {
-    throw new CourseRouteError(COURSE_NO_START_ROAD_MESSAGE);
+    const hints = hintRoads();
+    return {
+      courses: [],
+      notice: hints.length > 0 ? COURSE_NO_START_ROAD_HINT_MESSAGE : COURSE_NO_START_ROAD_MESSAGE,
+      hintRoads: hints,
+    };
   }
   const origins = [{ point: snapped.point }];
   const featureSectors = featurePreferSectors(start, distanceKm, mapContext.parks, mapContext.waters, 2);
@@ -553,7 +565,12 @@ async function proposeCoursesOnce(
   }
   onProgress?.(1, 1, notice ? 0 : explored.length);
   if (explored.length === 0) {
-    throw new CourseRouteError("希望の距離に近い周回を作れませんでした。距離を変えて、もう一度試してください");
+    const hints = hintRoads();
+    return {
+      courses: [],
+      notice: hints.length > 0 ? COURSE_EMPTY_HINT_MESSAGE : "希望の距離に近い周回を作れませんでした。距離を変えて、もう一度試してください",
+      hintRoads: hints,
+    };
   }
   const junctions = majorIntersections(mapContext.majors);
   const distinct = preferSpreadDirections(
@@ -620,7 +637,17 @@ async function proposeCoursesOnce(
       throw error;
     }
   });
-  const result: CourseProposalSet = { courses, notice };
+  const result: CourseProposalSet = {
+    courses,
+    notice,
+    // 希望距離が作れないときは起点周辺（移動案内）。通常の結果はルート周辺。
+    hintRoads: notice
+      ? hintRoads()
+      : easyRoadHintsNearRoutes(
+          courses.map((course) => course.coordinates),
+          classified,
+        ),
+  };
   if (!diagnose) {
     return result;
   }

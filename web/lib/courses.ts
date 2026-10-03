@@ -19,10 +19,17 @@ export const RETRACE_MIN_ALONG_METERS = 150;
 export const RETRACE_JOIN_METERS = 400;
 export const RETRACE_LIMIT_METERS = 120;
 export const OVERLAP_REJECT_RATIO = 0.1;
-export const NEAR_COURSE_NOTICE = "希望の距離のコースが作れませんでした。\n指定条件に近かったコースを表示します。";
-/** スタートできる道が近くにないときの案内。 */
+export const NEAR_COURSE_NOTICE =
+  "希望の距離のコースが作れませんでした。\n指定条件に近かったコースを表示します。\n地図の細い青い線は周辺の走りやすい道です。起点をその近くに動かして、もう一度試してください。";
+/** スタートできる道が近くにないときの案内（ヒント線なし）。 */
 export const COURSE_NO_START_ROAD_MESSAGE =
   "この地点の近くにスタートできる道がありません。\n公園の広場や山奥など、道から離れた場所ではコースを作れません。地図の起点を道の近くに動かして、もう一度試してください。";
+/** スタートできる道が近くにないときの案内（周辺の走りやすい道を細い青実線で示すとき）。 */
+export const COURSE_NO_START_ROAD_HINT_MESSAGE =
+  "この地点の近くにスタートできる道がありません。\n公園の広場や山奥など、道から離れた場所ではコースを作れません。地図の細い青い線は周辺の走りやすい道です。起点をその近くに動かして、もう一度試してください。";
+/** 周回案が1件も無いときの案内。 */
+export const COURSE_EMPTY_HINT_MESSAGE =
+  "希望の距離に近い周回を作れませんでした。\n地図の細い青い線は周辺の走りやすい道です。起点をその近くに動かすか、距離を変えて、もう一度試してください。";
 export const SHORT_LEG_METERS = 120;
 export const COURSE_POOL_LIMIT = 10;
 export const COURSE_KEEP_LIMIT = 25;
@@ -1129,8 +1136,126 @@ export function pointInPark(point: LatLon, parks: LatLon[][], holes: LatLon[][] 
 
 /** スタート可能とみなす、起点から道までの距離の上限（m）。 */
 export const STARTABLE_ROAD_METERS = 80;
+/** 起点移動の案内として地図に出す走りやすい道の探索半径（m）。 */
+export const HINT_ROAD_METERS = 800;
+/** 結果ルート周辺に重ねる走りやすい道の探索半径（m）。 */
+export const ROUTE_HINT_ROAD_METERS = 220;
+/** 地図に出す走りやすい道の本数上限（起点案内）。 */
+export const HINT_ROAD_LIMIT = 16;
+/** 地図に出す走りやすい道の本数上限（結果ルート周辺）。 */
+export const ROUTE_HINT_ROAD_LIMIT = 48;
 
 export type CourseRoadStart = { point: LatLon; meters: number };
+
+/** 各採点項目の満点。 */
+export const SCORE_PART_MAX = {
+  distance: SCORE_DISTANCE,
+  easy: SCORE_EASY,
+  straight: SCORE_STRAIGHT,
+  turns: SCORE_TURNS,
+  overlap: SCORE_OVERLAP,
+  signals: SCORE_SIGNALS,
+  clockwise: SCORE_CLOCKWISE,
+  uturn: SCORE_UTURN,
+  minor: SCORE_MINOR,
+  junctions: SCORE_JUNCTIONS,
+} as const;
+
+function keepSpreadRoads(
+  scored: { coordinates: LatLon[]; meters: number }[],
+  limit: number,
+): LatLon[][] {
+  const kept: LatLon[][] = [];
+  for (const road of scored) {
+    const near = kept.some((existing) => {
+      const a = existing[Math.floor(existing.length / 2)];
+      const b = road.coordinates[Math.floor(road.coordinates.length / 2)];
+      return distanceKm(a.lat, a.lon, b.lat, b.lon) * 1000 < 80;
+    });
+    if (near) {
+      continue;
+    }
+    kept.push(road.coordinates);
+    if (kept.length >= limit) {
+      break;
+    }
+  }
+  return kept;
+}
+
+/**
+ * 起点移動の案内用に、周辺の走りやすい道を近い順で返す。
+ * @param start 地図で選んだ地点
+ * @param roads 周囲の道
+ * @param maxMeters 探索半径（m）
+ * @param limit 返す本数の上限
+ * @returns 道の座標列
+ */
+export function nearbyEasyRoadHints(
+  start: LatLon,
+  roads: { coordinates: LatLon[]; easy?: boolean }[],
+  maxMeters = HINT_ROAD_METERS,
+  limit = HINT_ROAD_LIMIT,
+): LatLon[][] {
+  const scored = roads
+    .filter((road) => road.easy === true && road.coordinates.length >= 2)
+    .map((road) => {
+      let best = Number.POSITIVE_INFINITY;
+      for (const point of road.coordinates) {
+        const meters = distanceKm(start.lat, start.lon, point.lat, point.lon) * 1000;
+        if (meters < best) {
+          best = meters;
+        }
+      }
+      return { coordinates: road.coordinates, meters: best };
+    })
+    .filter((road) => road.meters <= maxMeters)
+    .sort((left, right) => left.meters - right.meters);
+  return keepSpreadRoads(scored, limit);
+}
+
+/**
+ * 結果ルートの近くにある走りやすい道を返す（結果表示の背景線用）。
+ * @param routes 表示する周回の座標列
+ * @param roads 周囲の道
+ * @param maxMeters ルートからの探索半径（m）
+ * @param limit 返す本数の上限
+ * @returns 道の座標列
+ */
+export function easyRoadHintsNearRoutes(
+  routes: LatLon[][],
+  roads: { coordinates: LatLon[]; easy?: boolean }[],
+  maxMeters = ROUTE_HINT_ROAD_METERS,
+  limit = ROUTE_HINT_ROAD_LIMIT,
+): LatLon[][] {
+  const samples = routes.flatMap((route) => sampleRoute(route, 120, 40));
+  if (samples.length === 0) {
+    return [];
+  }
+  const scored = roads
+    .filter((road) => road.easy === true && road.coordinates.length >= 2)
+    .map((road) => {
+      let best = Number.POSITIVE_INFINITY;
+      for (const point of road.coordinates) {
+        for (const sample of samples) {
+          const meters = distanceKm(sample.lat, sample.lon, point.lat, point.lon) * 1000;
+          if (meters < best) {
+            best = meters;
+          }
+          if (best <= maxMeters) {
+            break;
+          }
+        }
+        if (best <= maxMeters) {
+          break;
+        }
+      }
+      return { coordinates: road.coordinates, meters: best };
+    })
+    .filter((road) => road.meters <= maxMeters)
+    .sort((left, right) => left.meters - right.meters);
+  return keepSpreadRoads(scored, limit);
+}
 
 /**
  * 周回のスタートに使えるいちばん近い道（走りやすい道または接続道路）。

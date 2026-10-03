@@ -17,12 +17,15 @@ type CourseLine = {
 type Props = {
   start: Point | null;
   courses: CourseLine[];
+  hintRoads?: Point[][];
   selectedId: string | null;
   onPick: (latitude: number, longitude: number) => void;
   onStartPlotted?: () => void;
 };
 
-export function CourseMap({ start, courses, selectedId, onPick, onStartPlotted }: Props) {
+const HINT_ROAD_COLOR = "#2f6fed";
+
+export function CourseMap({ start, courses, hintRoads = [], selectedId, onPick, onStartPlotted }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layersRef = useRef<LayerGroup | null>(null);
@@ -84,6 +87,20 @@ export function CourseMap({ start, courses, selectedId, onPick, onStartPlotted }
         bounds.push([start.lat, start.lon]);
         onStartPlottedRef.current?.();
       }
+      for (const road of hintRoads) {
+        if (road.length < 2) {
+          continue;
+        }
+        const latLngs = road.map((point) => [point.lat, point.lon] as [number, number]);
+        leaflet
+          .polyline(latLngs, {
+            color: HINT_ROAD_COLOR,
+            weight: 2,
+            opacity: 0.8,
+          })
+          .addTo(layers);
+        bounds.push(...latLngs);
+      }
       for (const course of courses) {
         const selected = course.id === selectedId;
         const latLngs = course.coordinates.map((point) => [point.lat, point.lon] as [number, number]);
@@ -102,7 +119,7 @@ export function CourseMap({ start, courses, selectedId, onPick, onStartPlotted }
         map.setView([start.lat, start.lon], 15);
       }
     });
-  }, [courses, ready, selectedId, start]);
+  }, [courses, hintRoads, ready, selectedId, start]);
 
   return <div ref={host} className="course-map" role="application" aria-label="起点とコースの地図" />;
 }

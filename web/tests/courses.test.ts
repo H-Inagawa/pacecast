@@ -27,6 +27,8 @@ import {
   wayAlongParkOrWater,
   COURSE_NO_START_ROAD_MESSAGE,
   courseStemSearchLimit,
+  easyRoadHintsNearRoutes,
+  nearbyEasyRoadHints,
   nearestStartableRoad,
   keepCourseDistance,
   MAP_SERVICE_MESSAGE,
@@ -547,6 +549,43 @@ describe("周回コースの計算", () => {
     expect(courseStemSearchLimit(5)).toBe(8);
     expect(courseStemSearchLimit(11)).toBe(4);
     expect(courseStemSearchLimit(17)).toBe(0);
+
+    const hints = nearbyEasyRoadHints(
+      plaza,
+      [
+        { coordinates: path, easy: true },
+        { coordinates: street, easy: false },
+        { coordinates: major, easy: true },
+      ],
+      2000,
+      4,
+    );
+    expect(hints.length).toBeGreaterThan(0);
+    expect(hints[0][0].lat).toBeCloseTo(35.745, 3);
+
+    const route = [
+      { lat: 35.744, lon: 139.654 },
+      { lat: 35.744, lon: 139.656 },
+      { lat: 35.746, lon: 139.656 },
+      { lat: 35.746, lon: 139.654 },
+      { lat: 35.744, lon: 139.654 },
+    ];
+    const farEasy = [
+      { lat: 35.76, lon: 139.67 },
+      { lat: 35.76, lon: 139.671 },
+    ];
+    const aroundRoute = easyRoadHintsNearRoutes(
+      [route],
+      [
+        { coordinates: street, easy: true },
+        { coordinates: path, easy: true },
+        { coordinates: farEasy, easy: true },
+      ],
+      250,
+      8,
+    );
+    expect(aroundRoute.some((road) => road[0].lat === 35.744)).toBe(true);
+    expect(aroundRoute.some((road) => road[0].lat === 35.76)).toBe(false);
   });
 
   it("同じ道を往復する経路だけ往復距離が付く", () => {

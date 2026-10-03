@@ -23,17 +23,23 @@ type CourseResult = CourseDetail & {
 type CourseResponse = {
   courses: CourseResult[];
   notice?: string;
+  hint_roads?: CoursePoint[][];
 };
+
+const START_GUIDE = "地図をタップするか、現在地を使ってください";
 
 export default function CoursesPage() {
   const [distance, setDistance] = useState("5");
   const [start, setStart] = useState<CoursePoint | null>(null);
-  const [placeNote, setPlaceNote] = useState("地図をタップするか、現在地を使ってください");
+  const [placeNote, setPlaceNote] = useState(START_GUIDE);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CourseResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [methodOpen, setMethodOpen] = useState(false);
   const plotWait = useRef(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const scrollTarget = useRef<"error" | "map" | null>(null);
 
   const distanceKm = Number(distance);
   const ready = start != null && distanceKm >= 1 && distanceKm <= 50;
@@ -46,6 +52,18 @@ export default function CoursesPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const target = scrollTarget.current;
+    if (target == null) {
+      return;
+    }
+    scrollTarget.current = null;
+    const node = target === "error" ? errorRef.current : mapRef.current;
+    if (node != null && typeof node.scrollIntoView === "function") {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [error, result]);
 
   function finishPlotWait() {
     if (!plotWait.current) {
@@ -65,18 +83,19 @@ export default function CoursesPage() {
     try {
       const here = await requestCurrentPosition();
       setStart({ lat: here.latitude, lon: here.longitude });
-      setPlaceNote("現在地を起点にしました");
+      setPlaceNote(START_GUIDE);
     } catch (err) {
       plotWait.current = false;
       endLoading();
       setPlaceNote("現在地を使えないので、地図をタップしてください");
+      scrollTarget.current = "error";
       setError(err instanceof Error ? err.message : readGeolocationError(err));
     }
   }
 
   function pickMap(latitude: number, longitude: number) {
     setStart({ lat: latitude, lon: longitude });
-    setPlaceNote("地図の地点を起点にしました");
+    setPlaceNote(START_GUIDE);
     setError(null);
   }
 
@@ -94,7 +113,9 @@ export default function CoursesPage() {
       setResult(payload);
       setSelectedId(payload.courses[0]?.id ?? null);
       setError(payload.notice ?? null);
+      scrollTarget.current = payload.courses.length > 0 || (payload.hint_roads?.length ?? 0) > 0 ? "map" : "error";
     } catch (err) {
+      scrollTarget.current = "error";
       setError(err instanceof Error ? err.message : "コースを作れませんでした");
     }
   }
@@ -110,7 +131,11 @@ export default function CoursesPage() {
       <p className="lede">走りたい距離の周回を、点数の高い順に最大5つ出します。</p>
       <p className="meta">コースの作成には、数分かかることがあります。</p>
       <CourseMethodModal open={methodOpen} onClose={() => setMethodOpen(false)} />
-      {error ? <p className="error">{error}</p> : null}
+      {error ? (
+        <p ref={errorRef} className="error">
+          {error}
+        </p>
+      ) : null}
 
       <section className="course-form">
         <label>
@@ -130,13 +155,16 @@ export default function CoursesPage() {
         </button>
       </section>
 
-      <CourseMap
-        start={start}
-        courses={result?.courses ?? []}
-        selectedId={selectedId}
-        onPick={pickMap}
-        onStartPlotted={finishPlotWait}
-      />
+      <div ref={mapRef}>
+        <CourseMap
+          start={start}
+          courses={result?.courses ?? []}
+          hintRoads={result?.hint_roads ?? []}
+          selectedId={selectedId}
+          onPick={pickMap}
+          onStartPlotted={finishPlotWait}
+        />
+      </div>
 
       {result && result.courses.length > 0 ? (
         <CourseScoreTable

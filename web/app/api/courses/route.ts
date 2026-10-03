@@ -13,6 +13,7 @@ function coursePayload(proposed: CourseProposalSet) {
   const shown = relativeCourseScores(proposed.courses);
   return {
     notice: proposed.notice,
+    hint_roads: (proposed.hintRoads ?? []).map((road) => road.map((point) => ({ lat: point.lat, lon: point.lon }))),
     courses: shown.map((course, index) => ({
       id: String(index + 1),
       distance_km: course.distanceKm,

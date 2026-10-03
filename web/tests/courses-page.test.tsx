@@ -138,10 +138,10 @@ describe("コースを作る", () => {
     expect(rows.some((row) => /付近の道まで/.test(row))).toBe(false);
     expect(screen.getByRole("row", { name: /曲がり角 4回/ })).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /信号 2回/ })).toBeInTheDocument();
-    expect(screen.getByRole("row", { name: /走りやすい道 82% \(8\.2\)/ })).toBeInTheDocument();
-    expect(screen.getByRole("row", { name: /細い道 8% \(1\.0\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /走りやすい道 82% \(8\.2 \/ 20点\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /細い道 8% \(1\.0 \/ 20点\)/ })).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /上り 12m/ })).toBeInTheDocument();
-    expect(screen.getByRole("row", { name: /設定距離からの差 \+0\.10km \(\+2%\) \(5\.4\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /設定距離からの差 \+0\.10km \(\+2%\) \(5\.4 \/ 20点\)/ })).toBeInTheDocument();
     expect(screen.queryByRole("row", { name: /時計回り/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("row", { name: /Uターン/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("row", { name: /交差点/ })).not.toBeInTheDocument();
@@ -161,6 +161,7 @@ describe("コースを作る", () => {
     expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("時計回り 5点");
     expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("Uターン 5点");
     expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("付近の道まで");
+    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("取得点と満点");
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "採点基準" })).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
@@ -286,7 +287,8 @@ describe("コースを作る", () => {
     await user.click(screen.getByRole("button", { name: "現在地を使う" }));
     expect(getLoadingCount()).toBe(1);
     resolveHere({ latitude: 35.7, longitude: 139.7 });
-    expect(await screen.findByText("現在地を起点にしました")).toBeInTheDocument();
+    expect(await screen.findByText("地図をタップするか、現在地を使ってください")).toBeInTheDocument();
+    expect(screen.queryByText(/を起点にしました/)).not.toBeInTheDocument();
     expect(getLoadingCount()).toBe(0);
   });
 });
