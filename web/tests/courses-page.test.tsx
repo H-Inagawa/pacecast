@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import CoursesPage from "../app/courses/page";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import { getLoadingCount, resetLoadingForTests } from "../lib/loading";
@@ -11,6 +11,12 @@ vi.mock("../lib/geolocation", () => ({
   requestCurrentPosition,
   readGeolocationError: (error: unknown) => (error instanceof Error ? error.message : "現在地を取得できませんでした"),
 }));
+
+beforeEach(() => {
+  resetLoadingForTests();
+  requestCurrentPosition.mockReset();
+  requestCurrentPosition.mockRejectedValue(new Error("現在地を取得できませんでした"));
+});
 
 vi.mock("../components/CourseMap", () => {
   const React = require("react") as typeof import("react");
@@ -39,11 +45,27 @@ vi.mock("../components/CourseMap", () => {
 });
 
 describe("コースを作る", () => {
-  it("起点が無いと作成できない", () => {
+  it("起点が無いと作成できない", async () => {
     render(<CoursesPage />);
+    await waitFor(() => {
+      expect(requestCurrentPosition).toHaveBeenCalled();
+    });
     expect(screen.getByRole("button", { name: "コースを作る" })).toBeDisabled();
-    expect(screen.getByText("コースの作成には、数分かかることがあります。")).toBeInTheDocument();
+    expect(await screen.findByText("現在地を使えないので、地図をタップしてください")).toBeInTheDocument();
+    expect(await screen.findByText("現在地を取得できませんでした")).toBeInTheDocument();
+    expect(screen.getByText(/コースの作成には、数分かかることがあります/)).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("画面に入るとGPSで現在地を起点にする（現在地に戻ると同じ取得）", async () => {
+    requestCurrentPosition.mockResolvedValue({ latitude: 35.701, longitude: 139.702 });
+    render(<CoursesPage />);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "コースを作る" })).toBeEnabled();
+    });
+    expect(requestCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("地図をタップすると、スタート位置を変更できます。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "現在地に戻る" })).toBeInTheDocument();
   });
 
   it("作成方法を開くと説明が出て、閉じると消える", async () => {
@@ -51,9 +73,10 @@ describe("コースを作る", () => {
     render(<CoursesPage />);
     await user.click(screen.getByRole("button", { name: "作成方法" }));
     expect(screen.getByRole("dialog", { name: "作成方法" })).toBeInTheDocument();
-    expect(screen.getByText(/信号の少なさ/)).toBeInTheDocument();
     expect(screen.getByText(/面している細い道や公園内の通路/)).toBeInTheDocument();
     expect(screen.getByText(/近くにスタートできる道が無いとき/)).toBeInTheDocument();
+    expect(screen.getByText(/配点の詳細は「採点基準」/)).toBeInTheDocument();
+    expect(screen.queryByText(/信号の少なさ/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "閉じる" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -131,37 +154,43 @@ describe("コースを作る", () => {
     await user.click(courseButton);
     expect(courseButton).toHaveAttribute("aria-pressed", "true");
     const rows = screen.getAllByRole("row").map((row) => row.textContent ?? "");
-    expect(rows[1]).toMatch(/距離/);
-    expect(rows[1]).toMatch(/5\.10km/);
-    expect(rows[2]).toBe("評価74.2");
-    expect(rows[3]).toBe("実スコア40.1");
+    expect(rows[1]).toBe("おすすめ度74.2");
+    expect(rows[2]).toBe("スコア40.1");
+    expect(rows[3]).toMatch(/距離/);
+    expect(rows[3]).toMatch(/5\.10km/);
     expect(rows.some((row) => /付近の道まで/.test(row))).toBe(false);
     expect(screen.getByRole("row", { name: /曲がり角 4回/ })).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /信号 2回/ })).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /走りやすい道 82% \(8\.2 \/ 20点\)/ })).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /細い道 8% \(1\.0 \/ 20点\)/ })).toBeInTheDocument();
     expect(screen.getByRole("row", { name: /上り 12m/ })).toBeInTheDocument();
-    expect(screen.getByRole("row", { name: /設定距離からの差 \+0\.10km \(\+2%\) \(5\.4 \/ 20点\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /指定との誤差 \+2% \(5\.4 \/ 20点\)/ })).toBeInTheDocument();
     expect(screen.queryByRole("row", { name: /時計回り/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("row", { name: /Uターン/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("row", { name: /交差点/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "採点基準" }));
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("道路重複 10点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("全距離の10%で0点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("設定距離からの差 20点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("信号 10点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("1kmあたり5回");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("走りやすい道 20点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("細い道 20点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("公園内の通路");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("直進 10点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("曲がり角 10点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("配点の合計は100点です");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("時計回り 5点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("Uターン 5点");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).not.toHaveTextContent("付近の道まで");
-    expect(screen.getByRole("dialog", { name: "採点基準" })).toHaveTextContent("取得点と満点");
+    const guide = screen.getByRole("dialog", { name: "採点基準" });
+    expect(guide).toBeInTheDocument();
+    expect(within(guide).getByRole("columnheader", { name: "項目名" })).toBeInTheDocument();
+    expect(within(guide).getByRole("columnheader", { name: "満点" })).toBeInTheDocument();
+    expect(within(guide).getByRole("columnheader", { name: "説明" })).toBeInTheDocument();
+    expect(guide).toHaveTextContent("道路重複");
+    expect(guide).toHaveTextContent("10点");
+    expect(guide).toHaveTextContent("全距離の10%で0点");
+    expect(guide).toHaveTextContent("指定との誤差");
+    expect(guide).toHaveTextContent("20点");
+    expect(guide).toHaveTextContent("信号");
+    expect(guide).toHaveTextContent("1kmあたり5回");
+    expect(guide).toHaveTextContent("走りやすい道");
+    expect(guide).toHaveTextContent("細い道");
+    expect(guide).toHaveTextContent("公園内の通路");
+    expect(guide).toHaveTextContent("直進");
+    expect(guide).toHaveTextContent("曲がり角");
+    expect(guide).toHaveTextContent("配点の合計は100点です");
+    expect(guide).not.toHaveTextContent("時計回り 5点");
+    expect(guide).not.toHaveTextContent("Uターン 5点");
+    expect(guide).not.toHaveTextContent("付近の道まで");
+    expect(guide).toHaveTextContent("取得点と満点");
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "採点基準" })).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
@@ -274,8 +303,6 @@ describe("コースを作る", () => {
   });
 
   it("現在地の取得中はスピナー用の待ちを出し、プロット後に閉じる", async () => {
-    resetLoadingForTests();
-    const user = userEvent.setup();
     let resolveHere: (position: { latitude: number; longitude: number }) => void = () => {};
     requestCurrentPosition.mockImplementation(
       () =>
@@ -284,11 +311,12 @@ describe("コースを作る", () => {
         }),
     );
     render(<CoursesPage />);
-    await user.click(screen.getByRole("button", { name: "現在地を使う" }));
     expect(getLoadingCount()).toBe(1);
     resolveHere({ latitude: 35.7, longitude: 139.7 });
-    expect(await screen.findByText("地図をタップするか、現在地を使ってください")).toBeInTheDocument();
+    expect(await screen.findByText("地図をタップすると、スタート位置を変更できます。")).toBeInTheDocument();
     expect(screen.queryByText(/を起点にしました/)).not.toBeInTheDocument();
-    expect(getLoadingCount()).toBe(0);
+    await waitFor(() => {
+      expect(getLoadingCount()).toBe(0);
+    });
   });
 });

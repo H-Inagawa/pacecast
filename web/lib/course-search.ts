@@ -1,7 +1,13 @@
+import type { CourseSearchStage } from "./courses";
+
 type CourseSearchEvent =
-  | { type: "progress"; percent: number; passed: number }
+  | { type: "progress"; percent: number; passed: number; stage: CourseSearchStage }
   | { type: "error"; detail: string }
   | { type: "result"; payload: Record<string, unknown> };
+
+function parseStage(value: unknown): CourseSearchStage {
+  return value === "explore" ? "explore" : "map";
+}
 
 function parseCourseSearchLine(line: string): CourseSearchEvent | null {
   const trimmed = line.trim();
@@ -17,9 +23,14 @@ function parseCourseSearchLine(line: string): CourseSearchEvent | null {
   if (typeof parsed !== "object" || parsed == null) {
     throw new Error("周回コースを作れませんでした");
   }
-  const event = parsed as { type?: string; percent?: number; passed?: number; detail?: string };
+  const event = parsed as { type?: string; percent?: number; passed?: number; stage?: string; detail?: string };
   if (event.type === "progress" && typeof event.percent === "number") {
-    return { type: "progress", percent: event.percent, passed: typeof event.passed === "number" ? event.passed : 0 };
+    return {
+      type: "progress",
+      percent: event.percent,
+      passed: typeof event.passed === "number" ? event.passed : 0,
+      stage: parseStage(event.stage),
+    };
   }
   if (event.type === "error") {
     return {
@@ -36,7 +47,7 @@ function parseCourseSearchLine(line: string): CourseSearchEvent | null {
 
 export async function readCourseSearchEvents<T>(
   stream: ReadableStream<Uint8Array>,
-  onProgress: (percent: number, passed: number) => void,
+  onProgress: (percent: number, passed: number, stage: CourseSearchStage) => void,
 ): Promise<T> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
@@ -44,7 +55,7 @@ export async function readCourseSearchEvents<T>(
   let result: T | null = null;
   const take = (event: CourseSearchEvent): T | null => {
     if (event.type === "progress") {
-      onProgress(event.percent, event.passed);
+      onProgress(event.percent, event.passed, event.stage);
       return null;
     }
     if (event.type === "error") {

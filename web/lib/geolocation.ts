@@ -45,7 +45,7 @@ export function requestCurrentPosition(): Promise<GeoPosition> {
       (error) => {
         reject(new Error(readGeolocationError(error)));
       },
-      { enableHighAccuracy: false, timeout: 12_000, maximumAge: 60_000 },
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 0 },
     );
   });
 }

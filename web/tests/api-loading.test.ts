@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiGet, apiSend } from "../lib/api";
-import { getLoadingCount, resetLoadingForTests } from "../lib/loading";
+import { getLoadingCount, getLoadingMessage, resetLoadingForTests } from "../lib/loading";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -27,6 +27,7 @@ describe("api loading", () => {
 
     const pending = apiGet("/api/profile");
     expect(getLoadingCount()).toBe(1);
+    expect(getLoadingMessage()).toBe("設定情報を読み込み中です...");
 
     gate.resolve({
       ok: true,

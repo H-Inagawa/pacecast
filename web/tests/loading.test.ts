@@ -33,8 +33,8 @@ describe("loading store", () => {
 
   it("待ちの文言は終了で消える", () => {
     beginLoading();
-    setLoadingMessage("コース検索中です...(40%)");
-    expect(getLoadingMessage()).toBe("コース検索中です...(40%)");
+    setLoadingMessage("道路情報を取得中です...");
+    expect(getLoadingMessage()).toBe("道路情報を取得中です...");
     endLoading();
     expect(getLoadingMessage()).toBe("");
   });

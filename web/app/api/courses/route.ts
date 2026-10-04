@@ -87,8 +87,13 @@ export async function POST(request: Request) {
           const proposed = await proposeCourses(
             { lat: payload.latitude as number, lon: payload.longitude as number },
             distance,
-            (finished, total, passed) => {
-              write({ type: "progress", percent: courseSearchPercent(finished, total), passed });
+            (finished, total, passed, stage) => {
+              write({
+                type: "progress",
+                percent: courseSearchPercent(finished, total),
+                passed,
+                stage: stage ?? "explore",
+              });
             },
             request.signal,
           );

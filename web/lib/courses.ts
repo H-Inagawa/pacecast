@@ -20,16 +20,16 @@ export const RETRACE_JOIN_METERS = 400;
 export const RETRACE_LIMIT_METERS = 120;
 export const OVERLAP_REJECT_RATIO = 0.1;
 export const NEAR_COURSE_NOTICE =
-  "希望の距離のコースが作れませんでした。\n指定条件に近かったコースを表示します。\n地図の細い青い線は周辺の走りやすい道です。起点をその近くに動かして、もう一度試してください。";
+  "希望の距離のコースが作れませんでした。\n指定条件に近かったコースを表示します。\n地図の細い青線は周辺の走りやすい道です。起点をその近くに動かして、もう一度試してください。";
 /** スタートできる道が近くにないときの案内（ヒント線なし）。 */
 export const COURSE_NO_START_ROAD_MESSAGE =
   "この地点の近くにスタートできる道がありません。\n公園の広場や山奥など、道から離れた場所ではコースを作れません。地図の起点を道の近くに動かして、もう一度試してください。";
 /** スタートできる道が近くにないときの案内（周辺の走りやすい道を細い青実線で示すとき）。 */
 export const COURSE_NO_START_ROAD_HINT_MESSAGE =
-  "この地点の近くにスタートできる道がありません。\n公園の広場や山奥など、道から離れた場所ではコースを作れません。地図の細い青い線は周辺の走りやすい道です。起点をその近くに動かして、もう一度試してください。";
+  "この地点の近くにスタートできる道がありません。\n公園の広場や山奥など、道から離れた場所ではコースを作れません。地図の細い青線は周辺の走りやすい道です。起点をその近くに動かして、もう一度試してください。";
 /** 周回案が1件も無いときの案内。 */
 export const COURSE_EMPTY_HINT_MESSAGE =
-  "希望の距離に近い周回を作れませんでした。\n地図の細い青い線は周辺の走りやすい道です。起点をその近くに動かすか、距離を変えて、もう一度試してください。";
+  "希望の距離に近い周回を作れませんでした。\n地図の細い青線は周辺の走りやすい道です。起点をその近くに動かすか、距離を変えて、もう一度試してください。";
 export const SHORT_LEG_METERS = 120;
 export const COURSE_POOL_LIMIT = 10;
 export const COURSE_KEEP_LIMIT = 25;
@@ -49,6 +49,10 @@ export const TURN_FULL_PER_KM = 1;
 export const TURN_ZERO_PER_KM = 3;
 export const SIGNAL_ZERO_PER_KM = 5;
 export const COURSE_CANDIDATE_LIMIT = 50;
+/** 探索の拡張回数の基準（長い距離では減らす）。 */
+export const COURSE_EXPANSION_LIMIT = 22_000;
+/** Overpass 取得矩形の半径倍率の基準（周長換算半径に対する倍数）。 */
+export const COURSE_BOUNDS_RADIUS_SCALE = 2.4;
 export const COURSE_SHAPE_SCALE = 0.8;
 export const SHAPE_SCALE_STEP = 0.02;
 export const SHAPE_SCALE_MIN = 0.6;
@@ -87,10 +91,54 @@ export function courseSearchPercent(finished: number, total: number): number {
   return Math.max(0, Math.min(100, Math.round((finished / total) * 100)));
 }
 
-export function courseSearchLabel(percent: number, passed = 0): string {
-  const shown = Math.max(0, Math.min(100, Math.round(percent)));
-  const count = Math.max(0, Math.round(passed));
-  return `コース検索中です...(${shown}% / 合格ルート: ${count}件)`;
+export type CourseSearchStage = "map" | "explore";
+
+/** コース作成の待ち文言（段階ごと。％・件数は出さない）。 */
+export function courseSearchLabel(stage: CourseSearchStage = "map"): string {
+  if (stage === "explore") {
+    return "コース探索中です...(時間がかかる場合があります)";
+  }
+  return "道路情報を取得中です...";
+}
+
+/**
+ * 距離が長いほど、集める候補の上限を下げる。
+ * @param targetKm 指定距離（km）
+ * @returns 探索で集める周回の上限
+ */
+export function courseCandidateLimit(targetKm: number): number {
+  const steps = courseSearchSteps(targetKm);
+  return Math.max(8, COURSE_CANDIDATE_LIMIT - steps * 10);
+}
+
+/**
+ * 距離が長いほど、探索の拡張回数を下げる。
+ * @param targetKm 指定距離（km）
+ * @returns 拡張回数の上限
+ */
+export function courseExpansionLimit(targetKm: number): number {
+  const steps = courseSearchSteps(targetKm);
+  return Math.max(6_000, COURSE_EXPANSION_LIMIT - steps * 4_000);
+}
+
+/**
+ * 距離が長いほど、出発直後の全分岐区間を短くする。
+ * @param targetKm 指定距離（km）
+ * @returns 全分岐で進む距離（m）
+ */
+export function courseNearStartFullBranchMeters(targetKm: number): number {
+  const steps = courseSearchSteps(targetKm);
+  return Math.max(300, 800 - steps * 100);
+}
+
+/**
+ * 距離が長いほど、Overpass の取得矩形を抑える。
+ * @param targetKm 指定距離（km）
+ * @returns 周長換算半径に掛ける倍率
+ */
+export function courseBoundsRadiusScale(targetKm: number): number {
+  const steps = courseSearchSteps(targetKm);
+  return Math.max(1.6, COURSE_BOUNDS_RADIUS_SCALE - steps * 0.15);
 }
 
 export function courseSearchSteps(targetKm: number): number {
@@ -168,14 +216,19 @@ export function isMajorHighway(highway: string): boolean {
   return MAJOR_HIGHWAY.test(highway);
 }
 
+/** 計画中・建設中・廃止などでルートに使わない highway。 */
+const EXCLUDED_HIGHWAY =
+  /^(motorway|motorway_link|steps|proposed|construction|abandoned|razed|disused)$/;
+
 /**
  * 歩行者の通行が明確に禁じられている、またはランニングに適さない Way か。
+ * 計画中・建設中・廃止・撤去・未使用の道路も含む。
  * @param tags OSM のタグ
  * @returns 除外するとき true
  */
 export function isExcludedRoad(tags: OsmWayTags): boolean {
-  const highway = tags.highway ?? "";
-  if (highway === "motorway" || highway === "motorway_link" || highway === "steps") {
+  const highway = tagValue(tags, "highway");
+  if (EXCLUDED_HIGHWAY.test(highway)) {
     return true;
   }
   if (tags.foot === "no" || tags.access === "no") {
@@ -1138,12 +1191,8 @@ export function pointInPark(point: LatLon, parks: LatLon[][], holes: LatLon[][] 
 export const STARTABLE_ROAD_METERS = 80;
 /** 起点移動の案内として地図に出す走りやすい道の探索半径（m）。 */
 export const HINT_ROAD_METERS = 800;
-/** 結果ルート周辺に重ねる走りやすい道の探索半径（m）。 */
-export const ROUTE_HINT_ROAD_METERS = 220;
 /** 地図に出す走りやすい道の本数上限（起点案内）。 */
 export const HINT_ROAD_LIMIT = 16;
-/** 地図に出す走りやすい道の本数上限（結果ルート周辺）。 */
-export const ROUTE_HINT_ROAD_LIMIT = 48;
 
 export type CourseRoadStart = { point: LatLon; meters: number };
 
@@ -1205,49 +1254,6 @@ export function nearbyEasyRoadHints(
         const meters = distanceKm(start.lat, start.lon, point.lat, point.lon) * 1000;
         if (meters < best) {
           best = meters;
-        }
-      }
-      return { coordinates: road.coordinates, meters: best };
-    })
-    .filter((road) => road.meters <= maxMeters)
-    .sort((left, right) => left.meters - right.meters);
-  return keepSpreadRoads(scored, limit);
-}
-
-/**
- * 結果ルートの近くにある走りやすい道を返す（結果表示の背景線用）。
- * @param routes 表示する周回の座標列
- * @param roads 周囲の道
- * @param maxMeters ルートからの探索半径（m）
- * @param limit 返す本数の上限
- * @returns 道の座標列
- */
-export function easyRoadHintsNearRoutes(
-  routes: LatLon[][],
-  roads: { coordinates: LatLon[]; easy?: boolean }[],
-  maxMeters = ROUTE_HINT_ROAD_METERS,
-  limit = ROUTE_HINT_ROAD_LIMIT,
-): LatLon[][] {
-  const samples = routes.flatMap((route) => sampleRoute(route, 120, 40));
-  if (samples.length === 0) {
-    return [];
-  }
-  const scored = roads
-    .filter((road) => road.easy === true && road.coordinates.length >= 2)
-    .map((road) => {
-      let best = Number.POSITIVE_INFINITY;
-      for (const point of road.coordinates) {
-        for (const sample of samples) {
-          const meters = distanceKm(sample.lat, sample.lon, point.lat, point.lon) * 1000;
-          if (meters < best) {
-            best = meters;
-          }
-          if (best <= maxMeters) {
-            break;
-          }
-        }
-        if (best <= maxMeters) {
-          break;
         }
       }
       return { coordinates: road.coordinates, meters: best };

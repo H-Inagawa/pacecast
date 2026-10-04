@@ -2,6 +2,7 @@ import { AUTH_PAGES } from "./auth-pages";
 import { readCourseSearchEvents } from "./course-search";
 import { courseSearchLabel } from "./courses";
 import { beginLoading, endLoading, setLoadingCancel, setLoadingMessage } from "./loading";
+import { loadingMessageFor } from "./loading-messages";
 
 function apiUrl(path: string): string {
   if (typeof window === "undefined") {
@@ -55,10 +56,14 @@ async function readError(response: Response): Promise<string> {
   return "リクエストに失敗しました";
 }
 
-async function withLoading<T>(task: () => Promise<T>): Promise<T> {
+async function withLoading<T>(path: string, method: string, task: () => Promise<T>): Promise<T> {
   const track = typeof window !== "undefined";
   if (track) {
     beginLoading();
+    const message = loadingMessageFor(path, method);
+    if (message) {
+      setLoadingMessage(message);
+    }
   }
   try {
     return await task();
@@ -70,7 +75,7 @@ async function withLoading<T>(task: () => Promise<T>): Promise<T> {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  return withLoading(async () => {
+  return withLoading(path, "GET", async () => {
     const response = await fetch(apiUrl(path), {
       cache: "no-store",
       credentials: "include",
@@ -87,7 +92,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 }
 
 export async function apiSend<T>(path: string, method: string, body?: unknown): Promise<T> {
-  return withLoading(async () => {
+  return withLoading(path, method, async () => {
     const headers: Record<string, string> = {
       ...((await sessionHeaders()) as Record<string, string>),
     };
@@ -111,9 +116,9 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
 }
 
 export async function apiPostCourses<T>(path: string, body: unknown): Promise<T> {
-  return withLoading(async () => {
+  return withLoading(path, "POST", async () => {
     const controller = new AbortController();
-    setLoadingMessage(courseSearchLabel(0, 0));
+    setLoadingMessage(courseSearchLabel("map"));
     setLoadingCancel(() => controller.abort());
     try {
       const headers: Record<string, string> = {
@@ -136,17 +141,8 @@ export async function apiPostCourses<T>(path: string, body: unknown): Promise<T>
       if (response.body == null) {
         throw new Error("周回コースを作れませんでした");
       }
-      let shown = 0;
-      let passedShown = 0;
-      return await readCourseSearchEvents<T>(response.body, (percent, passed) => {
-        if (percent === 0) {
-          shown = 0;
-          passedShown = 0;
-        } else {
-          shown = Math.max(shown, percent);
-          passedShown = Math.max(passedShown, passed);
-        }
-        setLoadingMessage(courseSearchLabel(shown, passedShown));
+      return await readCourseSearchEvents<T>(response.body, (_percent, _passed, stage) => {
+        setLoadingMessage(courseSearchLabel(stage));
       });
     } catch (error) {
       if (controller.signal.aborted) {

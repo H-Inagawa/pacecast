@@ -60,7 +60,7 @@ export function courseScoreRows(course: CourseDetail, targetKm: number): CourseS
   const minorPct = course.distance_km > 0 ? Math.round((course.minor_km / course.distance_km) * 100) : 0;
   return [
     {
-      label: "設定距離からの差",
+      label: "指定との誤差",
       data: formatDistanceDelta(course.distance_km, targetKm),
       ...scored(course.score_parts.distance, course.raw_score_parts.distance, SCORE_PART_MAX.distance),
     },
@@ -111,5 +111,5 @@ function formatDistanceDelta(actualKm: number, targetKm: number): string {
   const delta = actualKm - targetKm;
   const sign = delta > 0.005 ? "+" : delta < -0.005 ? "-" : "";
   const pct = targetKm > 0 ? Math.round((Math.abs(delta) / targetKm) * 100) : 0;
-  return `${sign}${Math.abs(delta).toFixed(2)}km (${sign}${pct}%)`;
+  return `${sign}${pct}%`;
 }

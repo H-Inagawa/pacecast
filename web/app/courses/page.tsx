@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BackHome } from "../../components/BackHome";
 import { type CourseDetail } from "../../components/CourseDetailModal";
 import { CourseScoreTable } from "../../components/CourseScoreTable";
@@ -9,7 +9,8 @@ import { CourseMethodModal } from "../../components/CourseMethodModal";
 import { StickyActions } from "../../components/StickyActions";
 import { apiPostCourses } from "../../lib/api";
 import { readGeolocationError, requestCurrentPosition } from "../../lib/geolocation";
-import { beginLoading, endLoading } from "../../lib/loading";
+import { beginLoading, endLoading, setLoadingMessage } from "../../lib/loading";
+import { COURSE_LOCATE_LOADING_MESSAGE } from "../../lib/loading-messages";
 
 type CoursePoint = {
   lat: number;
@@ -26,7 +27,7 @@ type CourseResponse = {
   hint_roads?: CoursePoint[][];
 };
 
-const START_GUIDE = "地図をタップするか、現在地を使ってください";
+const START_GUIDE = "地図をタップすると、スタート位置を変更できます。";
 
 export default function CoursesPage() {
   const [distance, setDistance] = useState("5");
@@ -37,12 +38,34 @@ export default function CoursesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [methodOpen, setMethodOpen] = useState(false);
   const plotWait = useRef(false);
-  const errorRef = useRef<HTMLParagraphElement>(null);
+  const headingRef = useRef<HTMLElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
-  const scrollTarget = useRef<"error" | "map" | null>(null);
+  const scrollTarget = useRef<"heading" | "map" | null>(null);
 
   const distanceKm = Number(distance);
   const ready = start != null && distanceKm >= 1 && distanceKm <= 50;
+
+  const locateHere = useCallback(async () => {
+    setError(null);
+    if (plotWait.current) {
+      return;
+    }
+    plotWait.current = true;
+    beginLoading();
+    setLoadingMessage(COURSE_LOCATE_LOADING_MESSAGE);
+    try {
+      // 「現在地に戻る」と同じく、ブラウザ GPS（Geolocation）で現在地を取る
+      const here = await requestCurrentPosition();
+      setStart({ lat: here.latitude, lon: here.longitude });
+      setPlaceNote(START_GUIDE);
+    } catch (err) {
+      plotWait.current = false;
+      endLoading();
+      setPlaceNote("現在地を使えないので、地図をタップしてください");
+      scrollTarget.current = "heading";
+      setError(err instanceof Error ? err.message : readGeolocationError(err));
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -54,12 +77,16 @@ export default function CoursesPage() {
   }, []);
 
   useEffect(() => {
+    void locateHere();
+  }, [locateHere]);
+
+  useEffect(() => {
     const target = scrollTarget.current;
     if (target == null) {
       return;
     }
     scrollTarget.current = null;
-    const node = target === "error" ? errorRef.current : mapRef.current;
+    const node = target === "heading" ? headingRef.current : mapRef.current;
     if (node != null && typeof node.scrollIntoView === "function") {
       node.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -71,26 +98,6 @@ export default function CoursesPage() {
     }
     plotWait.current = false;
     endLoading();
-  }
-
-  async function useHere() {
-    setError(null);
-    if (plotWait.current) {
-      return;
-    }
-    plotWait.current = true;
-    beginLoading();
-    try {
-      const here = await requestCurrentPosition();
-      setStart({ lat: here.latitude, lon: here.longitude });
-      setPlaceNote(START_GUIDE);
-    } catch (err) {
-      plotWait.current = false;
-      endLoading();
-      setPlaceNote("現在地を使えないので、地図をタップしてください");
-      scrollTarget.current = "error";
-      setError(err instanceof Error ? err.message : readGeolocationError(err));
-    }
   }
 
   function pickMap(latitude: number, longitude: number) {
@@ -113,33 +120,35 @@ export default function CoursesPage() {
       setResult(payload);
       setSelectedId(payload.courses[0]?.id ?? null);
       setError(payload.notice ?? null);
-      scrollTarget.current = payload.courses.length > 0 || (payload.hint_roads?.length ?? 0) > 0 ? "map" : "error";
+      // エラー・案内があるときは見出しまで戻し、成功時は地図が見える位置へ
+      scrollTarget.current = payload.notice ? "heading" : "map";
     } catch (err) {
-      scrollTarget.current = "error";
+      scrollTarget.current = "heading";
       setError(err instanceof Error ? err.message : "コースを作れませんでした");
     }
   }
 
   return (
     <>
-      <header className="page-heading">
+      <header className="page-heading" ref={headingRef}>
         <h1>コースを作る</h1>
-        <button type="button" className="heading-help" onClick={() => setMethodOpen(true)}>
+      </header>
+      {error ? <p className="error">{error}</p> : null}
+      <div className="course-lede-row">
+        <p className="lede">
+          走りたい距離のコースを、最大5つ作成します。
+          <br />
+          コースの作成には、数分かかることがあります。
+        </p>
+        <button type="button" className="heading-help course-method-button" onClick={() => setMethodOpen(true)}>
           作成方法
         </button>
-      </header>
-      <p className="lede">走りたい距離の周回を、点数の高い順に最大5つ出します。</p>
-      <p className="meta">コースの作成には、数分かかることがあります。</p>
+      </div>
       <CourseMethodModal open={methodOpen} onClose={() => setMethodOpen(false)} />
-      {error ? (
-        <p ref={errorRef} className="error">
-          {error}
-        </p>
-      ) : null}
 
       <section className="course-form">
         <label>
-          距離（km）
+          距離（km）:
           <input
             type="number"
             min={1}
@@ -149,10 +158,12 @@ export default function CoursesPage() {
             onChange={(event) => setDistance(event.target.value)}
           />
         </label>
-        <p className="meta">{placeNote}</p>
-        <button type="button" className="button" onClick={() => void useHere()}>
-          現在地を使う
-        </button>
+        <div className="course-map-header">
+          <p className="meta">{placeNote}</p>
+          <button type="button" className="button course-locate-button" onClick={() => void locateHere()}>
+            現在地に戻る
+          </button>
+        </div>
       </section>
 
       <div ref={mapRef}>

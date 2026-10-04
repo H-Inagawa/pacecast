@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BackHome } from "../../components/BackHome";
+import { ForecastNowTable } from "../../components/ForecastTimeline";
 import { ModalCloseButton } from "../../components/ModalCloseButton";
 import { PredictHelpModal } from "../../components/PredictHelpModal";
 import { RelationChart } from "../../components/RelationChart";
@@ -20,12 +21,10 @@ import {
   formatSimilarity,
   formatWeatherBrief,
 } from "../../lib/format";
-import { formatWindWithDirection } from "../../lib/wind";
-import { formatRunnability, formatWbgtFeel, formatWeatherWithMark } from "../../lib/runnability";
 import { weatherCodeLabel } from "../../lib/weatherCode";
 import { RUN_WEIGHT_HELP } from "../../lib/personalPredict";
 import { classifyWbgtZone, WBGT_FEEL_LABELS } from "../../lib/weatherZone";
-import type { AmedasStation, PredictResult, Profile } from "../../lib/types";
+import type { AmedasStation, PredictResult, Profile, RunningForecastHour } from "../../lib/types";
 
 const RACE_LABELS: Record<string, string> = {
   race_5k: "5km",
@@ -86,26 +85,7 @@ function formatForecastChoice(value: string): string {
   return `${Number(match[2])}/${Number(match[3])} ${Number(match[4])}:${match[5]}（予報）`;
 }
 
-function weatherSummary(saved: WeatherDraft | null, result: PredictResult | null): string {
-  if (saved?.mode === "forecast" && result?.condition) {
-    const condition = result.condition;
-    const zone = classifyWbgtZone(condition.wbgt_c);
-    const feel = zone === "none" ? "—" : WBGT_FEEL_LABELS[zone];
-    const wind = condition.wind_ms == null ? "—" : formatWindWithDirection(condition.wind_ms, condition.wind_dir_deg);
-    const solar = condition.solar_wm2 == null ? "—" : String(Math.round(condition.solar_wm2));
-    const weather = weatherCodeLabel(condition.weather_code);
-    const wbgt = condition.wbgt_c == null ? "—" : formatWbgtFeel(condition.wbgt_c, feel);
-    const ease = condition.wbgt_c == null ? "—" : formatRunnability(condition.wbgt_c, weather);
-    return [
-      `走りやすさ: ${ease}`,
-      `天気: ${formatWeatherWithMark(weather)}`,
-      `WBGT(体感): ${wbgt}`,
-      `気温: ${condition.temperature_c.toFixed(1)}℃`,
-      `湿度: ${condition.humidity_pct.toFixed(0)}%`,
-      `風速: ${wind}`,
-      `日照: ${solar}`,
-    ].join("\n");
-  }
+function weatherSummary(saved: WeatherDraft | null): string {
   if (!saved) {
     return "設定してください";
   }
@@ -113,6 +93,33 @@ function weatherSummary(saved: WeatherDraft | null, result: PredictResult | null
     return `気温 ${Number(saved.temperature).toFixed(1)}℃ / 湿度 ${Number(saved.humidity).toFixed(0)}%`;
   }
   return formatForecastChoice(saved.forecastAt);
+}
+
+/** 予測結果の気象を、天気予報の「現在の気象」と同じ表に載せる形へ直す。 */
+function conditionToForecastHour(condition: NonNullable<PredictResult["condition"]>): RunningForecastHour | null {
+  if (condition.wbgt_c == null) {
+    return null;
+  }
+  const zone = classifyWbgtZone(condition.wbgt_c);
+  if (zone === "none") {
+    return null;
+  }
+  const observed = condition.observed_at.trim();
+  const hourMatch = observed.match(/(\d{1,2}):(\d{2})$/);
+  return {
+    observed_at: observed,
+    hour: hourMatch ? Number(hourMatch[1]) : 0,
+    weather_code: condition.weather_code ?? null,
+    weather_label: weatherCodeLabel(condition.weather_code),
+    weather_zone: zone,
+    feel_label: WBGT_FEEL_LABELS[zone],
+    wbgt_c: condition.wbgt_c,
+    temperature_c: condition.temperature_c,
+    humidity_pct: condition.humidity_pct,
+    wind_ms: condition.wind_ms ?? 0,
+    wind_dir_deg: condition.wind_dir_deg ?? null,
+    solar_wm2: condition.solar_wm2 ?? 0,
+  };
 }
 
 function distanceSummary(saved: DistanceDraft | null): string {
@@ -236,8 +243,12 @@ export default function PredictPage() {
     }
   }
 
-  const weatherText = weatherSummary(savedWeather, result);
+  const weatherText = weatherSummary(savedWeather);
   const distanceText = distanceSummary(savedDistance);
+  const conditionHour =
+    savedWeather?.mode === "forecast" && result?.condition != null
+      ? conditionToForecastHour(result.condition)
+      : null;
 
   return (
     <>
@@ -287,6 +298,7 @@ export default function PredictPage() {
               </p>
             </article>
           </section>
+          {conditionHour ? <ForecastNowTable hour={conditionHour} /> : null}
           {result.final_wbgt_effect != null && result.general_wbgt_effect != null ? (
             <div className="wbgt-effect">
               <table>

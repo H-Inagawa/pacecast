@@ -1,12 +1,16 @@
 import {
   acceptCourseDistance,
   chooseNearMisses,
-  COURSE_CANDIDATE_LIMIT,
   COURSE_PROPOSAL_LIMIT,
   cleanCourseGeometry,
   countCrossedSignals,
   countNearRoute,
   countUturns,
+  courseBoundsRadiusScale,
+  courseCandidateLimit,
+  courseExpansionLimit,
+  courseKeepLimit,
+  courseNearStartFullBranchMeters,
   courseScoreParts,
   elevationChange,
   featureLengthKm,
@@ -19,7 +23,6 @@ import {
   COURSE_NO_START_ROAD_HINT_MESSAGE,
   COURSE_NO_START_ROAD_MESSAGE,
   loopCoversBbox,
-  easyRoadHintsNearRoutes,
   nearbyEasyRoadHints,
   nearestStartableRoad,
   lengthNearLinesKm,
@@ -41,6 +44,7 @@ import {
   turnCount,
   wayAlongParkOrWater,
   type CourseScoreParts,
+  type CourseSearchStage,
   type LatLon,
 } from "../courses";
 import {
@@ -219,7 +223,7 @@ async function mapPool<T, R>(items: T[], limit: number, task: (item: T) => Promi
 }
 
 function searchBounds(start: LatLon, loopKm: number): { south: number; west: number; north: number; east: number } {
-  const radiusKm = (loopKm / (2 * Math.PI)) * 2.4;
+  const radiusKm = (loopKm / (2 * Math.PI)) * courseBoundsRadiusScale(loopKm);
   const latPad = radiusKm / 111;
   const lonPad = radiusKm / (111 * Math.max(0.2, Math.cos((start.lat * Math.PI) / 180)));
   return {
@@ -256,10 +260,10 @@ async function fetchOverpass(query: string, signal?: AbortSignal): Promise<unkno
 
 async function loadMapContext(start: LatLon, loopKm: number, signal?: AbortSignal) {
   const box = searchBounds(start, loopKm);
-  // 道路・信号・公園を先に取る（必須）。堀・水域は別問い合わせで、失敗しても周回自体は続行する。
+  // 使わない幹線・計画中などは Overpass 側で除く。堀・水域は並列取得し、失敗しても周回自体は続行する。
   const coreQuery = `[out:json][timeout:40];
 (
-  way["highway"](${box.south},${box.west},${box.north},${box.east});
+  way["highway"]["highway"!~"^(motorway|motorway_link|steps|proposed|construction|abandoned|razed|disused)$"](${box.south},${box.west},${box.north},${box.east});
   node["highway"="traffic_signals"](${box.south},${box.west},${box.north},${box.east});
   node["crossing"="traffic_signals"](${box.south},${box.west},${box.north},${box.east});
   node["highway"="crossing"](${box.south},${box.west},${box.north},${box.east});
@@ -278,19 +282,28 @@ out geom;`;
   relation["water"="moat"](${box.south},${box.west},${box.north},${box.east});
 );
 out geom;`;
-  const core = parseOverpass(await fetchOverpass(coreQuery, signal));
-  try {
-    const water = parseOverpass(await fetchOverpass(waterQuery, signal));
+  const [coreResult, waterResult] = await Promise.allSettled([
+    fetchOverpass(coreQuery, signal),
+    fetchOverpass(waterQuery, signal),
+  ]);
+  if (coreResult.status === "rejected") {
+    if (coreResult.reason instanceof SearchStopped || signal?.aborted) {
+      throw coreResult.reason instanceof SearchStopped ? coreResult.reason : new SearchStopped();
+    }
+    throw coreResult.reason;
+  }
+  const core = parseOverpass(coreResult.value);
+  if (waterResult.status === "fulfilled") {
+    const water = parseOverpass(waterResult.value);
     return {
       ...core,
       waters: [...core.waters, ...water.waters],
     };
-  } catch (error) {
-    if (error instanceof SearchStopped || signal?.aborted) {
-      throw error;
-    }
-    return core;
   }
+  if (waterResult.reason instanceof SearchStopped || signal?.aborted) {
+    throw waterResult.reason instanceof SearchStopped ? waterResult.reason : new SearchStopped();
+  }
+  return core;
 }
 
 async function loadElevation(coordinates: LatLon[], signal?: AbortSignal): Promise<{ ascentM: number; descentM: number }> {
@@ -310,12 +323,18 @@ async function loadElevation(coordinates: LatLon[], signal?: AbortSignal): Promi
 async function proposeCoursesOnce(
   start: LatLon,
   distanceKm: number,
-  onProgress?: (finished: number, total: number, passed: number) => void,
+  onProgress?: (finished: number, total: number, passed: number, stage?: CourseSearchStage) => void,
   signal?: AbortSignal,
   diagnose = false,
 ): Promise<CourseProposalSet | CourseProposalDiag> {
-  onProgress?.(0, 1, 0);
+  const keepLimit = courseKeepLimit(distanceKm);
+  const candidateLimit = courseCandidateLimit(distanceKm);
+  const expansionLimit = courseExpansionLimit(distanceKm);
+  const nearStartMeters = courseNearStartFullBranchMeters(distanceKm);
+
+  onProgress?.(0, 1, 0, "map");
   const mapContext = await loadMapContext(start, distanceKm, signal);
+  onProgress?.(0, HIGHWAY_SEARCH_LEVEL_MAX + 1, 0, "explore");
   const sidewalkLines = mapContext.roads
     .filter((road) => isDedicatedSidewalk(road.tags))
     .map((road) => road.coordinates);
@@ -347,6 +366,7 @@ async function proposeCoursesOnce(
   });
   type PlannedLoop = ExploredLoop;
   const pool: PlannedLoop[] = [];
+  const poolDone = () => pool.length >= keepLimit;
   const considered: CoursePoolDiagEntry[] = [];
   let distanceMiss: PlannedLoop | null = null;
   let overlapMiss: PlannedLoop | null = null;
@@ -469,33 +489,36 @@ async function proposeCoursesOnce(
     }
     previousCount = ways.length;
     loopWays = ways;
-    onProgress?.(level, HIGHWAY_SEARCH_LEVEL_MAX + 1, pool.length);
+    onProgress?.(level, HIGHWAY_SEARCH_LEVEL_MAX + 1, pool.length, "explore");
     for (const origin of origins) {
+      if (poolDone()) {
+        break;
+      }
       const courseStart = origin.point;
       const blocked: number[] = [];
       const offStart = nearestWayMeters(courseStart, ways) > 45;
       if (offStart) {
-        const stemmed = await coursesWithAccessStem(courseStart, distanceKm, approach, COURSE_CANDIDATE_LIMIT, note, signal, ways);
+        const stemmed = await coursesWithAccessStem(courseStart, distanceKm, approach, candidateLimit, note, signal, ways);
         const prepared = stemmed.map(presentLoop);
         for (const loop of prepared) {
           note(loop);
           tryAddToPool(loop, courseStart);
+          if (poolDone()) {
+            break;
+          }
         }
       }
-      for (let attempt = 0; attempt < 2; attempt += 1) {
+      for (let attempt = 0; attempt < 2 && !poolDone(); attempt += 1) {
         if (signal?.aborted) {
           throw new SearchStopped();
         }
         const found: ExploredLoop[] = [];
-        if (signal?.aborted) {
-          throw new SearchStopped();
-        }
         // 公園・水域沿いは Dijkstra 内のごく弱いコスト優遇のみ（専用網の先回り探索はしない）
         const returned = await returnToStartLoops(
           courseStart,
           distanceKm,
           ways,
-          COURSE_CANDIDATE_LIMIT,
+          candidateLimit,
           blocked,
           null,
           note,
@@ -512,12 +535,14 @@ async function proposeCoursesOnce(
                   courseStart,
                   distanceKm,
                   ways,
-                  COURSE_CANDIDATE_LIMIT,
+                  candidateLimit,
                   Math.random,
                   level === 0 ? 36 : 52,
                   level === 0 ? 3 : 4,
                   note,
                   signal,
+                  expansionLimit,
+                  nearStartMeters,
                 )
               : [];
         const foundLoops = explored.map(presentLoop);
@@ -529,8 +554,15 @@ async function proposeCoursesOnce(
           if (tryAddToPool(loop, courseStart)) {
             added.push(loop);
           }
+          if (poolDone()) {
+            break;
+          }
         }
-        if (added.length === 0 || headingsCoverReverse(blocked.concat(added.flatMap((loop) => departureBearings(courseStart, loop.coordinates))))) {
+        if (
+          poolDone() ||
+          added.length === 0 ||
+          headingsCoverReverse(blocked.concat(added.flatMap((loop) => departureBearings(courseStart, loop.coordinates))))
+        ) {
           break;
         }
         for (const loop of added) {
@@ -538,19 +570,20 @@ async function proposeCoursesOnce(
         }
       }
     }
-    if (pool.length > 0) {
+    // 合格が打ち切り件数に達したら、接続道路を足す巡も残りの探索もしない
+    if (poolDone()) {
       break;
     }
   }
   const covered = () => new Set(pool.map((loop) => loopTravelSector(start, loop.coordinates)));
   const extraLimit = courseStemSearchLimit(distanceKm);
-  if (origins.length === 1 && extraLimit > 0 && covered().size < COURSE_PROPOSAL_LIMIT) {
+  if (origins.length === 1 && extraLimit > 0 && !poolDone() && covered().size < COURSE_PROPOSAL_LIMIT) {
     const origin = origins[0];
     const extras = (await coursesWithAccessStem(origin.point, distanceKm, approach, extraLimit, note, signal, loopWays)).map(presentLoop);
     for (const extra of extras) {
       note(extra);
       tryAddToPool(extra, origin.point);
-      if (covered().size >= COURSE_PROPOSAL_LIMIT) {
+      if (poolDone() || covered().size >= COURSE_PROPOSAL_LIMIT) {
         break;
       }
     }
@@ -563,7 +596,7 @@ async function proposeCoursesOnce(
       notice = NEAR_COURSE_NOTICE;
     }
   }
-  onProgress?.(1, 1, notice ? 0 : explored.length);
+  onProgress?.(1, 1, notice ? 0 : explored.length, "explore");
   if (explored.length === 0) {
     const hints = hintRoads();
     return {
@@ -640,13 +673,8 @@ async function proposeCoursesOnce(
   const result: CourseProposalSet = {
     courses,
     notice,
-    // 希望距離が作れないときは起点周辺（移動案内）。通常の結果はルート周辺。
-    hintRoads: notice
-      ? hintRoads()
-      : easyRoadHintsNearRoutes(
-          courses.map((course) => course.coordinates),
-          classified,
-        ),
+    // 希望距離が作れないときだけ、起点周辺の走りやすい道を案内用に出す
+    hintRoads: notice ? hintRoads() : undefined,
   };
   if (!diagnose) {
     return result;
@@ -667,13 +695,13 @@ async function proposeCoursesOnce(
 async function proposeCoursesInner(
   start: LatLon,
   distanceKm: number,
-  onProgress: ((finished: number, total: number, passed: number) => void) | undefined,
+  onProgress: ((finished: number, total: number, passed: number, stage?: CourseSearchStage) => void) | undefined,
   signal: AbortSignal | undefined,
   diagnose: boolean,
 ): Promise<CourseProposalSet | CourseProposalDiag> {
   const started = Date.now();
   try {
-    onProgress?.(0, 0, 0);
+    onProgress?.(0, 0, 0, "map");
     return await proposeCoursesOnce(start, distanceKm, onProgress, signal, diagnose);
   } catch (error) {
     if (error instanceof SearchStopped || signal?.aborted) {
@@ -686,7 +714,7 @@ async function proposeCoursesInner(
     if (signal?.aborted) {
       throw new SearchStopped();
     }
-    onProgress?.(0, 0, 0);
+    onProgress?.(0, 0, 0, "map");
     return await proposeCoursesOnce(start, distanceKm, onProgress, signal, diagnose);
   }
 }
@@ -694,7 +722,7 @@ async function proposeCoursesInner(
 export async function proposeCourses(
   start: LatLon,
   distanceKm: number,
-  onProgress?: (finished: number, total: number, passed: number) => void,
+  onProgress?: (finished: number, total: number, passed: number, stage?: CourseSearchStage) => void,
   signal?: AbortSignal,
 ): Promise<CourseProposalSet> {
   return (await proposeCoursesInner(start, distanceKm, onProgress, signal, false)) as CourseProposalSet;
@@ -711,7 +739,7 @@ export async function proposeCourses(
 export async function proposeCoursesDiagnose(
   start: LatLon,
   distanceKm: number,
-  onProgress?: (finished: number, total: number, passed: number) => void,
+  onProgress?: (finished: number, total: number, passed: number, stage?: CourseSearchStage) => void,
   signal?: AbortSignal,
 ): Promise<CourseProposalDiag> {
   return (await proposeCoursesInner(start, distanceKm, onProgress, signal, true)) as CourseProposalDiag;

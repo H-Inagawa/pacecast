@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { beginLoading, endLoading, isAppNavigation } from "../lib/loading";
+import { beginLoading, endLoading, isAppNavigation, setLoadingMessage } from "../lib/loading";
+import { NAVIGATION_LOADING_MESSAGE } from "../lib/loading-messages";
 
 export function NavigationLoading() {
   const pathname = usePathname();
@@ -16,6 +17,7 @@ export function NavigationLoading() {
     }
     pendingRef.current = true;
     beginLoading();
+    setLoadingMessage(NAVIGATION_LOADING_MESSAGE);
     safetyRef.current = window.setTimeout(() => {
       settle();
     }, 8000);

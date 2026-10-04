@@ -423,6 +423,7 @@ button.drawer-logout:hover {
   gap: 1.25rem;
   flex-wrap: wrap;
   margin: 0 0 0.6rem;
+  scroll-margin-top: 5.5rem;
 }
 
 .page-heading h1 {
@@ -1436,6 +1437,73 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   padding-left: 1.2rem;
 }
 
+.course-score-guide-scroll {
+  overflow-x: auto;
+  margin-top: 0.6rem;
+}
+
+.course-score-guide-table {
+  width: 100%;
+  min-width: 28rem;
+  border-collapse: collapse;
+}
+
+.course-score-guide-table th,
+.course-score-guide-table td {
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+}
+
+.course-score-guide-table thead th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.course-score-guide-table tbody th {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.course-lede-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.8rem;
+}
+
+.course-lede-row .lede {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.course-method-button {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.course-map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.6rem 0 0.5rem;
+}
+
+.course-map-header .meta {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.course-locate-button {
+  flex: 0 0 auto;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.85rem;
+}
+
 .settings-backdrop {
   z-index: 80;
   align-items: center;
@@ -1757,10 +1825,23 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   margin-bottom: 1rem;
 }
 
-.course-form label,
 .course-form fieldset {
   display: grid;
   gap: 0.35rem;
+}
+
+.course-form > label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.course-form > label input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
 }
 
 .course-form fieldset label {
@@ -1790,18 +1871,29 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   margin-bottom: 0.4rem;
 }
 
+.course-column-header {
+  min-width: 6.5rem;
+  padding: 0.35rem 0.25rem;
+}
+
 .course-column-button {
-  padding: 0.2rem 0.55rem;
+  display: block;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.4rem;
   border: 1px solid var(--line);
-  border-radius: 0.4rem;
+  border-radius: 0.45rem;
   background: transparent;
   color: inherit;
   font: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .course-column-button.is-selected {
   border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
   font-weight: 700;
 }
 

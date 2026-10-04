@@ -5,6 +5,10 @@ import {
   courseScoreParts,
   courseSearchLabel,
   courseSearchPercent,
+  courseCandidateLimit,
+  courseExpansionLimit,
+  courseBoundsRadiusScale,
+  courseNearStartFullBranchMeters,
   relativeCourseScores,
   countCrossedSignals,
   countNearRoute,
@@ -19,7 +23,9 @@ import {
   hasNearbyDedicatedSidewalk,
   isConnectorRoad,
   isDedicatedSidewalk,
+  isEasyRoadByTags,
   isEasyRoadConsideringSidewalks,
+  isExcludedRoad,
   isTaggedCarriageway,
   isParkOrRiverbank,
   isEasyRoad,
@@ -27,7 +33,6 @@ import {
   wayAlongParkOrWater,
   COURSE_NO_START_ROAD_MESSAGE,
   courseStemSearchLimit,
-  easyRoadHintsNearRoutes,
   nearbyEasyRoadHints,
   nearestStartableRoad,
   keepCourseDistance,
@@ -271,6 +276,21 @@ describe("周回コースの計算", () => {
     expect(isEasyRoadConsideringSidewalks({ highway: "primary" }, road, [], [], [], [sidewalk])).toBe(true);
     expect(isEasyRoadConsideringSidewalks({ highway: "primary" }, road, [], [], [], [far])).toBe(false);
     expect(isEasyRoadConsideringSidewalks({ highway: "primary", sidewalk: "both" }, road, [], [], [], [])).toBe(true);
+  });
+
+  it("計画中・建設中・廃止・撤去・未使用の道路は検索から除外する", () => {
+    expect(isExcludedRoad({ highway: "proposed" })).toBe(true);
+    expect(isExcludedRoad({ highway: "construction" })).toBe(true);
+    expect(isExcludedRoad({ highway: "abandoned" })).toBe(true);
+    expect(isExcludedRoad({ highway: "razed" })).toBe(true);
+    expect(isExcludedRoad({ highway: "disused" })).toBe(true);
+    expect(isExcludedRoad({ highway: "residential" })).toBe(false);
+    expect(isExcludedRoad({ highway: "primary", sidewalk: "both" })).toBe(false);
+    expect(isEasyRoadByTags({ highway: "construction", foot: "yes" })).toBe(false);
+    expect(isConnectorRoad({ highway: "disused" }, [
+      { lat: 35.68, lon: 139.65 },
+      { lat: 35.68, lon: 139.652 },
+    ])).toBe(false);
   });
 
   it("生活道路は長さにかかわらず接続道路になり、歩道無しの幹線と独立歩道はならない", () => {
@@ -562,30 +582,6 @@ describe("周回コースの計算", () => {
     );
     expect(hints.length).toBeGreaterThan(0);
     expect(hints[0][0].lat).toBeCloseTo(35.745, 3);
-
-    const route = [
-      { lat: 35.744, lon: 139.654 },
-      { lat: 35.744, lon: 139.656 },
-      { lat: 35.746, lon: 139.656 },
-      { lat: 35.746, lon: 139.654 },
-      { lat: 35.744, lon: 139.654 },
-    ];
-    const farEasy = [
-      { lat: 35.76, lon: 139.67 },
-      { lat: 35.76, lon: 139.671 },
-    ];
-    const aroundRoute = easyRoadHintsNearRoutes(
-      [route],
-      [
-        { coordinates: street, easy: true },
-        { coordinates: path, easy: true },
-        { coordinates: farEasy, easy: true },
-      ],
-      250,
-      8,
-    );
-    expect(aroundRoute.some((road) => road[0].lat === 35.744)).toBe(true);
-    expect(aroundRoute.some((road) => road[0].lat === 35.76)).toBe(false);
   });
 
   it("同じ道を往復する経路だけ往復距離が付く", () => {
@@ -783,8 +779,13 @@ describe("周回コースの計算", () => {
     expect(courseSearchPercent(0, 0)).toBe(0);
     expect(courseSearchPercent(1, 4)).toBe(25);
     expect(courseSearchPercent(4, 4)).toBe(100);
-    expect(courseSearchLabel(0, 0)).toBe("コース検索中です...(0% / 合格ルート: 0件)");
-    expect(courseSearchLabel(25.4, 4)).toBe("コース検索中です...(25% / 合格ルート: 4件)");
+    expect(courseSearchLabel("map")).toBe("道路情報を取得中です...");
+    expect(courseSearchLabel("explore")).toBe("コース探索中です...(時間がかかる場合があります)");
+    expect(courseCandidateLimit(5)).toBe(50);
+    expect(courseCandidateLimit(15)).toBeLessThan(courseCandidateLimit(5));
+    expect(courseExpansionLimit(15)).toBeLessThan(courseExpansionLimit(5));
+    expect(courseBoundsRadiusScale(15)).toBeLessThan(courseBoundsRadiusScale(5));
+    expect(courseNearStartFullBranchMeters(15)).toBeLessThan(courseNearStartFullBranchMeters(5));
   });
 
   it("ルータと地図の応答から経路と信号を読む", () => {

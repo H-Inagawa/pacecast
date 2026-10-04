@@ -38,7 +38,7 @@ export function CourseScoreTable({ courses, targetKm, selectedId, onSelect }: Pr
                 const name = `コース ${index + 1}`;
                 const selected = course.id === selectedId;
                 return (
-                  <th key={course.id} scope="col">
+                  <th key={course.id} scope="col" className="course-column-header">
                     <button
                       type="button"
                       className={selected ? "course-column-button is-selected" : "course-column-button"}
@@ -54,21 +54,21 @@ export function CourseScoreTable({ courses, targetKm, selectedId, onSelect }: Pr
           </thead>
           <tbody>
             <tr>
-              <th scope="row">距離</th>
-              {courses.map((course) => (
-                <td key={`${course.id}-distance`}>{formatDistanceKm(course.distance_km)}</td>
-              ))}
-            </tr>
-            <tr>
-              <th scope="row">評価</th>
+              <th scope="row">おすすめ度</th>
               {courses.map((course) => (
                 <td key={`${course.id}-score`}>{formatScorePoint(course.score)}</td>
               ))}
             </tr>
             <tr>
-              <th scope="row">実スコア</th>
+              <th scope="row">スコア</th>
               {courses.map((course) => (
                 <td key={`${course.id}-raw`}>{formatScorePoint(course.raw_score)}</td>
+              ))}
+            </tr>
+            <tr>
+              <th scope="row">距離</th>
+              {courses.map((course) => (
+                <td key={`${course.id}-distance`}>{formatDistanceKm(course.distance_km)}</td>
               ))}
             </tr>
             {rows.map((row, rowIndex) => (

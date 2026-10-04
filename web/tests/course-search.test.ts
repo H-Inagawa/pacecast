@@ -6,18 +6,19 @@ function streamFrom(text: string): ReadableStream<Uint8Array> {
 }
 
 describe("course search stream", () => {
-  it("途中の割合を渡してから結果を返す", async () => {
+  it("途中の段階を渡してから結果を返す", async () => {
     const seen: string[] = [];
     const result = await readCourseSearchEvents<{ station_name: string }>(
       streamFrom(
         [
-          JSON.stringify({ type: "progress", percent: 50, passed: 3 }),
+          JSON.stringify({ type: "progress", percent: 0, passed: 0, stage: "map" }),
+          JSON.stringify({ type: "progress", percent: 50, passed: 3, stage: "explore" }),
           JSON.stringify({ type: "result", station_name: "練馬", courses: [] }),
         ].join("\n"),
       ),
-      (percent, passed) => seen.push(`${percent}:${passed}`),
+      (percent, passed, stage) => seen.push(`${stage}:${percent}:${passed}`),
     );
-    expect(seen).toEqual(["50:3"]);
+    expect(seen).toEqual(["map:0:0", "explore:50:3"]);
     expect(result.station_name).toBe("練馬");
   });
 
@@ -28,7 +29,7 @@ describe("course search stream", () => {
         controller.enqueue(
           encoder.encode(
             [
-              JSON.stringify({ type: "progress", percent: 100, passed: 26 }),
+              JSON.stringify({ type: "progress", percent: 100, passed: 26, stage: "explore" }),
               JSON.stringify({ type: "result", courses: [] }),
             ].join("\n") + "\n",
           ),
@@ -44,5 +45,19 @@ describe("course search stream", () => {
     await expect(
       readCourseSearchEvents(streamFrom(`${JSON.stringify({ type: "error", detail: "混んでいます" })}\n`), () => {}),
     ).rejects.toThrow("混んでいます");
+  });
+
+  it("stage が無い進捗は map として扱う", async () => {
+    const seen: string[] = [];
+    await readCourseSearchEvents(
+      streamFrom(
+        [
+          JSON.stringify({ type: "progress", percent: 10, passed: 1 }),
+          JSON.stringify({ type: "result", courses: [] }),
+        ].join("\n"),
+      ),
+      (_percent, _passed, stage) => seen.push(stage),
+    );
+    expect(seen).toEqual(["map"]);
   });
 });

@@ -1210,6 +1210,8 @@ export async function exploreClockwiseLoops(
   maxBranches = MAX_BRANCHES,
   onOutside?: (loop: ExploredLoop) => void,
   signal?: AbortSignal,
+  maxExpansions = MAX_EXPANSIONS,
+  nearStartMeters = NEAR_START_FULL_BRANCH_METERS,
 ): Promise<ExploredLoop[]> {
   if (!(targetKm > 0) || ways.length === 0 || limit <= 0) {
     return [];
@@ -1219,6 +1221,8 @@ export async function exploreClockwiseLoops(
     return [];
   }
   const { links, out, startKey } = built;
+  const expansionCap = Math.max(1_000, Math.floor(maxExpansions));
+  const fullBranchMeters = Math.max(100, nearStartMeters);
 
   const minMeters = targetKm * 1000 * (1 - COURSE_DISTANCE_TOLERANCE);
   const maxMeters = targetKm * 1000 * (1 + COURSE_DISTANCE_TOLERANCE);
@@ -1247,7 +1251,7 @@ export async function exploreClockwiseLoops(
   let expansions = 0;
   const steps = { n: 0 };
 
-  while (stack.length > 0 && found.length < limit && expansions < MAX_EXPANSIONS) {
+  while (stack.length > 0 && found.length < limit && expansions < expansionCap) {
     await searchPulse(signal, steps);
     const index = stack.pop() as number;
     const frame = frames[index];
@@ -1332,8 +1336,7 @@ export async function exploreClockwiseLoops(
       })
       .sort((left, right) => left.rank - right.rank);
     // 起点付近は分岐を切り捨てず、それ以降だけ上位 maxBranches 本に絞る
-    const ranked =
-      frame.meters < NEAR_START_FULL_BRANCH_METERS ? rankedAll : rankedAll.slice(0, maxBranches);
+    const ranked = frame.meters < fullBranchMeters ? rankedAll : rankedAll.slice(0, maxBranches);
     for (let choice = ranked.length - 1; choice >= 0; choice -= 1) {
       const link = links[ranked[choice].linkIndex];
       const nextMeters = frame.meters + link.meters;

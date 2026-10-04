@@ -56,7 +56,7 @@ describe("LoadingOverlay", () => {
     render(<LoadingOverlay />);
     act(() => {
       beginLoading();
-      setLoadingMessage("コース検索中です...(10% / 合格ルート: 0件)");
+      setLoadingMessage("コース探索中です...(時間がかかる場合があります)");
       setLoadingCancel(stop);
     });
     await act(async () => {
