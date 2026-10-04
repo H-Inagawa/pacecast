@@ -937,7 +937,6 @@ td.wbgt-none { background: var(--wbgt-none-bg); color: var(--wbgt-none-ink); }
 }
 
 .delete-confirm {
-  width: min(20rem, 100%);
   padding-top: 3.2rem;
 }
 
@@ -1309,7 +1308,7 @@ input:disabled, select:disabled {
 .predict-card__value.is-unset { color: var(--muted); }
 .predict-card .button,
 .settings-card .button { width: 100%; }
-.predict-modal { width: min(22rem, 100%); padding-top: 3.2rem; }
+.predict-modal { padding-top: 3.2rem; }
 .predict-modal-form { display: grid; gap: 0.8rem; }
 .predict-modal-form .button { width: 100%; }
 .predict-intensity {
@@ -1369,18 +1368,19 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   overflow: auto;
-  padding: 5rem 1rem 2rem;
+  padding: 50px;
   background: var(--overlay);
 }
 
 .modal-panel {
   position: relative;
-  width: min(36rem, 100%);
-  max-height: calc(100vh - 2.5rem);
-  max-height: calc(100dvh - 2.5rem);
+  width: 100%;
+  max-height: calc(100vh - 100px);
+  max-height: calc(100dvh - 100px);
+  margin-block: auto;
   overflow-y: auto;
   background: var(--modal-panel);
   border: 1px solid var(--line);
@@ -1506,13 +1506,9 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 
 .settings-backdrop {
   z-index: 80;
-  align-items: center;
-  padding-bottom: 1.5rem;
 }
 
 .settings-modal {
-  width: min(28rem, 100%);
-  max-height: min(34rem, calc(100vh - 4rem));
   overflow: auto;
 }
 
@@ -1535,8 +1531,6 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 }
 
 .about-panel {
-  width: min(40rem, 100%);
-  max-height: calc(100vh - 7rem);
   overflow: auto;
 }
 
@@ -1787,15 +1781,15 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 
   .modal-backdrop {
     z-index: 80;
-    align-items: flex-start;
-    padding: 0.75rem;
-    overflow: hidden;
+    align-items: center;
+    padding: 50px;
+    overflow: auto;
   }
 
   .modal-panel {
-    width: min(22.5rem, 100%);
-    max-height: calc(100vh - 1.5rem);
-    max-height: calc(100dvh - 1.5rem);
+    width: 100%;
+    max-height: calc(100vh - 100px);
+    max-height: calc(100dvh - 100px);
     border-radius: 1.5rem;
   }
 
