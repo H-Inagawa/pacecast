@@ -19,14 +19,15 @@ import {
   flattenLaneHops,
   cleanCourseGeometry,
   straightenShortSpikes,
-  canInheritNearbySidewalk,
-  hasNearbyDedicatedSidewalk,
+  CONNECTOR_FETCH_METERS,
   isConnectorRoad,
-  isDedicatedSidewalk,
   isEasyRoadByTags,
-  isEasyRoadConsideringSidewalks,
   isExcludedRoad,
+  isLargeFetchHighway,
+  isNearFetchHighway,
+  isPreferRunRoad,
   isTaggedCarriageway,
+  wayHitsStartCircle,
   isParkOrRiverbank,
   isEasyRoad,
   loopCoversBbox,
@@ -167,12 +168,19 @@ describe("周回コースの計算", () => {
     ];
     expect(isEasyRoad("footway", footway, [park], [])).toBe(true);
     expect(isEasyRoad("footway", outside, [park], [])).toBe(false);
-    expect(isEasyRoad({ highway: "primary" }, outside, [], [])).toBe(false);
+    expect(isEasyRoad({ highway: "primary" }, outside, [], [])).toBe(true);
     expect(isEasyRoad({ highway: "primary", sidewalk: "both" }, outside, [], [])).toBe(true);
     expect(isEasyRoad({ highway: "footway", footway: "sidewalk" }, outside, [], [])).toBe(false);
-    expect(isEasyRoad({ highway: "residential", foot: "yes" }, outside, [], [])).toBe(true);
+    expect(isEasyRoad({ highway: "residential", foot: "yes" }, outside, [], [])).toBe(false);
+    expect(isEasyRoad({ highway: "crossing" }, outside, [], [])).toBe(true);
+    expect(isEasyRoad({ highway: "cycleway", bicycle: "designated" }, outside, [], [])).toBe(true);
+    expect(isEasyRoad({ highway: "cycleway" }, outside, [], [])).toBe(false);
     expect(isEasyRoad({ highway: "cycleway", bicycle: "designated", foot: "no" }, outside, [], [])).toBe(false);
     expect(isEasyRoad({ highway: "steps" }, outside, [], [])).toBe(false);
+    expect(isEasyRoad({ highway: "track" }, outside, [], [])).toBe(false);
+    expect(isPreferRunRoad({ highway: "primary", sidewalk: "both" })).toBe(true);
+    expect(isPreferRunRoad({ highway: "residential", foot: "yes" })).toBe(true);
+    expect(isPreferRunRoad({ highway: "primary" })).toBe(false);
   });
 
   it("標高の上りと下りを分ける", () => {
@@ -251,13 +259,9 @@ describe("周回コースの計算", () => {
     expect(flat.some((point) => Math.abs(point.lat - hop.lat) < 1e-9 && Math.abs(point.lon - hop.lon) < 1e-9)).toBe(false);
   });
 
-  it("独立歩道は走りやすい道にせず、隣接する歩道タグ無しの車道を歩道付きとみなす", () => {
-    expect(isDedicatedSidewalk({ highway: "footway", footway: "sidewalk" })).toBe(true);
+  it("幹線と横断は走りやすく、旧独立歩道は接続道路になる", () => {
     expect(isTaggedCarriageway({ highway: "primary", sidewalk: "both" })).toBe(true);
     expect(isTaggedCarriageway({ highway: "footway", footway: "sidewalk" })).toBe(false);
-    expect(canInheritNearbySidewalk({ highway: "primary" })).toBe(true);
-    expect(canInheritNearbySidewalk({ highway: "primary", sidewalk: "both" })).toBe(false);
-    expect(canInheritNearbySidewalk({ highway: "footway", footway: "sidewalk" })).toBe(false);
     const road = [
       { lat: 35.68, lon: 139.65 },
       { lat: 35.68, lon: 139.652 },
@@ -266,16 +270,18 @@ describe("周回コースの計算", () => {
       { lat: 35.6802, lon: 139.65 },
       { lat: 35.6802, lon: 139.652 },
     ];
-    const far = [
-      { lat: 35.69, lon: 139.65 },
-      { lat: 35.69, lon: 139.652 },
-    ];
-    expect(hasNearbyDedicatedSidewalk(road, [sidewalk])).toBe(true);
-    expect(hasNearbyDedicatedSidewalk(road, [far])).toBe(false);
-    expect(isEasyRoadConsideringSidewalks({ highway: "footway", footway: "sidewalk" }, sidewalk, [], [], [], [sidewalk])).toBe(false);
-    expect(isEasyRoadConsideringSidewalks({ highway: "primary" }, road, [], [], [], [sidewalk])).toBe(true);
-    expect(isEasyRoadConsideringSidewalks({ highway: "primary" }, road, [], [], [], [far])).toBe(false);
-    expect(isEasyRoadConsideringSidewalks({ highway: "primary", sidewalk: "both" }, road, [], [], [], [])).toBe(true);
+    expect(isEasyRoad({ highway: "primary" }, road, [], [])).toBe(true);
+    expect(isEasyRoad({ highway: "footway", footway: "sidewalk" }, sidewalk, [], [])).toBe(false);
+    expect(isConnectorRoad({ highway: "footway", footway: "sidewalk" }, sidewalk)).toBe(true);
+    expect(isEasyRoad({ highway: "crossing" }, road, [], [])).toBe(true);
+    expect(isLargeFetchHighway("tertiary")).toBe(true);
+    expect(isLargeFetchHighway("crossing")).toBe(true);
+    expect(isLargeFetchHighway("footway")).toBe(false);
+    expect(isNearFetchHighway("footway")).toBe(true);
+    expect(isNearFetchHighway("path")).toBe(true);
+    expect(isNearFetchHighway("primary")).toBe(false);
+    expect(wayHitsStartCircle(road, { lat: 35.68, lon: 139.65 }, CONNECTOR_FETCH_METERS)).toBe(true);
+    expect(wayHitsStartCircle(road, { lat: 36.1, lon: 140.2 }, CONNECTOR_FETCH_METERS)).toBe(false);
   });
 
   it("計画中・建設中・廃止・撤去・未使用の道路は検索から除外する", () => {
@@ -284,6 +290,7 @@ describe("周回コースの計算", () => {
     expect(isExcludedRoad({ highway: "abandoned" })).toBe(true);
     expect(isExcludedRoad({ highway: "razed" })).toBe(true);
     expect(isExcludedRoad({ highway: "disused" })).toBe(true);
+    expect(isExcludedRoad({ highway: "track" })).toBe(true);
     expect(isExcludedRoad({ highway: "residential" })).toBe(false);
     expect(isExcludedRoad({ highway: "primary", sidewalk: "both" })).toBe(false);
     expect(isEasyRoadByTags({ highway: "construction", foot: "yes" })).toBe(false);
@@ -293,7 +300,7 @@ describe("周回コースの計算", () => {
     ])).toBe(false);
   });
 
-  it("生活道路は長さにかかわらず接続道路になり、歩道無しの幹線と独立歩道はならない", () => {
+  it("生活道路と旧独立歩道は接続道路になり、幹線はならない", () => {
     const long = [
       { lat: 35.68, lon: 139.65 },
       { lat: 35.68, lon: 139.66 },
@@ -301,9 +308,10 @@ describe("周回コースの計算", () => {
     expect(routeLengthKm(long) * 1000).toBeGreaterThan(100);
     expect(isConnectorRoad({ highway: "residential" }, long)).toBe(true);
     expect(isConnectorRoad({ highway: "living_street" }, long)).toBe(true);
+    expect(isConnectorRoad({ highway: "path" }, long)).toBe(true);
     expect(isConnectorRoad({ highway: "primary" }, long)).toBe(false);
     expect(isConnectorRoad({ highway: "primary", sidewalk: "both" }, long)).toBe(false);
-    expect(isConnectorRoad({ highway: "footway", footway: "sidewalk" }, long)).toBe(false);
+    expect(isConnectorRoad({ highway: "footway", footway: "sidewalk" }, long)).toBe(true);
   });
 
   it("大通りの四辺を時計回りにたどって出発点へ戻る", async () => {
@@ -483,7 +491,7 @@ describe("周回コースの計算", () => {
     expect(loops.length).toBeGreaterThan(0);
   });
 
-  it("公園の縁・水域沿いの道を判定し、周回探索で優先する", async () => {
+  it("公園の縁・水域沿いの道を判定し、周回を作れる", async () => {
     const here = { lat: 35.74, lon: 139.64 };
     const east = { lat: here.lat, lon: here.lon + 0.014 };
     const north = { lat: here.lat + 0.012, lon: here.lon };

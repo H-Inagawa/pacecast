@@ -183,7 +183,7 @@ describe("コースを作る", () => {
     expect(guide).toHaveTextContent("1kmあたり5回");
     expect(guide).toHaveTextContent("走りやすい道");
     expect(guide).toHaveTextContent("細い道");
-    expect(guide).toHaveTextContent("公園内の通路");
+    expect(guide).toHaveTextContent("水域や公園の縁");
     expect(guide).toHaveTextContent("直進");
     expect(guide).toHaveTextContent("曲がり角");
     expect(guide).toHaveTextContent("配点の合計は100点です");

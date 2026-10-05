@@ -1,3 +1,0 @@
-[out:json][timeout:25];
-way(32305435);
-out geom;

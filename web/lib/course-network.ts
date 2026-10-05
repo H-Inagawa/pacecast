@@ -1,12 +1,22 @@
 import { distanceKm } from "./nearest-station";
-import { COURSE_DISTANCE_TOLERANCE, routeLengthKm, type LatLon } from "./courses";
+import {
+  CONNECTOR_ROAD_COST,
+  CONNECTOR_TOWARD_EASY_COST,
+  COURSE_DISTANCE_TOLERANCE,
+  PREFER_RUN_COST,
+  nearestOnLines,
+  routeLengthKm,
+  type LatLon,
+} from "./courses";
 
 export type NetworkWay = {
   coordinates: LatLon[];
   easy: boolean;
-  /** 専用歩道（highway=footway + footway=sidewalk） */
+  /** 歩道タグ・歩行者指定・ランニングルート（探索コストを下げる） */
+  preferRun?: boolean;
+  /** 後方互換。preferRun と同じ */
   sidewalk?: boolean;
-  /** 公園の縁・水域に近い道（周回探索でコストを下げる） */
+  /** 公園の縁・水域に近い道（昇格判定用。コストは下げない） */
   alongFeature?: boolean;
 };
 
@@ -62,13 +72,9 @@ type Directed = {
   internalSigned: number;
   meters: number;
   easy: boolean;
-  sidewalk: boolean;
-  alongFeature: boolean;
+  preferRun: boolean;
   coordinates: LatLon[];
 };
-
-/** 公園・水域沿いの道の Dijkstra コスト倍率（1に近いほど弱い優遇）。 */
-const FEATURE_ROAD_COST = 0.9;
 
 type Frame = {
   parent: number;
@@ -82,7 +88,7 @@ type Frame = {
   minorMeters: number;
   uturns: number;
   depth: number;
-  sidewalk: boolean;
+  preferRun: boolean;
   /** これまでの主な曲がりの符号。1=右寄り、-1=左寄り、0=未確定 */
   preferredTurnSign: -1 | 0 | 1;
 };
@@ -91,8 +97,8 @@ function cloneWay(way: NetworkWay, coordinates: LatLon[]): NetworkWay {
   return {
     coordinates,
     easy: way.easy,
-    sidewalk: way.sidewalk === true,
-    alongFeature: way.alongFeature === true,
+    preferRun: way.preferRun === true || way.sidewalk === true,
+    sidewalk: way.preferRun === true || way.sidewalk === true,
   };
 }
 
@@ -284,28 +290,31 @@ function withStartSplit(ways: NetworkWay[], start: LatLon): { ways: NetworkWay[]
   return { ways: next, startKey: nodeKey(best.point) };
 }
 
+function wayPreferRun(way: { preferRun?: boolean; sidewalk?: boolean }): boolean {
+  return way.preferRun === true || way.sidewalk === true;
+}
+
+function metersToEasyWays(point: LatLon, easyLines: LatLon[][]): number {
+  const snapped = nearestOnLines(point, easyLines, 1e9);
+  if (snapped == null) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return distanceKm(point.lat, point.lon, snapped.lat, snapped.lon) * 1000;
+}
+
 function branchRank(
   heading: number | null,
   nextBearing: number,
   easy: boolean,
-  sidewalk: boolean,
-  fromSidewalk: boolean,
-  alongFeature: boolean,
+  preferRun: boolean,
   preferredTurnSign: -1 | 0 | 1,
   random: number,
   minorPenalty: number,
 ): number {
   const turn = heading == null ? 0 : signedTurn(heading, nextBearing);
   let rank = easy ? 0 : minorPenalty;
-  if (sidewalk) {
-    rank -= 10;
-  } else if (fromSidewalk && easy) {
-    // 専用歩道から車道などへ乗り換えるのを避ける
-    rank += 16;
-  }
-  if (alongFeature) {
-    // 公園の縁・堀・河川沿いはごく弱い優遇（近くの小公園に吸われすぎないようにする）
-    rank -= 3;
+  if (preferRun) {
+    rank -= 8;
   }
   if (Math.abs(turn) < 35) {
     rank -= 12;
@@ -388,8 +397,7 @@ function buildDirected(
     if (from === to) {
       return;
     }
-    const sidewalk = way.sidewalk === true;
-    const alongFeature = way.alongFeature === true;
+    const preferRun = wayPreferRun(way);
     const forward: Directed = {
       edge: index,
       to,
@@ -398,8 +406,7 @@ function buildDirected(
       internalSigned: stats.internalSigned,
       meters: stats.meters,
       easy: way.easy,
-      sidewalk,
-      alongFeature,
+      preferRun,
       coordinates: way.coordinates,
     };
     const backward: Directed = {
@@ -410,8 +417,7 @@ function buildDirected(
       internalSigned: -stats.internalSigned,
       meters: stats.meters,
       easy: way.easy,
-      sidewalk,
-      alongFeature,
+      preferRun,
       coordinates: [...way.coordinates].reverse(),
     };
     const forwardIndex = links.length;
@@ -598,7 +604,7 @@ function spreadCandidates<T extends { meters: number; sector: number }>(candidat
  * 分岐探索で閉じない道路網でも、一筆で戻れる周回を返す。
  * @param start 出発点
  * @param targetKm 指定距離（km）
- * @param ways 走れる道。easy は歩道・歩道付き・公園内・河川敷など
+ * @param ways 走れる道。easy は大きい範囲の道・横断・水域際・公園の縁など
  * @param limit 返す周回の上限
  * @param blockedBearings 出発点から進まない向き（度）。空なら全方位
  * @param preferSector 優先する方位。0から7。指定すると、その向きの道を遠くまでたどる
@@ -624,6 +630,11 @@ export async function returnToStartLoops(
     return [];
   }
   const { links, out, startKey } = built;
+  const easyLines = ways.filter((way) => way.easy).map((way) => way.coordinates);
+  const easyDist = new Map<string, number>();
+  for (const node of out.keys()) {
+    easyDist.set(node, metersToEasyWays(pointOf(node), easyLines));
+  }
   const minMeters = targetKm * 1000 * (1 - COURSE_DISTANCE_TOLERANCE);
   const maxMeters = targetKm * 1000 * (1 + COURSE_DISTANCE_TOLERANCE);
   const best = new Map<string, Reach>([[startKey, { dist: 0, real: 0, prev: null, link: -1, root: -1 }]]);
@@ -683,11 +694,17 @@ export async function returnToStartLoops(
         continue;
       }
       const prefer = preferSector == null ? 1 : sectorGap(edgeSector(start, link.coordinates), preferSector) <= 1 ? 1 : 2;
-      // 細い道はコストを大きくして、走りやすい道を優先して選ばせる
-      const roadBias = link.easy ? 1 : 20;
-      // 公園の縁・水域沿いはごく弱い優遇
-      const featureBias = link.alongFeature ? FEATURE_ROAD_COST : 1;
-      const nextDist = at.dist + link.meters * prefer * roadBias * featureBias;
+      const fromEasy = easyDist.get(current.node) ?? Number.POSITIVE_INFINITY;
+      const toEasy = easyDist.get(link.to) ?? Number.POSITIVE_INFINITY;
+      const towardEasy = toEasy + 1 < fromEasy;
+      const roadBias = link.easy
+        ? link.preferRun
+          ? PREFER_RUN_COST
+          : 1
+        : towardEasy
+          ? CONNECTOR_TOWARD_EASY_COST
+          : CONNECTOR_ROAD_COST;
+      const nextDist = at.dist + link.meters * prefer * roadBias;
       const nextReal = at.real + link.meters;
       if (nextReal > maxMeters) {
         continue;
@@ -839,7 +856,7 @@ export async function returnToStartLoops(
  * 指定した向きへ道なりに出て、使っていない道で出発点へ戻る周回を1本作る。
  * @param start 出発点
  * @param targetKm 指定距離（km）
- * @param ways 走れる道。easy は歩道・歩道付き・公園内・河川敷など
+ * @param ways 走れる道。easy は大きい範囲の道・横断・水域際・公園の縁など
  * @param bearing 進みたい向き（度）。北が0、東が90
  * @returns 閉じた周回。その向きへ出られないときは null
  */
@@ -863,7 +880,7 @@ export function loopsLeavingToward(
     .sort(
       (left, right) =>
         left.gap - right.gap ||
-        (links[right.linkIndex].sidewalk ? 1 : 0) - (links[left.linkIndex].sidewalk ? 1 : 0),
+        (links[right.linkIndex].preferRun ? 1 : 0) - (links[left.linkIndex].preferRun ? 1 : 0),
     );
   if (firstChoices.length === 0) {
     return null;
@@ -884,7 +901,7 @@ export function loopsLeavingToward(
       .sort(
         (left, right) =>
           left.gap - right.gap ||
-          (links[right.linkIndex].sidewalk ? 1 : 0) - (links[left.linkIndex].sidewalk ? 1 : 0) ||
+          (links[right.linkIndex].preferRun ? 1 : 0) - (links[left.linkIndex].preferRun ? 1 : 0) ||
           (links[right.linkIndex].easy ? 1 : 0) - (links[left.linkIndex].easy ? 1 : 0),
       );
     if (choices.length === 0) {
@@ -1058,7 +1075,7 @@ function pathBack(
  * アクセスの往復は、先で分岐する周回があるときに許す。
  * @param start 出発点
  * @param targetKm 指定距離（km）
- * @param ways 出発点から歩く道。easy は歩道・歩道付き・公園内・河川敷など
+ * @param ways 出発点から歩く道。easy は大きい範囲の道・横断・水域際・公園の縁など
  * @param limit 返す周回の上限
  * @param onOutside 距離の許容外の周回ができたときに呼ぶ
  * @param signal 中止されたときに探索を打ち切る
@@ -1193,7 +1210,7 @@ function farPoint(start: LatLon, coordinates: LatLon[]): LatLon {
  * 右折回数は固定しない。直前の道へのUターンはしない。
  * @param start 出発点
  * @param targetKm 指定距離（km）
- * @param ways 走れる道。easy は歩道・歩道付き・公園内・河川敷など
+ * @param ways 走れる道。easy は大きい範囲の道・横断・水域際・公園の縁など
  * @param limit 距離の許容内で集める上限
  * @param maxBranches 1分岐で進む候補の数（出発から約800m以降に適用。それ未満は全分岐）
  * @param onOutside 出発点へ戻ったが距離の許容外の周回を、近い順に1本だけ渡す
@@ -1239,7 +1256,7 @@ export async function exploreClockwiseLoops(
       minorMeters: 0,
       uturns: 0,
       depth: 0,
-      sidewalk: false,
+      preferRun: false,
       preferredTurnSign: 0,
     },
   ];
@@ -1325,9 +1342,7 @@ export async function exploreClockwiseLoops(
               frame.depth === 0 ? null : frame.heading,
               links[linkIndex].bearingIn,
               links[linkIndex].easy,
-              links[linkIndex].sidewalk,
-              frame.sidewalk,
-              links[linkIndex].alongFeature,
+              links[linkIndex].preferRun,
               frame.preferredTurnSign,
               random(),
               minorPenalty,
@@ -1359,7 +1374,7 @@ export async function exploreClockwiseLoops(
         minorMeters: frame.minorMeters + (link.easy ? 0 : link.meters),
         uturns: frame.uturns,
         depth: frame.depth + 1,
-        sidewalk: link.sidewalk,
+        preferRun: link.preferRun,
         preferredTurnSign,
       };
       frames.push(child);

@@ -70,10 +70,16 @@ export const SCORE_MINOR = 20;
 export const SCORE_JUNCTIONS = 0;
 /** 走りやすい道同士をつなぐ接続道路の上限（m）。 */
 export const CONNECTOR_MAX_METERS = 100;
-/** 専用歩道がこの距離以内にある車道は、歩道付き道路とみなして走りやすい道にする。 */
-export const PARALLEL_SIDEWALK_METERS = 35;
-/** 公園の縁・水域に近い道を周回探索でわずかに優遇する距離（m）。 */
+/** 接続道路を取る起点まわりの円の半径（m）。 */
+export const CONNECTOR_FETCH_METERS = 500;
+/** 公園の縁で接続道路を走りやすい道へ昇格する距離（m）。 */
 export const FEATURE_EDGE_NEAR_METERS = 80;
+/** 接続道路の探索コスト倍率。 */
+export const CONNECTOR_ROAD_COST = 20;
+/** 走りやすい道へ近づく接続道路の探索コスト倍率。 */
+export const CONNECTOR_TOWARD_EASY_COST = 6;
+/** 歩道タグ・歩行者指定・ランニングルートの探索コスト倍率。 */
+export const PREFER_RUN_COST = 0.85;
 const SIGNAL_CROSS_WINDOW_METERS = 35;
 const SIGNAL_CLUSTER_METERS = 40;
 const SIGNAL_STRAIGHT_CROSS_METERS = 8;
@@ -194,6 +200,12 @@ export const COURSE_DISTANCE_HARD_TOLERANCE = 0.5;
 export const COURSE_DISTANCE_HARD_CAP_KM = 5;
 
 const MAJOR_HIGHWAY = /^(trunk|primary|secondary|tertiary)(_link)?$/;
+/** 大きい範囲で取る highway。 */
+export const LARGE_FETCH_HIGHWAY =
+  /^(trunk|primary|secondary|tertiary|pedestrian|cycleway|crossing)(_link)?$/;
+/** 起点から 500m 円だけで取る highway。 */
+export const NEAR_FETCH_HIGHWAY =
+  /^(unclassified|residential|living_street|service|path|footway)(_link)?$/;
 
 export type OsmWayTags = {
   highway?: string;
@@ -216,9 +228,9 @@ export function isMajorHighway(highway: string): boolean {
   return MAJOR_HIGHWAY.test(highway);
 }
 
-/** 計画中・建設中・廃止などでルートに使わない highway。 */
+/** 計画中・建設中・廃止など、ルートに使わない highway。 */
 const EXCLUDED_HIGHWAY =
-  /^(motorway|motorway_link|steps|proposed|construction|abandoned|razed|disused)$/;
+  /^(motorway|motorway_link|steps|proposed|construction|abandoned|razed|disused|track|busway|bus_guideway|raceway|escape|road|bridleway|corridor)$/;
 
 /**
  * 歩行者の通行が明確に禁じられている、またはランニングに適さない Way か。
@@ -243,16 +255,7 @@ function tagValue(tags: OsmWayTags, key: keyof OsmWayTags): string {
 }
 
 /**
- * 幹線などから独立した専用歩道か。
- * @param tags OSM のタグ
- * @returns `highway=footway` かつ `footway=sidewalk` のとき true
- */
-export function isDedicatedSidewalk(tags: OsmWayTags): boolean {
-  return tagValue(tags, "highway") === "footway" && tagValue(tags, "footway") === "sidewalk";
-}
-
-/**
- * 歩道タグ付きの車道本体か（専用歩道 Way ではない）。
+ * 歩道タグ付きの車道本体か。
  * @param tags OSM のタグ
  * @returns 歩道付き車道のとき true
  */
@@ -274,151 +277,99 @@ export function isTaggedCarriageway(tags: OsmWayTags): boolean {
 }
 
 /**
- * 独立歩道の隣接により「歩道付き道路」へ昇格できる車道か。
+ * 探索コストを下げる走りやすい道か（歩道タグ・歩行者指定・ランニングルート）。
  * @param tags OSM のタグ
- * @returns 昇格候補のとき true
+ * @returns コストを下げるとき true
  */
-export function canInheritNearbySidewalk(tags: OsmWayTags): boolean {
-  if (isExcludedRoad(tags) || isDedicatedSidewalk(tags) || isTaggedCarriageway(tags)) {
+export function isPreferRunRoad(tags: OsmWayTags): boolean {
+  if (isExcludedRoad(tags)) {
     return false;
   }
-  const highway = tagValue(tags, "highway");
-  if (
-    !highway ||
-    highway === "footway" ||
-    highway === "path" ||
-    highway === "pedestrian" ||
-    highway === "steps" ||
-    highway === "cycleway" ||
-    highway === "crossing"
-  ) {
-    return false;
-  }
-  return true;
+  const sidewalk = tagValue(tags, "sidewalk");
+  const foot = tagValue(tags, "foot");
+  const route = tagValue(tags, "route");
+  return (
+    sidewalk === "both" ||
+    sidewalk === "left" ||
+    sidewalk === "right" ||
+    foot === "yes" ||
+    foot === "designated" ||
+    route === "running"
+  );
 }
 
 /**
- * 座標列の近くに専用歩道があるか。
- * @param coordinates 車道の座標
- * @param sidewalks 専用歩道の線
- * @param maxMeters 近傍とみなす距離
- * @returns サンプルの一定以上が専用歩道に近いとき true
- */
-export function hasNearbyDedicatedSidewalk(
-  coordinates: LatLon[],
-  sidewalks: LatLon[][],
-  maxMeters = PARALLEL_SIDEWALK_METERS,
-): boolean {
-  if (coordinates.length < 2 || sidewalks.length === 0) {
-    return false;
-  }
-  let hits = 0;
-  let samples = 0;
-  const probe = (point: LatLon) => {
-    samples += 1;
-    if (nearestOnLines(point, sidewalks, maxMeters)) {
-      hits += 1;
-    }
-  };
-  probe(coordinates[0]);
-  probe(coordinates[coordinates.length - 1]);
-  for (let index = 1; index < coordinates.length; index += 1) {
-    probe({
-      lat: (coordinates[index - 1].lat + coordinates[index].lat) / 2,
-      lon: (coordinates[index - 1].lon + coordinates[index].lon) / 2,
-    });
-  }
-  return samples > 0 && hits / samples >= 0.4;
-}
-
-/**
- * タグだけ見て走りやすい道路か（河川敷・公園の幾何は見ない）。
- * 独立歩道（footway=sidewalk）単体は含まない。
+ * タグだけ見て走りやすい道路か（公園・水域の幾何は見ない）。
  * @param tags OSM のタグ
  * @returns 走りやすい道路のとき true
  */
 export function isEasyRoadByTags(tags: OsmWayTags): boolean {
-  if (isExcludedRoad(tags) || isDedicatedSidewalk(tags)) {
+  if (isExcludedRoad(tags)) {
     return false;
   }
   const highway = tagValue(tags, "highway");
   const footway = tagValue(tags, "footway");
-  const sidewalk = tagValue(tags, "sidewalk");
-  const foot = tagValue(tags, "foot");
   const bicycle = tagValue(tags, "bicycle");
-  const route = tagValue(tags, "route");
-  if (sidewalk === "both" || sidewalk === "left" || sidewalk === "right") {
+  if (MAJOR_HIGHWAY.test(highway) || highway === "pedestrian" || highway === "crossing") {
     return true;
   }
-  if (foot === "yes" || foot === "designated") {
+  if (highway === "cycleway" && (bicycle === "yes" || bicycle === "designated")) {
     return true;
   }
-  if (bicycle === "yes" || bicycle === "designated") {
-    return true;
-  }
-  if (route === "running") {
-    return true;
-  }
-  if (highway === "pedestrian") {
-    return true;
-  }
-  if (footway === "crossing") {
+  if (highway === "footway" && footway === "crossing") {
     return true;
   }
   return false;
 }
 
-/**
- * 独立歩道の隣接も含めて走りやすい道か。
- * @param tags OSM のタグ
- * @param coordinates Way の座標
- * @param parks 公園の外周
- * @param waters 河川の線
- * @param parkHoles 公園の穴
- * @param sidewalkLines 独立歩道の線
- * @returns 走りやすい道路のとき true
- */
-export function isEasyRoadConsideringSidewalks(
-  tags: OsmWayTags,
-  coordinates: LatLon[],
-  parks: LatLon[][],
-  waters: LatLon[][],
-  parkHoles: LatLon[][] = [],
-  sidewalkLines: LatLon[][] = [],
-): boolean {
-  if (isDedicatedSidewalk(tags)) {
-    return false;
-  }
-  if (isEasyRoad(tags, coordinates, parks, waters, parkHoles)) {
-    return true;
-  }
-  return canInheritNearbySidewalk(tags) && hasNearbyDedicatedSidewalk(coordinates, sidewalkLines);
-}
-
-const CONNECTOR_HIGHWAY = /^(residential|living_street|unclassified|service|track|path|footway|cycleway|pedestrian)(_link)?$/;
+const CONNECTOR_HIGHWAY = /^(residential|living_street|unclassified|service|path|footway|cycleway)(_link)?$/;
 
 /**
- * 走りやすい道をつなぐ歩行可能な接続道路か。
- * 生活道路などは Way 全体の長さにかかわらず候補にする（長い利用は細い道の点数で下げる）。
- * 幹線の車道本体は接続にも使わない。ごく短い道だけ例外でつなぎに使う。
+ * 走りやすい道をつなぐ接続道路か。
+ * 生活道路などは長さにかかわらず候補にする（長い利用は細い道の点数で下げる）。
  * @param tags OSM のタグ
- * @param coordinates Way の座標
+ * @param _coordinates Way の座標（後方互換。長さは見ない）
  * @returns 接続候補のとき true
  */
-export function isConnectorRoad(tags: OsmWayTags, coordinates: LatLon[]): boolean {
-  // 独立歩道はルートに入れない（隣接車道を走りやすい道へ昇格させる材料にだけ使う）
-  if (isExcludedRoad(tags) || isEasyRoadByTags(tags) || isTaggedCarriageway(tags) || isDedicatedSidewalk(tags)) {
+export function isConnectorRoad(tags: OsmWayTags, _coordinates: LatLon[]): boolean {
+  if (isExcludedRoad(tags) || isEasyRoadByTags(tags)) {
     return false;
   }
   const highway = tagValue(tags, "highway");
-  if (!highway) {
-    return false;
-  }
-  if (CONNECTOR_HIGHWAY.test(highway)) {
-    return true;
-  }
-  // 歩道タグの無い幹線は原則使わないが、横断などのごく短い Way だけつなぎに許す
-  return routeLengthKm(coordinates) * 1000 <= CONNECTOR_MAX_METERS + 1e-6;
+  return Boolean(highway) && CONNECTOR_HIGHWAY.test(highway);
+}
+
+/**
+ * 大きい範囲で取る道路種別か。
+ * @param highway OSM の highway
+ * @returns 大きい範囲の対象のとき true
+ */
+export function isLargeFetchHighway(highway: string): boolean {
+  return LARGE_FETCH_HIGHWAY.test(highway);
+}
+
+/**
+ * 起点付近の円だけで取る道路種別か。
+ * @param highway OSM の highway
+ * @returns 起点付近の対象のとき true
+ */
+export function isNearFetchHighway(highway: string): boolean {
+  return NEAR_FETCH_HIGHWAY.test(highway);
+}
+
+/**
+ * 座標列が起点から指定半径の円に触れるか。
+ * @param coordinates Way の座標
+ * @param start 起点
+ * @param meters 半径（m）
+ * @returns 円内の点があるとき true
+ */
+export function wayHitsStartCircle(
+  coordinates: LatLon[],
+  start: LatLon,
+  meters = CONNECTOR_FETCH_METERS,
+): boolean {
+  return coordinates.some((point) => distanceKm(start.lat, start.lon, point.lat, point.lon) * 1000 <= meters);
 }
 
 const LOWER_STEPS: RegExp[] = [
@@ -1321,12 +1272,12 @@ function segmentInPark(point: LatLon, parks: LatLon[][], holes: LatLon[][]): boo
 }
 
 /**
- * 走りやすい道路か。OSM タグと、河川 40m 以内、公園内の通路を見る。
+ * 走りやすい道路か。大きい範囲の種別、横断、水域 40m、公園の縁 80m を見る。
  * @param highwayOrTags highway 文字列、またはタグ全体
  * @param coordinates Way の座標
  * @param parks 公園の外周
- * @param waters 河川の線
- * @param parkHoles 公園の穴
+ * @param waters 河川・堀などの線
+ * @param _parkHoles 公園の穴（後方互換。縁判定では使わない）
  * @returns 走りやすい道路のとき true
  */
 export function isEasyRoad(
@@ -1334,7 +1285,7 @@ export function isEasyRoad(
   coordinates: LatLon[],
   parks: LatLon[][],
   waters: LatLon[][],
-  parkHoles: LatLon[][] = [],
+  _parkHoles: LatLon[][] = [],
 ): boolean {
   const tags: OsmWayTags = typeof highwayOrTags === "string" ? { highway: highwayOrTags } : highwayOrTags;
   if (isExcludedRoad(tags)) {
@@ -1343,28 +1294,13 @@ export function isEasyRoad(
   if (isEasyRoadByTags(tags)) {
     return true;
   }
+  if (!isConnectorRoad(tags, coordinates)) {
+    return false;
+  }
   if (lengthNearLinesKm(coordinates, waters, WATER_NEAR_METERS) > 0) {
     return true;
   }
-  const highway = tagValue(tags, "highway");
-  const parkPath = /^(path|footway|pedestrian|track)$/.test(highway);
-  if (!parkPath) {
-    return false;
-  }
-  const total = routeLengthKm(coordinates);
-  if (!(total > 0) || parks.length === 0) {
-    return false;
-  }
-  let inside = 0;
-  for (let index = 1; index < coordinates.length; index += 1) {
-    const start = coordinates[index - 1];
-    const end = coordinates[index];
-    const mid = { lat: (start.lat + end.lat) / 2, lon: (start.lon + end.lon) / 2 };
-    if (segmentInPark(mid, parks, parkHoles)) {
-      inside += distanceKm(start.lat, start.lon, end.lat, end.lon);
-    }
-  }
-  return inside / total >= 0.5;
+  return wayAlongParkOrWater(coordinates, parks, [], FEATURE_EDGE_NEAR_METERS);
 }
 
 function distanceToSegmentMeters(point: LatLon, start: LatLon, end: LatLon): number {

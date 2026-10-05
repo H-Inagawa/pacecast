@@ -14,10 +14,14 @@ import {
   courseScoreParts,
   elevationChange,
   featureLengthKm,
+  CONNECTOR_FETCH_METERS,
   HIGHWAY_SEARCH_LEVEL_MAX,
   isConnectorRoad,
-  isDedicatedSidewalk,
-  isEasyRoadConsideringSidewalks,
+  isEasyRoad,
+  isLargeFetchHighway,
+  isNearFetchHighway,
+  isPreferRunRoad,
+  wayHitsStartCircle,
   courseStemSearchLimit,
   COURSE_EMPTY_HINT_MESSAGE,
   COURSE_NO_START_ROAD_HINT_MESSAGE,
@@ -260,10 +264,12 @@ async function fetchOverpass(query: string, signal?: AbortSignal): Promise<unkno
 
 async function loadMapContext(start: LatLon, loopKm: number, signal?: AbortSignal) {
   const box = searchBounds(start, loopKm);
-  // 使わない幹線・計画中などは Overpass 側で除く。堀・水域は並列取得し、失敗しても周回自体は続行する。
+  const around = `around:${CONNECTOR_FETCH_METERS},${start.lat.toFixed(6)},${start.lon.toFixed(6)}`;
+  // 大きい範囲は走りやすい道の種別だけ。接続道路は起点 500m 円。信号・公園は大きい範囲のまま。
   const coreQuery = `[out:json][timeout:40];
 (
-  way["highway"]["highway"!~"^(motorway|motorway_link|steps|proposed|construction|abandoned|razed|disused)$"](${box.south},${box.west},${box.north},${box.east});
+  way["highway"~"^(trunk|primary|secondary|tertiary|pedestrian|cycleway|crossing)(_link)?$"](${box.south},${box.west},${box.north},${box.east});
+  way["highway"~"^(unclassified|residential|living_street|service|path|footway)(_link)?$"](${around});
   node["highway"="traffic_signals"](${box.south},${box.west},${box.north},${box.east});
   node["crossing"="traffic_signals"](${box.south},${box.west},${box.north},${box.east});
   node["highway"="crossing"](${box.south},${box.west},${box.north},${box.east});
@@ -293,17 +299,25 @@ out geom;`;
     throw coreResult.reason;
   }
   const core = parseOverpass(coreResult.value);
+  const keepFetchedRoad = (highway: string, coordinates: typeof core.roads[number]["coordinates"]) => {
+    if (isLargeFetchHighway(highway)) {
+      return true;
+    }
+    return isNearFetchHighway(highway) && wayHitsStartCircle(coordinates, start, CONNECTOR_FETCH_METERS);
+  };
+  const roads = core.roads.filter((road) => keepFetchedRoad(road.highway, road.coordinates));
   if (waterResult.status === "fulfilled") {
     const water = parseOverpass(waterResult.value);
     return {
       ...core,
+      roads,
       waters: [...core.waters, ...water.waters],
     };
   }
   if (waterResult.reason instanceof SearchStopped || signal?.aborted) {
     throw waterResult.reason instanceof SearchStopped ? waterResult.reason : new SearchStopped();
   }
-  return core;
+  return { ...core, roads };
 }
 
 async function loadElevation(coordinates: LatLon[], signal?: AbortSignal): Promise<{ ascentM: number; descentM: number }> {
@@ -335,30 +349,24 @@ async function proposeCoursesOnce(
   onProgress?.(0, 1, 0, "map");
   const mapContext = await loadMapContext(start, distanceKm, signal);
   onProgress?.(0, HIGHWAY_SEARCH_LEVEL_MAX + 1, 0, "explore");
-  const sidewalkLines = mapContext.roads
-    .filter((road) => isDedicatedSidewalk(road.tags))
-    .map((road) => road.coordinates);
   const classified = mapContext.roads.flatMap((road) => {
-    // 独立歩道 Way 自体はネットワークに入れず、隣接車道の判定材料だけに使う
-    if (isDedicatedSidewalk(road.tags)) {
-      return [];
-    }
-    const easy = isEasyRoadConsideringSidewalks(
+    const easy = isEasyRoad(
       road.tags,
       road.coordinates,
       mapContext.parks,
       mapContext.waters,
       mapContext.parkHoles,
-      sidewalkLines,
     );
     const alongFeature = wayAlongParkOrWater(road.coordinates, mapContext.parks, mapContext.waters);
+    const preferRun = easy && isPreferRunRoad(road.tags);
     return [
       {
         coordinates: road.coordinates,
         highway: road.highway,
         tags: road.tags,
         easy,
-        sidewalk: false,
+        preferRun,
+        sidewalk: preferRun,
         alongFeature,
         connector: !easy && isConnectorRoad(road.tags, road.coordinates),
       },
@@ -459,6 +467,7 @@ async function proposeCoursesOnce(
     .map((road) => ({
       coordinates: road.coordinates,
       easy: road.easy,
+      preferRun: road.preferRun,
       sidewalk: road.sidewalk,
       alongFeature: road.alongFeature,
     }));
@@ -481,6 +490,7 @@ async function proposeCoursesOnce(
       .map((road) => ({
         coordinates: road.coordinates,
         easy: road.easy,
+        preferRun: road.preferRun,
         sidewalk: road.sidewalk,
         alongFeature: road.alongFeature,
       }));
