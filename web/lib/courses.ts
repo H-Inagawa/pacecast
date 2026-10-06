@@ -1694,6 +1694,30 @@ function snapshotScoreParts(parts: CourseScoreParts, total: number): CourseScore
   };
 }
 
+/**
+ * 素点スコアからおすすめ度の★表示を返す。
+ * @param score 素点（0〜100 想定）
+ * @returns ★5〜★1 の文字列
+ */
+export function courseRecommendStars(score: number): string {
+  if (!(Number.isFinite(score))) {
+    return "★☆☆☆☆";
+  }
+  if (score >= 80) {
+    return "★★★★★";
+  }
+  if (score >= 70) {
+    return "★★★★☆";
+  }
+  if (score >= 60) {
+    return "★★★☆☆";
+  }
+  if (score >= 50) {
+    return "★★☆☆☆";
+  }
+  return "★☆☆☆☆";
+}
+
 export function relativeCourseScores<T extends { score: number; scoreParts: CourseScoreParts }>(
   courses: T[],
 ): Array<T & { rawScore: number; rawScoreParts: CourseScoreParts }> {

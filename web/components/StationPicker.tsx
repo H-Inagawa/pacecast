@@ -16,8 +16,10 @@ type Props = {
   allowGps?: boolean;
   /** 地点名の横に出す説明。 */
   helpText?: string;
-  /** 記録追加モーダル向け。地点名の下に都道府県と観測所を横並びにする。 */
+  /** 記録追加・予測の気象モーダル向け。都道府県・観測所の下に GPS を置く。 */
   layout?: "stack" | "run";
+  /** layout=run のとき枠上の見出し。空文字なら出さない。省略時は「走行地点」。 */
+  sectionTitle?: string;
   /** 都道府県を変えても地点を自動で入れず、「地点を選択してください」にする。 */
   clearOnPrefecture?: boolean;
   onGpsMessage?: (message: string, kind: "ok" | "error") => void;
@@ -32,6 +34,7 @@ export function StationPicker({
   allowGps = false,
   helpText,
   layout = "stack",
+  sectionTitle,
   onGpsMessage,
   clearOnPrefecture = false,
 }: Props) {
@@ -150,9 +153,10 @@ export function StationPicker({
   ) : null;
 
   if (layout === "run") {
+    const heading = sectionTitle === undefined ? "走行地点" : sectionTitle;
     return (
       <div className="run-station">
-        <p className="run-station__title">走行地点</p>
+        {heading ? <p className="run-station__title">{heading}</p> : null}
         <div className="run-station__body">
           <div className="run-station__fields">
             <label>
@@ -164,6 +168,7 @@ export function StationPicker({
               {stationSelect}
             </label>
           </div>
+          {/* セレクトの一覧が見切れないよう、GPS は下にフル幅で置く */}
           {gpsButton}
         </div>
       </div>

@@ -154,7 +154,7 @@ describe("コースを作る", () => {
     await user.click(courseButton);
     expect(courseButton).toHaveAttribute("aria-pressed", "true");
     const rows = screen.getAllByRole("row").map((row) => row.textContent ?? "");
-    expect(rows[1]).toBe("おすすめ度74.2");
+    expect(rows[1]).toBe("おすすめ度★☆☆☆☆");
     expect(rows[2]).toBe("スコア40.1");
     expect(rows[3]).toMatch(/距離/);
     expect(rows[3]).toMatch(/5\.10km/);

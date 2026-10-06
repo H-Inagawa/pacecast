@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { courseRecommendStars } from "../lib/courses";
 import { formatDistanceKm } from "../lib/format";
 import {
   courseScoreCell,
@@ -55,9 +56,14 @@ export function CourseScoreTable({ courses, targetKm, selectedId, onSelect }: Pr
           <tbody>
             <tr>
               <th scope="row">おすすめ度</th>
-              {courses.map((course) => (
-                <td key={`${course.id}-score`}>{formatScorePoint(course.score)}</td>
-              ))}
+              {courses.map((course) => {
+                const stars = courseRecommendStars(course.raw_score);
+                return (
+                  <td key={`${course.id}-score`} aria-label={`おすすめ度 ${stars}`}>
+                    {stars}
+                  </td>
+                );
+              })}
             </tr>
             <tr>
               <th scope="row">スコア</th>

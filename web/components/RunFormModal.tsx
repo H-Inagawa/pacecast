@@ -39,9 +39,9 @@ export function RunFormModal({ open, runId, onClose, onSaved }: Props) {
   const title = runId ? "記録を編集" : "記録を追加";
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
+    <div className="modal-backdrop modal-backdrop--wide" onClick={onClose} role="presentation">
       <div
-        className="modal-panel"
+        className="modal-panel modal-panel--wide"
         role="dialog"
         aria-modal="true"
         aria-labelledby="run-form-title"

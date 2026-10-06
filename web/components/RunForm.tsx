@@ -131,7 +131,7 @@ export function RunForm({ title, runId, onCancel, onSuccess }: Props) {
             }
           }}
         />
-        <label>
+        <label className="run-form__stack">
           走行日時
           <input
             type="datetime-local"

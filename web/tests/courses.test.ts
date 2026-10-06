@@ -9,6 +9,7 @@ import {
   courseExpansionLimit,
   courseBoundsRadiusScale,
   courseNearStartFullBranchMeters,
+  courseRecommendStars,
   relativeCourseScores,
   countCrossedSignals,
   countNearRoute,
@@ -730,6 +731,13 @@ describe("周回コースの計算", () => {
     expect(scaled[1].rawScore).toBe(20);
     expect(scaled[1].scoreParts.distance).toBe(25);
     expect(scaled[1].rawScoreParts.distance).toBe(10);
+    expect(courseRecommendStars(80)).toBe("★★★★★");
+    expect(courseRecommendStars(79.9)).toBe("★★★★☆");
+    expect(courseRecommendStars(70)).toBe("★★★★☆");
+    expect(courseRecommendStars(60)).toBe("★★★☆☆");
+    expect(courseRecommendStars(50)).toBe("★★☆☆☆");
+    expect(courseRecommendStars(49.9)).toBe("★☆☆☆☆");
+    expect(courseRecommendStars(40.1)).toBe("★☆☆☆☆");
   });
 
   it("大通りが交わる点を3〜4点選ぶ", () => {

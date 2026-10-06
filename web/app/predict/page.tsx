@@ -392,9 +392,9 @@ export default function PredictPage() {
       </StickyActions>
 
       {weatherDraft ? (
-        <div className="modal-backdrop" onClick={() => setWeatherDraft(null)} role="presentation">
+        <div className="modal-backdrop modal-backdrop--wide" onClick={() => setWeatherDraft(null)} role="presentation">
           <div
-            className="modal-panel predict-modal"
+            className="modal-panel modal-panel--wide predict-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="weather-setting-title"
@@ -453,6 +453,7 @@ export default function PredictPage() {
                   label="アメダス"
                   allowGps
                   layout="run"
+                  sectionTitle=""
                   onGpsMessage={(message, kind) => setWeatherError(kind === "error" ? message : null)}
                 />
                 <label>
@@ -475,9 +476,9 @@ export default function PredictPage() {
       ) : null}
 
       {distanceDraft ? (
-        <div className="modal-backdrop" onClick={() => setDistanceDraft(null)} role="presentation">
+        <div className="modal-backdrop modal-backdrop--wide" onClick={() => setDistanceDraft(null)} role="presentation">
           <div
-            className="modal-panel predict-modal"
+            className="modal-panel modal-panel--wide predict-modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="distance-setting-title"
