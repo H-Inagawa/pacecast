@@ -71,7 +71,7 @@ export const SCORE_JUNCTIONS = 0;
 /** 走りやすい道同士をつなぐ接続道路の上限（m）。 */
 export const CONNECTOR_MAX_METERS = 100;
 /** 接続道路を取る起点まわりの円の半径（m）。 */
-export const CONNECTOR_FETCH_METERS = 500;
+export const CONNECTOR_FETCH_METERS = 800;
 /** 公園の縁で接続道路を走りやすい道へ昇格する距離（m）。 */
 export const FEATURE_EDGE_NEAR_METERS = 80;
 /** 接続道路の探索コスト倍率。 */
@@ -97,14 +97,21 @@ export function courseSearchPercent(finished: number, total: number): number {
   return Math.max(0, Math.min(100, Math.round((finished / total) * 100)));
 }
 
-export type CourseSearchStage = "map" | "explore";
+export type CourseSearchStage = "major" | "near" | "features" | "explore" | "map";
 
 /** コース作成の待ち文言（段階ごと。％・件数は出さない）。 */
-export function courseSearchLabel(stage: CourseSearchStage = "map"): string {
+export function courseSearchLabel(stage: CourseSearchStage = "major"): string {
   if (stage === "explore") {
-    return "コース探索中です...(時間がかかる場合があります)";
+    return "コースを探索しています...";
   }
-  return "道路情報を取得中です...";
+  if (stage === "near") {
+    return "近隣の道の情報を取得しています...";
+  }
+  if (stage === "features") {
+    return "公園・河川敷の情報を取得しています...";
+  }
+  // major / 旧 map
+  return "主要道の情報を取得しています...";
 }
 
 /**
@@ -200,12 +207,12 @@ export const COURSE_DISTANCE_HARD_TOLERANCE = 0.5;
 export const COURSE_DISTANCE_HARD_CAP_KM = 5;
 
 const MAJOR_HIGHWAY = /^(trunk|primary|secondary|tertiary)(_link)?$/;
-/** 大きい範囲で取る highway。 */
+/** 大きい範囲で取る highway（走りやすい道の骨格）。 */
 export const LARGE_FETCH_HIGHWAY =
-  /^(trunk|primary|secondary|tertiary|pedestrian|cycleway|crossing)(_link)?$/;
-/** 起点から 500m 円だけで取る highway。 */
+  /^(trunk|primary|secondary|tertiary|cycleway|crossing)(_link)?$/;
+/** 起点から 800m 円だけで取る highway（接続道路・歩行者天国など）。 */
 export const NEAR_FETCH_HIGHWAY =
-  /^(unclassified|residential|living_street|service|path|footway)(_link)?$/;
+  /^(unclassified|residential|living_street|service|path|footway|pedestrian)(_link)?$/;
 
 export type OsmWayTags = {
   highway?: string;
@@ -310,7 +317,7 @@ export function isEasyRoadByTags(tags: OsmWayTags): boolean {
   const highway = tagValue(tags, "highway");
   const footway = tagValue(tags, "footway");
   const bicycle = tagValue(tags, "bicycle");
-  if (MAJOR_HIGHWAY.test(highway) || highway === "pedestrian" || highway === "crossing") {
+  if (MAJOR_HIGHWAY.test(highway) || highway === "crossing") {
     return true;
   }
   if (highway === "cycleway" && (bicycle === "yes" || bicycle === "designated")) {
@@ -322,7 +329,8 @@ export function isEasyRoadByTags(tags: OsmWayTags): boolean {
   return false;
 }
 
-const CONNECTOR_HIGHWAY = /^(residential|living_street|unclassified|service|path|footway|cycleway)(_link)?$/;
+const CONNECTOR_HIGHWAY =
+  /^(residential|living_street|unclassified|service|path|footway|pedestrian|cycleway)(_link)?$/;
 
 /**
  * 走りやすい道をつなぐ接続道路か。

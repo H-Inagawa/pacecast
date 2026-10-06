@@ -15,3 +15,5 @@ web/.next/
 web/.vercel/
 .vercel/
 /local/
+.tmp*
+**/.tmp*

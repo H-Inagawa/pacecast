@@ -89,8 +89,6 @@ type Frame = {
   uturns: number;
   depth: number;
   preferRun: boolean;
-  /** これまでの主な曲がりの符号。1=右寄り、-1=左寄り、0=未確定 */
-  preferredTurnSign: -1 | 0 | 1;
 };
 
 function cloneWay(way: NetworkWay, coordinates: LatLon[]): NetworkWay {
@@ -147,21 +145,6 @@ function bearingDeg(from: LatLon, to: LatLon): number {
 
 function signedTurn(fromDeg: number, toDeg: number): number {
   return ((toDeg - fromDeg + 540) % 360) - 180;
-}
-
-/**
- * 曲がりが右寄りか左寄りか。小さい曲がりは未確定。
- * @param turn 符号付き曲がり角（度）。正が右
- * @returns 1=右、-1=左、0=直進寄り
- */
-function significantTurnSign(turn: number): -1 | 0 | 1 {
-  if (turn > 28) {
-    return 1;
-  }
-  if (turn < -28) {
-    return -1;
-  }
-  return 0;
 }
 
 function polylineStats(coordinates: LatLon[]): { bearingIn: number; bearingOut: number; internalSigned: number; meters: number } {
@@ -307,7 +290,6 @@ function branchRank(
   nextBearing: number,
   easy: boolean,
   preferRun: boolean,
-  preferredTurnSign: -1 | 0 | 1,
   random: number,
   minorPenalty: number,
 ): number {
@@ -316,20 +298,9 @@ function branchRank(
   if (preferRun) {
     rank -= 8;
   }
+  // 直進を優先。Uターンは大きく罰する（これまでの曲がりと同じ向きの優遇はしない）
   if (Math.abs(turn) < 35) {
     rank -= 12;
-  } else if (preferredTurnSign !== 0) {
-    // これまでの曲がりと同じ向きを優先し、ロリポップ型の逆向き戻りを抑える
-    const turnSign = significantTurnSign(turn);
-    if (turnSign === preferredTurnSign) {
-      rank -= 10;
-    } else if (turnSign === -preferredTurnSign) {
-      rank += 14;
-    }
-  } else if (turn > 15) {
-    rank -= 6;
-  } else if (turn < -15) {
-    rank += 10;
   }
   if (Math.abs(turn) >= UTURN_DEG) {
     rank += 36;
@@ -1257,7 +1228,6 @@ export async function exploreClockwiseLoops(
       uturns: 0,
       depth: 0,
       preferRun: false,
-      preferredTurnSign: 0,
     },
   ];
   const stack = [0];
@@ -1343,7 +1313,6 @@ export async function exploreClockwiseLoops(
               links[linkIndex].bearingIn,
               links[linkIndex].easy,
               links[linkIndex].preferRun,
-              frame.preferredTurnSign,
               random(),
               minorPenalty,
             ) + returnBias,
@@ -1359,9 +1328,6 @@ export async function exploreClockwiseLoops(
         continue;
       }
       const turn = frame.depth === 0 ? 0 : signedTurn(frame.heading, link.bearingIn);
-      const turnSign = significantTurnSign(turn);
-      const preferredTurnSign =
-        frame.preferredTurnSign !== 0 ? frame.preferredTurnSign : turnSign;
       const child: Frame = {
         parent: index,
         at: link.to,
@@ -1375,7 +1341,6 @@ export async function exploreClockwiseLoops(
         uturns: frame.uturns,
         depth: frame.depth + 1,
         preferRun: link.preferRun,
-        preferredTurnSign,
       };
       frames.push(child);
       stack.push(frames.length - 1);

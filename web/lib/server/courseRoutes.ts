@@ -238,9 +238,17 @@ function searchBounds(start: LatLon, loopKm: number): { south: number; west: num
   };
 }
 
-async function fetchOverpass(query: string, signal?: AbortSignal): Promise<unknown> {
+/**
+ * Overpass へ問い合わせる。
+ * @param query Overpass QL
+ * @param signal 中止信号
+ * @param retryAlternate true のとき別エンドポイントへ1回まで付け替える（主要道用）。近隣・公園は false
+ * @returns JSON 応答
+ */
+async function fetchOverpass(query: string, signal?: AbortSignal, retryAlternate = true): Promise<unknown> {
   let lastError: unknown = null;
-  for (const url of OVERPASS_URLS) {
+  const urls = retryAlternate ? OVERPASS_URLS : OVERPASS_URLS.slice(0, 1);
+  for (const url of urls) {
     if (signal?.aborted) {
       throw new SearchStopped();
     }
@@ -262,62 +270,96 @@ async function fetchOverpass(query: string, signal?: AbortSignal): Promise<unkno
     : new CourseRouteError(MAP_SERVICE_MESSAGE, true);
 }
 
-async function loadMapContext(start: LatLon, loopKm: number, signal?: AbortSignal) {
+function throwIfStopped(reason: unknown, signal?: AbortSignal): never | void {
+  if (reason instanceof SearchStopped || signal?.aborted) {
+    throw reason instanceof SearchStopped ? reason : new SearchStopped();
+  }
+}
+
+async function loadMapContext(
+  start: LatLon,
+  loopKm: number,
+  signal?: AbortSignal,
+  onProgress?: (finished: number, total: number, passed: number, stage?: CourseSearchStage) => void,
+) {
   const box = searchBounds(start, loopKm);
   const around = `around:${CONNECTOR_FETCH_METERS},${start.lat.toFixed(6)},${start.lon.toFixed(6)}`;
-  // 大きい範囲は走りやすい道の種別だけ。接続道路は起点 500m 円。信号・公園は大きい範囲のまま。
-  const coreQuery = `[out:json][timeout:40];
+  // ① 主要道＋信号（必須）→ ② 近隣の接続道路と ③ 公園・水域を並列（どちらも失敗しても続行）
+  const majorQuery = `[out:json][timeout:40];
 (
-  way["highway"~"^(trunk|primary|secondary|tertiary|pedestrian|cycleway|crossing)(_link)?$"](${box.south},${box.west},${box.north},${box.east});
-  way["highway"~"^(unclassified|residential|living_street|service|path|footway)(_link)?$"](${around});
+  way["highway"~"^(trunk|primary|secondary|tertiary|cycleway|crossing)(_link)?$"](${box.south},${box.west},${box.north},${box.east});
   node["highway"="traffic_signals"](${box.south},${box.west},${box.north},${box.east});
   node["crossing"="traffic_signals"](${box.south},${box.west},${box.north},${box.east});
   node["highway"="crossing"](${box.south},${box.west},${box.north},${box.east});
+);
+out geom;`;
+  const nearQuery = `[out:json][timeout:30];
+(
+  way["highway"~"^(unclassified|residential|living_street|service|path|footway|pedestrian)(_link)?$"](${around});
+);
+out geom;`;
+  const featureQuery = `[out:json][timeout:30];
+(
   way["leisure"="park"](${box.south},${box.west},${box.north},${box.east});
   way["landuse"="recreation_ground"](${box.south},${box.west},${box.north},${box.east});
   relation["leisure"="park"](${box.south},${box.west},${box.north},${box.east});
   relation["landuse"="recreation_ground"](${box.south},${box.west},${box.north},${box.east});
   way["waterway"~"river|stream|canal|riverbank"](${box.south},${box.west},${box.north},${box.east});
-);
-out geom;`;
-  const waterQuery = `[out:json][timeout:25];
-(
   way["natural"="water"](${box.south},${box.west},${box.north},${box.east});
   way["water"="moat"](${box.south},${box.west},${box.north},${box.east});
   relation["natural"="water"](${box.south},${box.west},${box.north},${box.east});
   relation["water"="moat"](${box.south},${box.west},${box.north},${box.east});
 );
 out geom;`;
-  const [coreResult, waterResult] = await Promise.allSettled([
-    fetchOverpass(coreQuery, signal),
-    fetchOverpass(waterQuery, signal),
-  ]);
-  if (coreResult.status === "rejected") {
-    if (coreResult.reason instanceof SearchStopped || signal?.aborted) {
-      throw coreResult.reason instanceof SearchStopped ? coreResult.reason : new SearchStopped();
-    }
-    throw coreResult.reason;
+
+  onProgress?.(0, 1, 0, "major");
+  const major = parseOverpass(await fetchOverpass(majorQuery, signal));
+  const majorRoads = major.roads.filter((road) => isLargeFetchHighway(road.highway));
+
+  onProgress?.(0, 1, 0, "near");
+  // 近隣・公園／河川敷は重要度が低いので、失敗しても別サーバへ付け替えない
+  const nearFetch = fetchOverpass(nearQuery, signal, false);
+  const featureFetch = fetchOverpass(featureQuery, signal, false);
+  // 並列中は近隣の文言から始め、近隣が先に終われば公園・河川敷の文言へ切り替える
+  void nearFetch.then(
+    () => onProgress?.(0, 1, 0, "features"),
+    () => onProgress?.(0, 1, 0, "features"),
+  );
+  const [nearResult, featureResult] = await Promise.allSettled([nearFetch, featureFetch]);
+
+  let nearRoads: typeof major.roads = [];
+  if (nearResult.status === "fulfilled") {
+    const near = parseOverpass(nearResult.value);
+    nearRoads = near.roads.filter(
+      (road) => isNearFetchHighway(road.highway) && wayHitsStartCircle(road.coordinates, start, CONNECTOR_FETCH_METERS),
+    );
+  } else {
+    throwIfStopped(nearResult.reason, signal);
   }
-  const core = parseOverpass(coreResult.value);
-  const keepFetchedRoad = (highway: string, coordinates: typeof core.roads[number]["coordinates"]) => {
-    if (isLargeFetchHighway(highway)) {
-      return true;
-    }
-    return isNearFetchHighway(highway) && wayHitsStartCircle(coordinates, start, CONNECTOR_FETCH_METERS);
+
+  let parks = major.parks;
+  let parkHoles = major.parkHoles;
+  let waters = major.waters;
+  if (featureResult.status === "fulfilled") {
+    const features = parseOverpass(featureResult.value);
+    parks = features.parks;
+    parkHoles = features.parkHoles;
+    waters = features.waters;
+  } else {
+    throwIfStopped(featureResult.reason, signal);
+    parks = [];
+    parkHoles = [];
+    waters = [];
+  }
+
+  return {
+    signals: major.signals,
+    parks,
+    parkHoles,
+    waters,
+    majors: major.majors,
+    roads: [...majorRoads, ...nearRoads],
   };
-  const roads = core.roads.filter((road) => keepFetchedRoad(road.highway, road.coordinates));
-  if (waterResult.status === "fulfilled") {
-    const water = parseOverpass(waterResult.value);
-    return {
-      ...core,
-      roads,
-      waters: [...core.waters, ...water.waters],
-    };
-  }
-  if (waterResult.reason instanceof SearchStopped || signal?.aborted) {
-    throw waterResult.reason instanceof SearchStopped ? waterResult.reason : new SearchStopped();
-  }
-  return { ...core, roads };
 }
 
 async function loadElevation(coordinates: LatLon[], signal?: AbortSignal): Promise<{ ascentM: number; descentM: number }> {
@@ -346,8 +388,7 @@ async function proposeCoursesOnce(
   const expansionLimit = courseExpansionLimit(distanceKm);
   const nearStartMeters = courseNearStartFullBranchMeters(distanceKm);
 
-  onProgress?.(0, 1, 0, "map");
-  const mapContext = await loadMapContext(start, distanceKm, signal);
+  const mapContext = await loadMapContext(start, distanceKm, signal, onProgress);
   onProgress?.(0, HIGHWAY_SEARCH_LEVEL_MAX + 1, 0, "explore");
   const classified = mapContext.roads.flatMap((road) => {
     const easy = isEasyRoad(
@@ -711,7 +752,7 @@ async function proposeCoursesInner(
 ): Promise<CourseProposalSet | CourseProposalDiag> {
   const started = Date.now();
   try {
-    onProgress?.(0, 0, 0, "map");
+    onProgress?.(0, 0, 0, "major");
     return await proposeCoursesOnce(start, distanceKm, onProgress, signal, diagnose);
   } catch (error) {
     if (error instanceof SearchStopped || signal?.aborted) {
@@ -724,7 +765,7 @@ async function proposeCoursesInner(
     if (signal?.aborted) {
       throw new SearchStopped();
     }
-    onProgress?.(0, 0, 0, "map");
+    onProgress?.(0, 0, 0, "major");
     return await proposeCoursesOnce(start, distanceKm, onProgress, signal, diagnose);
   }
 }

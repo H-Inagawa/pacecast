@@ -276,10 +276,14 @@ describe("周回コースの計算", () => {
     expect(isEasyRoad({ highway: "crossing" }, road, [], [])).toBe(true);
     expect(isLargeFetchHighway("tertiary")).toBe(true);
     expect(isLargeFetchHighway("crossing")).toBe(true);
+    expect(isLargeFetchHighway("pedestrian")).toBe(false);
     expect(isLargeFetchHighway("footway")).toBe(false);
     expect(isNearFetchHighway("footway")).toBe(true);
     expect(isNearFetchHighway("path")).toBe(true);
+    expect(isNearFetchHighway("pedestrian")).toBe(true);
     expect(isNearFetchHighway("primary")).toBe(false);
+    expect(isEasyRoadByTags({ highway: "pedestrian" })).toBe(false);
+    expect(isConnectorRoad({ highway: "pedestrian" }, road)).toBe(true);
     expect(wayHitsStartCircle(road, { lat: 35.68, lon: 139.65 }, CONNECTOR_FETCH_METERS)).toBe(true);
     expect(wayHitsStartCircle(road, { lat: 36.1, lon: 140.2 }, CONNECTOR_FETCH_METERS)).toBe(false);
   });
@@ -331,29 +335,6 @@ describe("周回コースの計算", () => {
     expect(loops.length).toBeGreaterThan(0);
     expect(loops.some((loop) => loop.clockwiseDeg > 180)).toBe(true);
     expect(loops.every((loop) => Math.abs(loop.distanceKm - targetKm) <= targetKm * 0.2)).toBe(true);
-  });
-
-  it("同じ向きの曲がりを優先して周回を拾う", async () => {
-    const here = { lat: 35.74, lon: 139.64 };
-    const east = { lat: here.lat, lon: here.lon + 0.011 };
-    const northEast = { lat: here.lat + 0.011, lon: here.lon + 0.011 };
-    const north = { lat: here.lat + 0.011, lon: here.lon };
-    // 南へ出て東へ行き east に戻る枝は、最初の右折のあと左折が必要になりロリポップ寄り
-    const south = { lat: here.lat - 0.008, lon: here.lon };
-    const southEast = { lat: here.lat - 0.008, lon: here.lon + 0.011 };
-    const ways = [
-      { coordinates: [here, east], easy: true },
-      { coordinates: [east, northEast], easy: true },
-      { coordinates: [northEast, north], easy: true },
-      { coordinates: [north, here], easy: true },
-      { coordinates: [here, south], easy: true },
-      { coordinates: [south, southEast], easy: true },
-      { coordinates: [southEast, east], easy: true },
-    ];
-    const targetKm = routeLengthKm([here, east, northEast, north, here]);
-    const loops = await exploreClockwiseLoops(here, targetKm, ways, 12, () => 0);
-    expect(loops.length).toBeGreaterThan(0);
-    expect(loops.some((loop) => loop.clockwiseDeg > 120)).toBe(true);
   });
 
   it("出発から800m未満は分岐を絞り込まず探索する", async () => {
@@ -787,8 +768,11 @@ describe("周回コースの計算", () => {
     expect(courseSearchPercent(0, 0)).toBe(0);
     expect(courseSearchPercent(1, 4)).toBe(25);
     expect(courseSearchPercent(4, 4)).toBe(100);
-    expect(courseSearchLabel("map")).toBe("道路情報を取得中です...");
-    expect(courseSearchLabel("explore")).toBe("コース探索中です...(時間がかかる場合があります)");
+    expect(courseSearchLabel("major")).toBe("主要道の情報を取得しています...");
+    expect(courseSearchLabel("near")).toBe("近隣の道の情報を取得しています...");
+    expect(courseSearchLabel("features")).toBe("公園・河川敷の情報を取得しています...");
+    expect(courseSearchLabel("explore")).toBe("コースを探索しています...");
+    expect(CONNECTOR_FETCH_METERS).toBe(800);
     expect(courseCandidateLimit(5)).toBe(50);
     expect(courseCandidateLimit(15)).toBeLessThan(courseCandidateLimit(5));
     expect(courseExpansionLimit(15)).toBeLessThan(courseExpansionLimit(5));

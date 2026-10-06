@@ -6,7 +6,10 @@ type CourseSearchEvent =
   | { type: "result"; payload: Record<string, unknown> };
 
 function parseStage(value: unknown): CourseSearchStage {
-  return value === "explore" ? "explore" : "map";
+  if (value === "explore" || value === "near" || value === "features" || value === "major" || value === "map") {
+    return value;
+  }
+  return "major";
 }
 
 function parseCourseSearchLine(line: string): CourseSearchEvent | null {

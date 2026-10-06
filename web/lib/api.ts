@@ -118,7 +118,7 @@ export async function apiSend<T>(path: string, method: string, body?: unknown): 
 export async function apiPostCourses<T>(path: string, body: unknown): Promise<T> {
   return withLoading(path, "POST", async () => {
     const controller = new AbortController();
-    setLoadingMessage(courseSearchLabel("map"));
+    setLoadingMessage(courseSearchLabel("major"));
     setLoadingCancel(() => controller.abort());
     try {
       const headers: Record<string, string> = {
