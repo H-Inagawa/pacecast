@@ -10,14 +10,14 @@ describe("ホーム", () => {
     const predict = screen.getByRole("link", { name: /パフォーマンスを予測/ });
     const runs = screen.getByRole("link", { name: /走行記録/ });
     const forecast = screen.getByRole("link", { name: /ランニング天気予報/ });
-    const courses = screen.getByRole("link", { name: /^コースを作る$/ });
+    const courses = screen.getByRole("link", { name: /コースを作る/ });
     const about = screen.getByRole("button", { name: /PaceCastとは？/ });
 
     expect(predict).toHaveAttribute("href", "/predict");
     expect(runs).toHaveAttribute("href", "/runs");
     expect(forecast).toHaveAttribute("href", "/forecast");
     expect(courses).toHaveAttribute("href", "/courses");
-    expect(screen.queryByRole("link", { name: /^分析結果$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /分析結果/ })).not.toBeInTheDocument();
 
     const cards = [predict, runs, forecast, courses, about];
     for (let i = 1; i < cards.length; i += 1) {
@@ -35,6 +35,7 @@ describe("ホーム", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /過去のランニング記録を表示します。/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /気象データによる走りやすさを予報します。/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /距離と起点から、周回コースの候補を作ります。/ })).toBeInTheDocument();
   });
 
   it("PaceCastとは？を開くと概要と各画面の説明が出る", async () => {

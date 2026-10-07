@@ -61,4 +61,28 @@ describe("高度な設定", () => {
     });
     expect(mockedSend.mock.calls[0][2]).toMatchObject({ personal_prior_k: 20, intensities: { low: 123 } });
   });
+
+  it("デフォルト設定に戻すと誕生日からの目安と重み初期値に戻る", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<SettingsPage />);
+
+    await user.click(await screen.findByRole("button", { name: "高度な設定" }));
+    const prior = screen.getByLabelText("個人記録の重み設定");
+    const low = screen.getByLabelText("低強度（60〜70%）");
+    await user.clear(prior);
+    await user.type(prior, "20");
+    await user.clear(low);
+    await user.type(low, "100");
+    await user.click(screen.getByRole("radio", { name: /GPS で近くのアメダスを探す/ }));
+
+    await user.click(screen.getByRole("button", { name: "デフォルト設定に戻す" }));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(prior).toHaveValue(10);
+    expect(low).toHaveValue(123);
+    expect(screen.getByRole("spinbutton", { name: "最大心拍数" })).toHaveValue(189);
+    expect(screen.getByRole("radio", { name: /設定どおりのアメダスを出す/ })).toBeChecked();
+
+    confirmSpy.mockRestore();
+  });
 });

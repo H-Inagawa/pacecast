@@ -636,48 +636,27 @@ body:has(.forecast-dock) .page {
 }
 
 .home-card--lg {
-  height: 10rem;
-}
-
-.home-card--md {
-  height: 6.25rem;
+  height: 150px;
 }
 
 .home-card--sm {
-  height: 5rem;
-}
-
-.home-card__bg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  box-sizing: border-box;
-  width: auto;
-  max-width: calc(100% - 10px);
-  height: calc(100% - 5px);
-  max-height: calc(100% - 5px);
-  object-fit: contain;
-  object-position: center;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  mix-blend-mode: multiply;
-  opacity: 0.85;
+  height: 80px;
 }
 
 .home-card__overlay {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--ink) 20%, transparent);
+  background: transparent;
   transition: background 0.15s ease;
 }
 
 .home-card:hover .home-card__overlay,
 .home-card:focus-visible .home-card__overlay {
-  background: color-mix(in srgb, var(--ink) 50%, transparent);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
 .home-card:active .home-card__overlay {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .home-card:focus-visible {
@@ -710,15 +689,6 @@ body:has(.forecast-dock) .page {
   line-height: 1.4;
   color: var(--ink);
   opacity: 0.88;
-}
-
-@media (prefers-color-scheme: dark) {
-  /* soft-light だと端が溶けて見切れに見えるので、反転＋不透明度だけにする */
-  .home-card__bg {
-    mix-blend-mode: normal;
-    filter: invert(1);
-    opacity: 0.22;
-  }
 }
 
 .button, button, input[type="submit"] {
@@ -1574,18 +1544,78 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   padding: 0.35rem 0.85rem;
 }
 
+/* 設定の緑ボタン（高度な設定・デフォルトに戻す）はフォーム幅いっぱい */
+.settings-advanced-open,
+.settings-modal__reset {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  height: 3.125rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
 .settings-backdrop {
   z-index: 80;
 }
 
 .settings-modal {
   overflow: auto;
+  padding-top: 3.2rem;
+}
+
+.settings-modal h2 {
+  margin: 0 0 1.25rem;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.settings-modal__body {
+  gap: 1rem;
+}
+
+.settings-modal__section {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.settings-modal__section--spaced {
+  margin-top: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.settings-modal h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.settings-modal__section > label:not(.choice) {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.settings-modal .choice {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.settings-modal__reset {
+  margin-top: 0.25rem;
 }
 
 .settings-modal .help {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  font-size: 1.05rem;
+  font-weight: 500;
 }
 
 .settings-modal .help-pop {
@@ -1594,10 +1624,8 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   width: auto;
   max-width: none;
   margin-top: 0.45rem;
-}
-
-.settings-modal h3 {
-  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 400;
 }
 
 .about-panel {
