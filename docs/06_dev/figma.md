@@ -103,7 +103,7 @@ Figma のフレーム幅は **CSS ピクセル**（ブラウザが見ている�
 
 | 対象 | フレーム幅 × 高さの目安 | 備考 |
 | --- | --- | --- |
-| PC ブラウザ | 1280 × 800 以上 | 現行の広い画面。必要なら 1440 も可 |
+| PC ブラウザ | 1440 × 800 以上 | 画面の見本幅。本文と下部ボタン列は 1200px。ヘッダと下部バーの帯は 1440px いっぱい（ハンバーガー左端、設定右端） |
 | iPhone 17 | 402 × 874 | [CSS viewport](https://www.webmobilefirst.com/en/devices/apple-iphone-17-2025/) |
 | iPhone 17 Pro Max | 440 × 956 | 大きい iPhone。[viewport](https://www.webmobilefirst.com/en/devices/apple-iphone-17-pro-max-2025/) |
 | Pixel 10 | 412 × 924 | [CSS viewport](https://www.webmobilefirst.com/en/devices/google-pixel-10-2026/) |
