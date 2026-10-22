@@ -9,7 +9,7 @@
 ## 必要環境
 
 - Python 3.11 以降
-- Node.js 20 以降
+- Node.js 24 系（24.22.1 以降）
 - GitHub CLI（`gh`）。入れ方は `docs/06_dev/team-setup.md`
 
 ## セットアップ

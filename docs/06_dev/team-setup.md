@@ -9,7 +9,7 @@ Windows（PowerShell）前提。仕様の正は `AGENTS.md`。構想の原文は
 
 - Git
 - Python 3.11 以降
-- Node.js 20 以降
+- Node.js 24 系（24.22.1 以降。2026-10-21 のセキュリティ修正を含む）
 - [GitHub CLI](https://cli.github.com/)（`gh`）
 
 GitHub CLI は winget で入れます。入れたらターミナルを開き直します。

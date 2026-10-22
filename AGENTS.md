@@ -8,7 +8,7 @@
 
 ## 技術構成
 
-- 言語: TypeScript（画面と API）と Python 3.11+（pytest 用の計算コード）
+- 言語: TypeScript（画面と API）と Python 3.11+（pytest 用の計算コード）。Node.js は 24 系（24.22.1 以降）
 - 画面と API: Next.js App Router（`web/`、`http://127.0.0.1:3000`）。JSON API は `web/app/api`。画面テストは Vitest（`web/` で `npm test`）
 - DB: Supabase PostgreSQL。接続はサーバだけが `SUPABASE_URL` と `SUPABASE_SERVICE_ROLE_KEY` で行う。手順は `docs/06_dev/supabase-setup.md`
 - 公開: Vercel（`web/` が Root Directory）。手順は `docs/06_dev/vercel-setup.md`。独自ドメインは買わない
