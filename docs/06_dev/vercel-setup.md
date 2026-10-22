@@ -32,7 +32,7 @@ Vercel は GitHub の内容をビルドします。#46 の Next.js API と、こ
 | Build Command | `npm run build`（既定のまま） |
 | Output Directory | **空のまま**（`public` にしない。Next.js が自分で出す） |
 | Install Command | `npm install`（既定のまま） |
-| Node.js Version | 20.x |
+| Node.js Version | 24.x（`web/package.json` の `engines.node`。20.x は 2026-10-21 の修正が入らない） |
 
 4. まだ Deploy しない。先に環境変数を入れる（**Environment Variables** を開く）
 
