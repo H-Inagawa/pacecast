@@ -21,16 +21,18 @@ describe("新規登録", () => {
     mockedSend.mockReset();
   });
 
-  it("パスワードが違うと送らない", async () => {
+  it("パスワードは1回入力し、表示して確認できる", async () => {
     const user = userEvent.setup();
     render(<RegisterPage />);
 
-    await user.type(screen.getByLabelText("メールアドレス"), "runner@example.com");
-    await user.type(screen.getByLabelText("パスワード（8文字以上）"), "secret123");
-    await user.type(screen.getByLabelText("パスワード（確認）"), "secret999");
-    await user.click(screen.getByRole("button", { name: "登録する" }));
+    const password = screen.getByLabelText("パスワード（8文字以上）");
+    await user.type(password, "secret123");
+    expect(password).toHaveAttribute("type", "password");
+    expect(screen.queryByLabelText("パスワード（確認）")).not.toBeInTheDocument();
 
-    expect(screen.getByText("パスワードが一致しません")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "パスワードを表示する" }));
+    expect(password).toHaveAttribute("type", "text");
+    expect(password).toHaveValue("secret123");
     expect(mockedSend).not.toHaveBeenCalled();
   });
 
@@ -44,7 +46,6 @@ describe("新規登録", () => {
 
     await user.type(screen.getByLabelText("メールアドレス"), "runner@example.com");
     await user.type(screen.getByLabelText("パスワード（8文字以上）"), "secret123");
-    await user.type(screen.getByLabelText("パスワード（確認）"), "secret123");
     await user.click(screen.getByRole("button", { name: "登録する" }));
 
     expect(mockedSend).toHaveBeenCalledWith("/api/auth/register", "POST", {
@@ -66,7 +67,6 @@ describe("新規登録", () => {
 
     await user.type(screen.getByLabelText("メールアドレス"), "runner@example.com");
     await user.type(screen.getByLabelText("パスワード（8文字以上）"), "secret123");
-    await user.type(screen.getByLabelText("パスワード（確認）"), "secret123");
     await user.click(screen.getByRole("button", { name: "登録する" }));
 
     expect(await screen.findByText("確認メールを送りました。届いたリンクを開いてください。")).toBeInTheDocument();

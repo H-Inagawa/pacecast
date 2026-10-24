@@ -24,6 +24,8 @@ describe("ログイン", () => {
     expect(screen.queryByText(DEV_LOGIN_EMAIL)).not.toBeInTheDocument();
     expect(screen.queryByText(DEV_LOGIN_PASSWORD)).not.toBeInTheDocument();
     expect(screen.queryByText(/開発者は登録なし/)).not.toBeInTheDocument();
+    expect(screen.queryByText("PACECAST")).not.toBeInTheDocument();
+    expect(screen.queryByText("メールアドレスとパスワードで入ります。")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "新規登録" })).toHaveAttribute("href", "/register");
     expect(screen.getByRole("link", { name: "再設定" })).toHaveAttribute("href", "/forgot-password");
   });

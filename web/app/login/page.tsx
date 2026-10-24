@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { PasswordField } from "../../components/PasswordField";
 import { apiSend } from "../../lib/api";
 import type { AuthUser } from "../../lib/auth";
 
@@ -23,9 +24,7 @@ export default function LoginPage() {
 
   return (
     <section className="auth-page">
-      <p className="eyebrow">PACECAST</p>
       <h1>ログイン</h1>
-      <p className="lede">メールアドレスとパスワードで入ります。</p>
       {error ? <p className="error">{error}</p> : null}
       <form className="stack" onSubmit={onSubmit}>
         <label>
@@ -39,17 +38,14 @@ export default function LoginPage() {
             required
           />
         </label>
-        <label>
-          パスワード
-          <input
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-        </label>
+        <PasswordField
+          label="パスワード"
+          name="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={setPassword}
+          required
+        />
         <button type="submit" className="button primary">
           ログイン
         </button>

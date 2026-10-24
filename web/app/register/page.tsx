@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PasswordField } from "../../components/PasswordField";
 import { apiSend } from "../../lib/api";
 import type { RegisterResult } from "../../lib/auth";
 
@@ -10,7 +11,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<RegisterResult | null>(null);
 
@@ -18,10 +18,6 @@ export default function RegisterPage() {
     event.preventDefault();
     setError("");
     setResult(null);
-    if (password !== confirm) {
-      setError("パスワードが一致しません");
-      return;
-    }
     try {
       const payload = await apiSend<RegisterResult>("/api/auth/register", "POST", {
         email,
@@ -36,7 +32,6 @@ export default function RegisterPage() {
 
   return (
     <section className="auth-page">
-      <p className="eyebrow">PACECAST</p>
       <h1>新規登録</h1>
       <p className="lede">入力したメールアドレスに確認用のリンクを送ります。</p>
       {error ? <p className="error">{error}</p> : null}
@@ -62,30 +57,15 @@ export default function RegisterPage() {
               required
             />
           </label>
-          <label>
-            パスワード（8文字以上）
-            <input
-              type="password"
-              name="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              minLength={8}
-              required
-            />
-          </label>
-          <label>
-            パスワード（確認）
-            <input
-              type="password"
-              name="confirm"
-              autoComplete="new-password"
-              value={confirm}
-              onChange={(event) => setConfirm(event.target.value)}
-              minLength={8}
-              required
-            />
-          </label>
+          <PasswordField
+            label="パスワード（8文字以上）"
+            name="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={setPassword}
+            minLength={8}
+            required
+          />
           <button type="submit" className="button primary">
             登録する
           </button>

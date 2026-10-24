@@ -35,12 +35,16 @@ export function onboardingStepFromLocation(pathname: string, search = ""): Onboa
 
 export const ONBOARDING_COOKIE = "pacecast_onboarding";
 
+export function isPublicAssetPath(pathname: string): boolean {
+  return pathname.startsWith("/icons/") || pathname.startsWith("/images/");
+}
+
 export function onboardingRedirectPath(
   pathname: string,
   hasSession: boolean,
   needsOnboarding: boolean,
 ): string | null {
-  if (!hasSession) {
+  if (isPublicAssetPath(pathname) || !hasSession) {
     return null;
   }
   if (needsOnboarding) {

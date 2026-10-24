@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { PasswordField } from "../../components/PasswordField";
 import { apiSend } from "../../lib/api";
 import type { AuthUser } from "../../lib/auth";
 
@@ -10,7 +11,6 @@ function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState(token ? "" : "再設定リンクが無効です");
 
   async function onSubmit(event: FormEvent) {
@@ -18,10 +18,6 @@ function ResetPasswordForm() {
     setError("");
     if (!token) {
       setError("再設定リンクが無効です");
-      return;
-    }
-    if (password !== confirm) {
-      setError("パスワードが一致しません");
       return;
     }
     try {
@@ -39,30 +35,15 @@ function ResetPasswordForm() {
       <p className="lede">8文字以上の新しいパスワードを入力してください。</p>
       {error ? <p className="error">{error}</p> : null}
       <form className="stack" onSubmit={onSubmit}>
-        <label>
-          新しいパスワード（8文字以上）
-          <input
-            type="password"
-            name="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            minLength={8}
-            required
-          />
-        </label>
-        <label>
-          新しいパスワード（確認）
-          <input
-            type="password"
-            name="confirm"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(event) => setConfirm(event.target.value)}
-            minLength={8}
-            required
-          />
-        </label>
+        <PasswordField
+          label="新しいパスワード（8文字以上）"
+          name="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={setPassword}
+          minLength={8}
+          required
+        />
         <button type="submit" className="button primary" disabled={!token}>
           パスワードを変更する
         </button>

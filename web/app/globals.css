@@ -304,8 +304,8 @@ button.drawer-logout:hover {
 }
 
 .auth-page {
-  max-width: 28rem;
-  margin: 3rem auto 2rem;
+  max-width: 800px;
+  margin: 0 auto 2rem;
 }
 
 .auth-page .button.primary {
@@ -372,23 +372,26 @@ button.drawer-logout:hover {
 
 .onboarding-guide {
   display: flex;
+  justify-content: center;
   align-items: center;
   min-height: 1.875rem;
   background: var(--onboarding-bg);
-  color: var(--header-ink);
-  padding: 0 0.94rem;
-  border-top: 1px solid rgb(255 255 255 / 8%);
+  padding: 0.25rem 0.75rem;
 }
 
 .onboarding-steps {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
+  width: 100%;
   gap: 0.35rem 0.45rem;
   list-style: none;
   margin: 0;
   padding: 0;
   font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 .onboarding-step {
@@ -398,18 +401,12 @@ button.drawer-logout:hover {
   color: var(--onboarding-pending);
 }
 
-.onboarding-step.done {
-  color: var(--onboarding-done);
-}
-
 .onboarding-step.current {
   color: var(--onboarding-current);
-  font-weight: 700;
 }
 
 .onboarding-arrow {
   color: var(--onboarding-pending);
-  font-weight: 400;
 }
 
 .page {
@@ -1210,6 +1207,68 @@ form.run-form .actions button {
 }
 
 form.stack { display: grid; gap: 0.9rem; margin: 1rem 0 1.5rem; }
+
+.password-block {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  width: 100%;
+  padding-right: 2.5rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--muted);
+  transform: translateY(-50%);
+}
+
+.password-toggle:hover {
+  color: var(--ink);
+  background: transparent;
+}
+
+@media (min-width: 721px) {
+  .auth-page form.stack {
+    grid-template-columns: max-content minmax(0, 1fr);
+    column-gap: 0.94rem;
+    row-gap: 1.25rem;
+  }
+
+  .auth-page form.stack > label,
+  .auth-page form.stack > .password-block {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: center;
+    column-gap: 0.94rem;
+    white-space: nowrap;
+  }
+
+  .auth-page form.stack > .button,
+  .auth-page form.stack > button {
+    grid-column: 1 / -1;
+  }
+}
 
 label, fieldset {
   display: grid;
