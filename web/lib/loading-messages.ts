@@ -21,6 +21,9 @@ export function loadingMessageFor(path: string, method = "GET"): string {
   if (normalized === "/api/auth/forgot-password" && verb === "POST") {
     return "再設定メールを送信中です...";
   }
+  if (normalized === "/api/auth/reset-password" && verb === "GET") {
+    return "再設定リンクを確認しています...";
+  }
   if (normalized === "/api/auth/reset-password" && verb === "POST") {
     return "保存中です...";
   }

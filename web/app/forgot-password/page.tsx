@@ -1,11 +1,14 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiSend } from "../../lib/api";
-import type { ForgotPasswordResult } from "../../lib/auth";
+import { PASSWORD_RESET_INVALID_MESSAGE, type ForgotPasswordResult } from "../../lib/auth";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordForm() {
+  const searchParams = useSearchParams();
+  const linkInvalid = searchParams.get("invalid") === "1";
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<ForgotPasswordResult | null>(null);
@@ -24,18 +27,13 @@ export default function ForgotPasswordPage() {
 
   return (
     <section className="auth-page">
-      <p className="eyebrow">PACECAST</p>
       <h1>パスワード再設定</h1>
       <p className="lede">登録したメールアドレスに、再設定用のリンクを送ります。</p>
+      {!result && linkInvalid ? <p className="error">{PASSWORD_RESET_INVALID_MESSAGE}</p> : null}
       {error ? <p className="error">{error}</p> : null}
       {result ? (
         <div className="notice">
           <p>{result.message}</p>
-          {result.reset_url ? (
-            <p>
-              <a href={result.reset_url}>パスワード再設定のリンクを開く</a>
-            </p>
-          ) : null}
         </div>
       ) : (
         <form className="stack" onSubmit={onSubmit}>
@@ -59,5 +57,13 @@ export default function ForgotPasswordPage() {
         <Link href="/login">ログインへ戻る</Link>
       </p>
     </section>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={<section className="auth-page">読み込み中...</section>}>
+      <ForgotPasswordForm />
+    </Suspense>
   );
 }

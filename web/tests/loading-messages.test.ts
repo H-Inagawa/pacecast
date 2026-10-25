@@ -11,6 +11,7 @@ describe("loading messages", () => {
     expect(loadingMessageFor("/api/auth/register", "POST")).toBe("登録中です...");
     expect(loadingMessageFor("/api/auth/verify?token=a", "GET")).toBe("確認中です...");
     expect(loadingMessageFor("/api/auth/forgot-password", "POST")).toBe("再設定メールを送信中です...");
+    expect(loadingMessageFor("/api/auth/reset-password", "GET")).toBe("再設定リンクを確認しています...");
     expect(loadingMessageFor("/api/auth/reset-password", "POST")).toBe("保存中です...");
     expect(loadingMessageFor("/api/auth/logout", "POST")).toBe("ログアウトしています...");
     expect(loadingMessageFor("/api/profile", "GET")).toBe("設定情報を読み込み中です...");

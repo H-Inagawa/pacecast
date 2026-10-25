@@ -1,10 +1,28 @@
 import { NextResponse } from "next/server";
 import { sessionNeedsSettings } from "../../../../lib/onboarding";
-import { attachOnboardingCookie, attachSessionCookie, consumePasswordResetToken } from "../../../../lib/server/auth";
+import {
+  attachOnboardingCookie,
+  attachSessionCookie,
+  consumePasswordResetToken,
+  passwordResetTokenIsUsable,
+} from "../../../../lib/server/auth";
 import { toErrorResponse } from "../../../../lib/server/errors";
 import { getOrCreateProfile } from "../../../../lib/server/profile";
 
 export const runtime = "nodejs";
+
+export async function GET(request: Request) {
+  try {
+    const token = new URL(request.url).searchParams.get("token") ?? "";
+    const ok = await passwordResetTokenIsUsable(token);
+    if (!ok) {
+      return NextResponse.json({ ok: false }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
+}
 
 export async function POST(request: Request) {
   try {
