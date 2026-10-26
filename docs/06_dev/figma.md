@@ -93,7 +93,7 @@ Figma の変数画面は、左がコレクション、中央が名前と値の�
 
 ### ホームの導線カード
 
-ホームの導線は、塗りつぶしボタンではなく **カード** にする。**背景画像は載せない**。並びは上から「パフォーマンスを予測」「走行記録」「ランニング天気予報」「コースを作る」「PaceCastとは？」。高さは先頭4つ 150px、について 80px。先頭4つはラベルの下にカード内リードを置く。指定は [#22](https://github.com/H-Inagawa/pacecast/issues/22) です。分析結果は削除済み。コース画面は [#57](https://github.com/H-Inagawa/pacecast/issues/57)。
+ホームの導線は、塗りつぶしボタンではなく **カード** にする。**背景画像は載せない**。並びは上から「パフォーマンスを予測」「走行記録」「ランニング天気予報」「コースを作る」「PaceCastとは？」。高さは先頭4つ 150px、について 80px。先頭4つはラベルの下にカード内リードを置く。スマホは1列。PC は本文を最大 800px にし、先頭4枚を2列、についてだけ横いっぱいにする。指定は [#22](https://github.com/H-Inagawa/pacecast/issues/22) です。分析結果は削除済み。コース画面は [#57](https://github.com/H-Inagawa/pacecast/issues/57)。
 
 ## 6. 位置の決め方（PC とスマートフォン）
 
@@ -103,7 +103,7 @@ Figma のフレーム幅は **CSS ピクセル**（ブラウザが見ている�
 
 | 対象 | フレーム幅 × 高さの目安 | 備考 |
 | --- | --- | --- |
-| PC ブラウザ | 1440 × 800 以上 | 画面の見本幅。本文と下部ボタン列は 1200px。ヘッダと下部バーの帯は 1440px いっぱい（ハンバーガー左端、設定右端） |
+| PC ブラウザ | 1440 × 800 以上 | 画面の見本幅。本文と下部ボタン列は 1200px。ホームの見出しとカードは 800px。ヘッダと下部バーの帯は 1440px いっぱい（ハンバーガー左端、設定右端） |
 | iPhone 17 | 402 × 874 | [CSS viewport](https://www.webmobilefirst.com/en/devices/apple-iphone-17-2025/) |
 | iPhone 17 Pro Max | 440 × 956 | 大きい iPhone。[viewport](https://www.webmobilefirst.com/en/devices/apple-iphone-17-pro-max-2025/) |
 | Pixel 10 | 412 × 924 | [CSS viewport](https://www.webmobilefirst.com/en/devices/google-pixel-10-2026/) |
