@@ -98,7 +98,18 @@ describe("ランニング天気予報", () => {
     expect(within(dialog).getByLabelText("天気（必須）")).toBeDisabled();
     expect(within(dialog).queryByText("追加する列を選びます", { exact: false })).not.toBeInTheDocument();
     await user.click(within(dialog).getByLabelText("気温"));
-    await user.click(screen.getByRole("button", { name: "閉じる" }));
+    await user.click(within(dialog).getByRole("button", { name: "閉じる" }));
+    const beforeSave = screen.getByRole("rowheader", { name: "9/21 0時" }).closest("table");
+    expect(within(beforeSave as HTMLElement).queryByRole("columnheader", { name: "気温" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "表示項目設定" }));
+    const again = screen.getByRole("dialog", { name: "表示項目設定" });
+    expect(within(again).getByLabelText("気温")).not.toBeChecked();
+    await user.click(within(again).getByLabelText("気温"));
+    await user.click(within(again).getByRole("button", { name: "元に戻す" }));
+    expect(within(again).getByLabelText("気温")).not.toBeChecked();
+    await user.click(within(again).getByLabelText("気温"));
+    await user.click(within(again).getByRole("button", { name: "保存" }));
     const forecastTable = screen.getByRole("rowheader", { name: "9/21 0時" }).closest("table");
     expect(within(forecastTable as HTMLElement).getByRole("columnheader", { name: "天気" })).toBeInTheDocument();
     expect(within(forecastTable as HTMLElement).getByRole("columnheader", { name: "気温" })).toBeInTheDocument();

@@ -835,12 +835,27 @@ td.wbgt-none { background: var(--wbgt-none-bg); color: var(--wbgt-none-ink); }
   margin-top: -2rem;
 }
 
+@media (min-width: 721px) {
+  .runs-page {
+    width: min(800px, 100%);
+    margin-inline: auto;
+  }
+
+  .runs-page .sticky-actions {
+    padding-inline: max(0.62rem, calc((100% - 800px) / 2));
+  }
+
+  .runs-page .wbgt-legend {
+    width: min(502px, 100%);
+  }
+}
+
 .runs-pin {
   position: sticky;
   top: 4.375rem;
   z-index: 40;
   margin: 0 -1rem;
-  padding: 0 1rem 0.45rem;
+  padding: 2rem 1rem 0.45rem;
   background: var(--bg);
 }
 
@@ -1015,6 +1030,21 @@ form.run-form .duration-field input {
   min-width: 0;
   width: 100%;
   text-align: center;
+}
+
+.run-station__fields select {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 721px) {
+  form.run-form > label.run-form__stack,
+  form.run-form .duration-fields {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+  }
 }
 
 form.run-form .actions {
@@ -1482,7 +1512,17 @@ input:disabled, select:disabled {
 .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .notice { background: var(--notice-bg); color: var(--notice-ink); padding: 0.62rem 0.62rem; border-radius: 0.62rem; }
 .error { background: var(--error-bg); color: var(--error-ink); padding: 0.62rem 0.62rem; border-radius: 0.62rem; white-space: pre-line; }
-.row-actions { display: flex; gap: 0.7rem; }
+.runs-table-scroll th:last-child,
+.runs-table-scroll td.row-actions {
+  width: 100%;
+  text-align: right;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
 button.linkish { background: none; color: var(--danger); padding: 0; border-radius: 0; }
 button.text-link { background: none; color: var(--link); padding: 0; border-radius: 0; }
 
@@ -1520,6 +1560,23 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 .modal-panel.modal-panel--wide {
   max-height: calc(100vh - 60px);
   max-height: calc(100dvh - 60px);
+}
+
+.modal-panel.modal-panel--compact {
+  max-width: 520px;
+}
+
+.column-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.column-modal-actions .button,
+.column-modal-actions button {
+  width: 100%;
+  height: 3.125rem;
+  border-radius: 0.7rem;
 }
 
 .modal-close {

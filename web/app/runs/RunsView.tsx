@@ -12,7 +12,6 @@ import {
   DEFAULT_RUN_COLUMNS,
   loadRunColumns,
   saveRunColumns,
-  type OptionalRunColumn,
   type RunColumnVisibility,
 } from "../../lib/runColumns";
 import {
@@ -76,12 +75,10 @@ export function RunsView({ initialEditId }: Props) {
     setColumns(loadRunColumns());
   }, []);
 
-  function setColumn(key: OptionalRunColumn, visible: boolean) {
-    setColumns((current) => {
-      const next = { ...current, [key]: visible };
-      saveRunColumns(next);
-      return next;
-    });
+  function saveColumns(next: RunColumnVisibility) {
+    setColumns(next);
+    saveRunColumns(next);
+    setColumnsOpen(false);
   }
 
   useEffect(() => {
@@ -234,7 +231,7 @@ export function RunsView({ initialEditId }: Props) {
       <RunColumnsModal
         open={columnsOpen}
         columns={columns}
-        onChange={setColumn}
+        onSave={saveColumns}
         onClose={() => setColumnsOpen(false)}
       />
       <RunFormModal
