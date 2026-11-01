@@ -46,6 +46,7 @@ describe("初回のユーザー設定", () => {
     render(<SettingsPage />);
 
     expect(await screen.findByRole("heading", { name: "ユーザー設定" })).toBeInTheDocument();
+    expect(screen.getByText(/メイン画面へ進めます/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "ホームへ戻る" })).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText("ユーザー名"), "テスト");

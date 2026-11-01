@@ -836,6 +836,38 @@ td.wbgt-none { background: var(--wbgt-none-bg); color: var(--wbgt-none-ink); }
 }
 
 @media (min-width: 721px) {
+  .settings-page {
+    width: min(800px, 100%);
+    margin-inline: auto;
+  }
+
+  .settings-page .sticky-actions {
+    padding-inline: max(0.62rem, calc((100% - 800px) / 2));
+  }
+
+  .settings-page form.stack > label,
+  .settings-page .station-pick__fields > label {
+    grid-template-columns: 10.5rem minmax(0, 1fr);
+    align-items: center;
+    column-gap: 0.75rem;
+  }
+
+  .settings-page .station-pick {
+    align-items: stretch;
+  }
+
+  .settings-page .station-pick__gps {
+    height: auto;
+    align-self: stretch;
+  }
+
+  .settings-modal__field,
+  .settings-modal__section > label:not(.choice) {
+    grid-template-columns: 15rem minmax(0, 1fr);
+    align-items: center;
+    column-gap: 0.75rem;
+  }
+
   .runs-page {
     width: min(800px, 100%);
     margin-inline: auto;
@@ -1715,6 +1747,7 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 .settings-modal {
   overflow: auto;
   padding-top: 3.2rem;
+  max-width: 800px;
 }
 
 .settings-modal h2 {
@@ -1731,6 +1764,12 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 .settings-modal__section {
   display: grid;
   gap: 0.55rem;
+}
+
+.settings-modal__field {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
 }
 
 .settings-modal__section--spaced {
@@ -1756,26 +1795,35 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   font-weight: 500;
 }
 
-.settings-modal__reset {
-  margin-top: 0.25rem;
+.settings-modal__actions {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
 }
 
-.settings-modal .help {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  font-size: 1.05rem;
+.settings-modal__save {
+  box-sizing: border-box;
+  width: 100%;
+  height: 3.125rem;
   font-weight: 500;
 }
 
-.settings-modal .help-pop {
-  position: static;
-  flex: 1 0 100%;
-  width: auto;
-  max-width: none;
-  margin-top: 0.45rem;
-  font-size: 0.9rem;
-  font-weight: 400;
+.settings-modal h3 .help {
+  display: inline;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.settings-modal h3 .help-button {
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.settings-modal h3 .help-pop {
+  left: 0;
+  right: auto;
+  top: 1.8rem;
+  max-width: min(18rem, calc(100vw - 8rem));
 }
 
 .about-panel {
