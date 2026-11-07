@@ -8,8 +8,8 @@ type Props = {
 
 const WIDTH = 720;
 const HEIGHT = 340;
-const LEFT = 72;
-const RIGHT = 20;
+const LEFT = 58;
+const RIGHT = 12;
 const BOTTOM = 56;
 
 function starPoints(cx: number, cy: number, outer = 9, inner = 4): string {

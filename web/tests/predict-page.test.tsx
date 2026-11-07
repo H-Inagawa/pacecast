@@ -85,6 +85,8 @@ describe("予測フォーム", () => {
 
   it("距離と手動気象を設定して予測できる", async () => {
     const user = userEvent.setup();
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
     render(<PredictPage />);
     await screen.findByRole("button", { name: "予測する" });
 
@@ -108,14 +110,20 @@ describe("予測フォーム", () => {
         }),
       );
     });
-    expect(screen.getByText("5'17\"~5'41\"/km (5'29\"/km±12\"/km)")).toBeInTheDocument();
-    expect(screen.getByText("26:24~28:24 (27:24±1:00)")).toBeInTheDocument();
+    expect(screen.getByText("5'29\"/km")).toBeInTheDocument();
+    expect(screen.getByText("(5'17\" ~ 5'41\"/km)")).toBeInTheDocument();
+    expect(screen.getByText("27:24")).toBeInTheDocument();
+    expect(screen.getByText("(26:24 ~ 28:24)")).toBeInTheDocument();
     expect(screen.queryByText(/誤差\(RMSE\)/)).not.toBeInTheDocument();
     expect(screen.getByText(/関係の強さ\(R²\): 0.72/)).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "WBGT とペース" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+    expect(screen.getByRole("region", { name: "予測結果" })).toBeInTheDocument();
   });
 
-  it("予報で予測すると気象カードは指定内容のまま、結果下に現在の気象表を出す", async () => {
+  it("予報で予測すると気象カードに地点名を出し、結果下に予測時点の気象表を出す", async () => {
     mockedSend.mockResolvedValue({
       ...predictResultFixture,
       condition: {
@@ -139,17 +147,17 @@ describe("予測フォーム", () => {
     const dialog = screen.getByRole("dialog", { name: "気象の指定" });
     await user.click(within(dialog).getByLabelText("予報から選ぶ"));
     await user.click(within(dialog).getByRole("button", { name: "設定する" }));
-    expect(within(weatherCard).getByText(/（予報）/)).toBeInTheDocument();
+    expect(within(weatherCard).getByText(/（予報・練馬）/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "予測する" }));
 
-    expect(await screen.findByRole("heading", { name: "現在の気象" })).toBeInTheDocument();
-    const nowTable = screen.getByRole("heading", { name: "現在の気象" }).closest(".forecast-now-block");
+    expect(await screen.findByRole("heading", { name: "予測時点の気象" })).toBeInTheDocument();
+    const nowTable = screen.getByRole("heading", { name: "予測時点の気象" }).closest(".forecast-now-block");
     expect(nowTable).not.toBeNull();
     expect(within(nowTable as HTMLElement).getByText(/😄 93/)).toBeInTheDocument();
     expect(within(nowTable as HTMLElement).getByText(/🌤️ 晴れ/)).toBeInTheDocument();
     expect(within(nowTable as HTMLElement).getByText(/18.4℃ 快適/)).toBeInTheDocument();
     expect(within(nowTable as HTMLElement).getByText(/北 1.4m\/s/)).toBeInTheDocument();
-    expect(within(weatherCard).getByText(/（予報）/)).toBeInTheDocument();
+    expect(within(weatherCard).getByText(/（予報・練馬）/)).toBeInTheDocument();
     expect(within(weatherCard).queryByText(/走りやすさ/)).not.toBeInTheDocument();
     expect(screen.getByText("10km")).toBeInTheDocument();
   });

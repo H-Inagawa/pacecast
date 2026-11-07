@@ -39,10 +39,16 @@ function EaseCell({ hour }: { hour: RunningForecastHour }) {
   );
 }
 
-export function ForecastNowTable({ hour }: { hour: RunningForecastHour }) {
+export function ForecastNowTable({
+  hour,
+  title = "現在の気象",
+}: {
+  hour: RunningForecastHour;
+  title?: string;
+}) {
   return (
     <div className="forecast-now-block">
-      <h2 className="forecast-now-title">現在の気象</h2>
+      <h2 className="forecast-now-title">{title}</h2>
       <div className="forecast-strip-scroll">
         <table className="forecast-table forecast-now-table">
           <thead>

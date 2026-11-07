@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BackHome } from "../../components/BackHome";
 import { ForecastNowTable } from "../../components/ForecastTimeline";
 import { ModalCloseButton } from "../../components/ModalCloseButton";
@@ -15,9 +15,9 @@ import {
   defaultDateTimeLocal,
   formatDateTime,
   formatDistanceKm,
-  formatDurationRange,
+  formatDurationRangeParts,
   formatPace,
-  formatPaceRange,
+  formatPaceRangeParts,
   formatSimilarity,
   formatWeatherBrief,
 } from "../../lib/format";
@@ -77,22 +77,25 @@ function intensityLabel(key: string): string {
   return DISTANCE_INTENSITY.find((item) => item.key === key)?.label ?? key;
 }
 
-function formatForecastChoice(value: string): string {
+function formatForecastChoice(value: string, stationName: string): string {
+  const suffix = `（予報・${stationName}）`;
   const match = value.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
   if (!match) {
-    return `${value}（予報）`;
+    return `${value}${suffix}`;
   }
-  return `${Number(match[2])}/${Number(match[3])} ${Number(match[4])}:${match[5]}（予報）`;
+  return `${Number(match[2])}/${Number(match[3])} ${Number(match[4])}:${match[5]}${suffix}`;
 }
 
-function weatherSummary(saved: WeatherDraft | null): string {
+function weatherSummary(saved: WeatherDraft | null, stations: AmedasStation[]): string {
   if (!saved) {
     return "設定してください";
   }
   if (saved.mode === "manual") {
     return `気温 ${Number(saved.temperature).toFixed(1)}℃ / 湿度 ${Number(saved.humidity).toFixed(0)}%`;
   }
-  return formatForecastChoice(saved.forecastAt);
+  const stationName =
+    stations.find((station) => station.station_id === saved.stationId)?.name ?? saved.stationId;
+  return formatForecastChoice(saved.forecastAt, stationName);
 }
 
 /** 予測結果の気象を、天気予報の「現在の気象」と同じ表に載せる形へ直す。 */
@@ -144,6 +147,8 @@ export default function PredictPage() {
   const [result, setResult] = useState<PredictResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const resultRef = useRef<HTMLElement | null>(null);
+  const shouldScrollToResult = useRef(false);
 
   useEffect(() => {
     void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
@@ -153,6 +158,17 @@ export default function PredictPage() {
       },
     );
   }, []);
+
+  useEffect(() => {
+    if (!shouldScrollToResult.current || result == null) {
+      return;
+    }
+    shouldScrollToResult.current = false;
+    const node = resultRef.current;
+    if (node != null && typeof node.scrollIntoView === "function") {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [result]);
 
   const ready = savedDistance != null && savedWeather != null;
 
@@ -236,6 +252,7 @@ export default function PredictPage() {
         intensity: savedDistance.intensity,
         amedas_station_id: savedWeather.mode === "forecast" ? savedWeather.stationId : undefined,
       });
+      shouldScrollToResult.current = true;
       setResult(payload);
     } catch (err) {
       setResult(null);
@@ -243,15 +260,26 @@ export default function PredictPage() {
     }
   }
 
-  const weatherText = weatherSummary(savedWeather);
+  const weatherText = weatherSummary(savedWeather, stations);
   const distanceText = distanceSummary(savedDistance);
   const conditionHour =
     savedWeather?.mode === "forecast" && result?.condition != null
       ? conditionToForecastHour(result.condition)
       : null;
+  const paceParts = result
+    ? formatPaceRangeParts(result.predicted_pace_sec_per_km, result.rmse_sec_per_km)
+    : null;
+  const durationParts = result
+    ? formatDurationRangeParts(
+        result.predicted_duration_sec,
+        result.predicted_pace_sec_per_km > 0
+          ? result.rmse_sec_per_km * (result.predicted_duration_sec / result.predicted_pace_sec_per_km)
+          : 0,
+      )
+    : null;
 
   return (
-    <>
+    <div className="predict-page">
       <header className="page-heading">
         <h1>パフォーマンス予測</h1>
         <button type="button" className="heading-help" onClick={() => setHelpOpen(true)}>
@@ -262,47 +290,50 @@ export default function PredictPage() {
       <PredictHelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       {error ? <p className="error">{error}</p> : null}
 
-      <section className="predict-card" aria-label="気象の指定">
-        <h2>気象の指定</h2>
-        <p className={savedWeather ? "predict-card__value" : "predict-card__value is-unset"}>{weatherText}</p>
-        <button type="button" className="button" onClick={openWeather}>
-          設定する
-        </button>
-      </section>
-      <section className="predict-card" aria-label="距離/レースを指定">
-        <h2>距離/レースを指定</h2>
-        <p className={savedDistance ? "predict-card__value" : "predict-card__value is-unset"}>{distanceText}</p>
-        <button type="button" className="button" onClick={openDistance}>
-          設定する
-        </button>
-      </section>
+      <div className="predict-setup">
+        <section className="predict-card" aria-label="気象の指定">
+          <h2>気象の指定</h2>
+          <p className={savedWeather ? "predict-card__value" : "predict-card__value is-unset"}>{weatherText}</p>
+          <button type="button" className="button" onClick={openWeather}>
+            設定する
+          </button>
+        </section>
+        <section className="predict-card" aria-label="距離/レースを指定">
+          <h2>距離/レースを指定</h2>
+          <p className={savedDistance ? "predict-card__value" : "predict-card__value is-unset"}>{distanceText}</p>
+          <button type="button" className="button" onClick={openDistance}>
+            設定する
+          </button>
+        </section>
+      </div>
 
-      {result ? (
+      {result && paceParts && durationParts ? (
         <>
-          <section className="stat-grid">
+          <section
+            ref={resultRef}
+            className="stat-grid predict-result-grid"
+            aria-label="予測結果"
+          >
             <article className="card">
               <h2>予想ペース</h2>
-              <p className="stat stat-range">
-                {formatPaceRange(result.predicted_pace_sec_per_km, result.rmse_sec_per_km)}
+              <p className="stat">
+                <span className="stat__center">{paceParts.center}</span>{" "}
+                <span className="stat__band">{paceParts.band}</span>
               </p>
             </article>
             <article className="card">
               <h2>予想タイム</h2>
-              <p className="stat stat-range">
-                {formatDurationRange(
-                  result.predicted_duration_sec,
-                  result.predicted_pace_sec_per_km > 0
-                    ? result.rmse_sec_per_km * (result.predicted_duration_sec / result.predicted_pace_sec_per_km)
-                    : 0,
-                )}
+              <p className="stat">
+                <span className="stat__center">{durationParts.center}</span>{" "}
+                <span className="stat__band">{durationParts.band}</span>
               </p>
             </article>
           </section>
-          {conditionHour ? <ForecastNowTable hour={conditionHour} /> : null}
+          {conditionHour ? <ForecastNowTable hour={conditionHour} title="予測時点の気象" /> : null}
           {result.final_wbgt_effect != null && result.general_wbgt_effect != null ? (
             <div className="wbgt-effect">
+              <h2 className="wbgt-effect__title">WBGTによる補正率</h2>
               <table>
-                <caption>WBGTによる補正率</caption>
                 <thead>
                   <tr>
                     <th />
@@ -558,6 +589,6 @@ export default function PredictPage() {
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
