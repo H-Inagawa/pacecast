@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { ModalCloseButton } from "./ModalCloseButton";
+import { ModalShell } from "./ModalShell";
 
 type Props = {
   open: boolean;
@@ -9,41 +8,15 @@ type Props = {
 };
 
 export function PredictHelpModal({ open, onClose }: Props) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="modal-backdrop modal-backdrop--wide" onClick={onClose} role="presentation">
-      <div
-        className="modal-panel modal-panel--wide about-panel predict-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="predict-help-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <ModalCloseButton onClick={onClose} />
-        <h2 id="predict-help-title">予測の見方</h2>
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      titleId="predict-help-title"
+      backdropClassName="modal-backdrop modal-backdrop--wide"
+      panelClassName="modal-panel modal-panel--wide about-panel predict-modal"
+    >
+      <h2 id="predict-help-title">予測の見方</h2>
         <h3>予測の方法</h3>
         <p>
           気象が付き、推定 WBGT がある過去走を使います。心拍付きが 6 件以上あるときは、目標心拍へ補正したペースを、速い走・直近・予測
@@ -74,7 +47,6 @@ export function PredictHelpModal({ open, onClose }: Props) {
           下のグラフの線は、今回当てはめた式です。点は過去走、星は今回の予想です。WBGT
           のグラフは補正後のペースで、予測する WBGT と最適 WBGT の前後まで出します。心拍のグラフには、速度と心拍の式を載せます。分析画面の散布図とは役割が違います。
         </p>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

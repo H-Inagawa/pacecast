@@ -1,4 +1,4 @@
-import { SCORE_PART_MAX } from "../lib/courses";
+import { SCORE_PART_MAX } from "./courses";
 
 export type CourseScoreParts = {
   distance: number;

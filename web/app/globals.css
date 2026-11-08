@@ -464,13 +464,6 @@ button.drawer-logout:hover {
 
 .lede, .meta, .empty { color: var(--muted); }
 
-.back-link {
-  display: inline-block;
-  margin-bottom: 1rem;
-  color: var(--muted);
-  text-decoration: none;
-}
-
 .sticky-actions {
   position: fixed;
   left: 0;
@@ -1268,7 +1261,7 @@ form.run-form .actions button {
 .month-block { margin: 1.6rem 0 2rem; }
 .month-block h2 { margin-bottom: 0.2rem; }
 
-.card, .panel, .mode-card {
+.card, .mode-card {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 1rem;

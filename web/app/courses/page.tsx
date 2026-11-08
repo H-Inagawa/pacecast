@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BackHome } from "../../components/BackHome";
-import { type CourseDetail } from "../../components/CourseDetailModal";
+import { type CourseDetail } from "../../lib/courseScore";
 import { CourseScoreTable } from "../../components/CourseScoreTable";
 import { CourseMap } from "../../components/CourseMap";
 import { CourseMethodModal } from "../../components/CourseMethodModal";
 import { StickyActions } from "../../components/StickyActions";
 import { apiPostCourses } from "../../lib/api";
+import { errorMessage } from "../../lib/errors";
 import { readGeolocationError, requestCurrentPosition } from "../../lib/geolocation";
 import { beginLoading, endLoading, setLoadingMessage } from "../../lib/loading";
 import { COURSE_LOCATE_LOADING_MESSAGE } from "../../lib/loading-messages";
@@ -63,7 +64,7 @@ export default function CoursesPage() {
       endLoading();
       setPlaceNote("現在地を使えないので、地図をタップしてください");
       scrollTarget.current = "heading";
-      setError(err instanceof Error ? err.message : readGeolocationError(err));
+      setError(errorMessage(err, readGeolocationError(err)));
     }
   }, []);
 
@@ -124,7 +125,7 @@ export default function CoursesPage() {
       scrollTarget.current = payload.notice ? "heading" : "map";
     } catch (err) {
       scrollTarget.current = "heading";
-      setError(err instanceof Error ? err.message : "コースを作れませんでした");
+      setError(errorMessage(err, "コースを作れませんでした"));
     }
   }
 
@@ -190,7 +191,7 @@ export default function CoursesPage() {
         <button type="button" className="button action-lg" disabled={!ready} onClick={() => void onSubmit()}>
           コースを作る
         </button>
-        <BackHome variant="button" />
+        <BackHome />
       </StickyActions>
     </div>
   );

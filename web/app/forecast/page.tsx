@@ -8,14 +8,16 @@ import { RunnabilityModal } from "../../components/RunnabilityModal";
 import { StationPicker } from "../../components/StationPicker";
 import { StickyActions } from "../../components/StickyActions";
 import { apiGet } from "../../lib/api";
+import { errorMessage } from "../../lib/errors";
 import {
   loadForecastColumns,
   saveForecastColumns,
   DEFAULT_FORECAST_COLUMNS,
   type ForecastColumnVisibility,
 } from "../../lib/forecastColumns";
+import { fetchProfileAndStations } from "../../lib/profileStations";
 import { pickCurrentForecastHour } from "../../lib/runningForecast";
-import type { AmedasStation, Profile, RunningForecast } from "../../lib/types";
+import type { AmedasStation, RunningForecast } from "../../lib/types";
 
 export default function ForecastPage() {
   const [stations, setStations] = useState<AmedasStation[]>([]);
@@ -29,12 +31,10 @@ export default function ForecastPage() {
 
   useEffect(() => {
     setColumns(loadForecastColumns());
-    void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
-      ([profile, amedasStations]) => {
-        setStations(amedasStations);
-        setStationId(profile.amedas_station_id || "44132");
-      },
-    );
+    void fetchProfileAndStations().then(([profile, amedasStations]) => {
+      setStations(amedasStations);
+      setStationId(profile.amedas_station_id || "44132");
+    });
   }, []);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function ForecastPage() {
       })
       .catch((err) => {
         setForecast(null);
-        setError(err instanceof Error ? err.message : "読み込みに失敗しました");
+        setError(errorMessage(err, "読み込みに失敗しました"));
       })
       .finally(() => {
         setLoaded(true);
@@ -91,7 +91,7 @@ export default function ForecastPage() {
         </button>
       </div>
       <StickyActions>
-        <BackHome variant="button" />
+        <BackHome />
       </StickyActions>
       <ForecastColumnsModal
         open={columnsOpen}

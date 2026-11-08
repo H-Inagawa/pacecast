@@ -2,9 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { AUTH_PAGES } from "../lib/auth-pages";
-
-const OPEN_PATHS = new Set<string>([...AUTH_PAGES, "/settings"]);
+import { ONBOARDING_OPEN_PATHS } from "../lib/auth-pages";
 
 type MeResponse = {
   authenticated?: boolean;
@@ -23,7 +21,7 @@ export function AppChrome({
   const pathname = usePathname() || "/";
 
   useEffect(() => {
-    if (OPEN_PATHS.has(pathname)) {
+    if (ONBOARDING_OPEN_PATHS.has(pathname)) {
       return;
     }
     let cancelled = false;

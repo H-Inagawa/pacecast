@@ -4,15 +4,17 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { BackHome } from "../../components/BackHome";
-import { HelpTip } from "../../components/WeatherDistanceHelp";
-import { ModalCloseButton } from "../../components/ModalCloseButton";
+import { HelpTip } from "../../components/HelpTip";
+import { ModalShell } from "../../components/ModalShell";
 import { StickyActions } from "../../components/StickyActions";
-import { apiGet, apiSend } from "../../lib/api";
-import { ageFromBirthday, emptyHrs, maxHrFromAge, suggestedHrs } from "../../lib/heartRate";
 import { StationPicker } from "../../components/StationPicker";
+import { apiSend } from "../../lib/api";
+import { errorMessage } from "../../lib/errors";
+import { ageFromBirthday, emptyHrs, maxHrFromAge, suggestedHrs } from "../../lib/heartRate";
 import { PERSONAL_PRIOR_K, normalizePersonalPriorK } from "../../lib/personalPredict";
+import { fetchProfileAndStations } from "../../lib/profileStations";
 import { normalizeRunStationInit, type RunStationInit } from "../../lib/run-station-init";
-import type { AmedasStation, IntensityHrs, Profile } from "../../lib/types";
+import type { AmedasStation, IntensityHrs } from "../../lib/types";
 import { normalizeRowColorMode, type RowColorMode } from "../../lib/weatherZone";
 
 type AdvancedDraft = {
@@ -66,8 +68,7 @@ export default function SettingsPage() {
   const [onboarding, setOnboarding] = useState(false);
 
   useEffect(() => {
-    void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
-      ([profile, amedasStations]) => {
+    void fetchProfileAndStations().then(([profile, amedasStations]) => {
         setName(profile.display_name ?? "");
         setBirthday(profile.birthday ?? "");
         setOriginalBirthday(profile.birthday ?? "");
@@ -80,10 +81,9 @@ export default function SettingsPage() {
         setStationId(profile.amedas_station_id);
         setRunStationInit(normalizeRunStationInit(profile.run_station_init));
         setStations(amedasStations);
-        setOnboarding(!profile.onboarding_complete);
-        setLoaded(true);
-      },
-    );
+      setOnboarding(!profile.onboarding_complete);
+      setLoaded(true);
+    });
   }, []);
 
   function setDraftHr(key: keyof IntensityHrs, value: string) {
@@ -169,7 +169,7 @@ export default function SettingsPage() {
       setNotice("設定を保存しました");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存に失敗しました");
+      setError(errorMessage(err, "保存に失敗しました"));
     }
   }
 
@@ -198,20 +198,6 @@ export default function SettingsPage() {
       priorK: String(PERSONAL_PRIOR_K),
     });
   }
-
-  useEffect(() => {
-    if (!advancedOpen) {
-      return;
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setDraft(null);
-        setAdvancedOpen(false);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [advancedOpen]);
 
   return (
     <div className="settings-page">
@@ -315,15 +301,13 @@ export default function SettingsPage() {
           </button>
           {advancedOpen && draft
             ? createPortal(
-            <div className="modal-backdrop settings-backdrop" onClick={discardAdvanced} role="presentation">
-              <div
-                className="modal-panel settings-modal"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="advanced-settings-title"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <ModalCloseButton onClick={discardAdvanced} />
+            <ModalShell
+              open={advancedOpen}
+              onClose={discardAdvanced}
+              titleId="advanced-settings-title"
+              backdropClassName="modal-backdrop settings-backdrop"
+              panelClassName="modal-panel settings-modal"
+            >
                 <h2 id="advanced-settings-title">高度な設定</h2>
                 <div className="stack settings-modal__body">
                   <section className="settings-modal__section" aria-labelledby="advanced-max-hr">
@@ -436,8 +420,7 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>,
+            </ModalShell>,
             document.body,
           )
             : null}
@@ -449,7 +432,7 @@ export default function SettingsPage() {
         <button type="submit" className="button action-lg" form="settings-form" disabled={!loaded}>
           {onboarding ? "保存して始める" : "保存"}
         </button>
-        {onboarding ? null : <BackHome variant="button" />}
+        {onboarding ? null : <BackHome />}
       </StickyActions>
     </div>
   );

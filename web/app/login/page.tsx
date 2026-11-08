@@ -2,9 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { AuthPageLayout } from "../../components/AuthPageLayout";
 import { PasswordField } from "../../components/PasswordField";
 import { apiSend } from "../../lib/api";
 import type { AuthUser } from "../../lib/auth";
+import { pathAfterAuth } from "../../lib/auth-redirect";
+import { errorMessage } from "../../lib/errors";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,16 +19,14 @@ export default function LoginPage() {
     setError("");
     try {
       const user = await apiSend<AuthUser>("/api/auth/login", "POST", { email, password });
-      window.location.assign(user.onboarding_complete === false ? "/settings" : "/");
+      window.location.assign(pathAfterAuth(user));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "ログインできませんでした");
+      setError(errorMessage(err, "ログインできませんでした"));
     }
   }
 
   return (
-    <section className="auth-page">
-      <h1>ログイン</h1>
-      {error ? <p className="error">{error}</p> : null}
+    <AuthPageLayout title="ログイン" error={error}>
       <form className="stack" onSubmit={onSubmit}>
         <label>
           メールアドレス
@@ -56,6 +57,6 @@ export default function LoginPage() {
       <p>
         パスワードを忘れた方は <Link href="/forgot-password">再設定</Link>
       </p>
-    </section>
+    </AuthPageLayout>
   );
 }

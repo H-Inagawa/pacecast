@@ -8,7 +8,7 @@ import {
   courseScoreRows,
   formatScorePoint,
   type CourseDetail,
-} from "./CourseDetailModal";
+} from "../lib/courseScore";
 import { CourseScoreGuideModal } from "./CourseScoreGuideModal";
 
 type Props = {

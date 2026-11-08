@@ -3,9 +3,11 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AuthPageLayout } from "../../components/AuthPageLayout";
 import { PasswordField } from "../../components/PasswordField";
 import { apiSend } from "../../lib/api";
 import type { RegisterResult } from "../../lib/auth";
+import { errorMessage } from "../../lib/errors";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -26,15 +28,16 @@ export default function RegisterPage() {
       setResult(payload);
       router.replace("/register?sent=1");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "登録できませんでした");
+      setError(errorMessage(err, "登録できませんでした"));
     }
   }
 
   return (
-    <section className="auth-page">
-      <h1>新規登録</h1>
-      <p className="lede">入力したメールアドレスに確認用のリンクを送ります。</p>
-      {error ? <p className="error">{error}</p> : null}
+    <AuthPageLayout
+      title="新規登録"
+      lede="入力したメールアドレスに確認用のリンクを送ります。"
+      error={error}
+    >
       {result ? (
         <div className="notice">
           <p>{result.message}</p>
@@ -74,6 +77,6 @@ export default function RegisterPage() {
       <p>
         すでにアカウントがある方は <Link href="/login">ログイン</Link>
       </p>
-    </section>
+    </AuthPageLayout>
   );
 }

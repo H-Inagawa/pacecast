@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { ModalCloseButton } from "./ModalCloseButton";
+import { ModalShell } from "./ModalShell";
 import { RunForm } from "./RunForm";
 
 type Props = {
@@ -12,53 +11,26 @@ type Props = {
 };
 
 export function RunFormModal({ open, runId, onClose, onSaved }: Props) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
-
   const title = runId ? "記録を編集" : "記録を追加";
 
   return (
-    <div className="modal-backdrop modal-backdrop--wide" onClick={onClose} role="presentation">
-      <div
-        className="modal-panel modal-panel--wide modal-panel--compact"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="run-form-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <ModalCloseButton onClick={onClose} />
-        <RunForm
-          key={runId ?? "new"}
-          title={title}
-          runId={runId}
-          onCancel={onClose}
-          onSuccess={() => {
-            onClose();
-            onSaved?.();
-          }}
-        />
-      </div>
-    </div>
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      titleId="run-form-title"
+      backdropClassName="modal-backdrop modal-backdrop--wide"
+      panelClassName="modal-panel modal-panel--wide modal-panel--compact"
+    >
+      <RunForm
+        key={runId ?? "new"}
+        title={title}
+        runId={runId}
+        onCancel={onClose}
+        onSuccess={() => {
+          onClose();
+          onSaved?.();
+        }}
+      />
+    </ModalShell>
   );
 }

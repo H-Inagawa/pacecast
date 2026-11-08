@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { ModalCloseButton } from "./ModalCloseButton";
+import { ModalShell } from "./ModalShell";
 
 type Props = {
   open: boolean;
@@ -52,34 +51,15 @@ const SCORE_GUIDE_ROWS = [
 ] as const;
 
 export function CourseScoreGuideModal({ open, onClose }: Props) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose, open]);
-
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="modal-backdrop course-guide-backdrop" onClick={onClose} role="presentation">
-      <div
-        className="modal-panel about-panel modal-panel--course"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="course-score-guide-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <ModalCloseButton onClick={onClose} />
-        <h2 id="course-score-guide-title">採点基準</h2>
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      titleId="course-score-guide-title"
+      backdropClassName="modal-backdrop course-guide-backdrop"
+      panelClassName="modal-panel about-panel modal-panel--course"
+    >
+      <h2 id="course-score-guide-title">採点基準</h2>
         <p>
           画面のおすすめ度は、スコア（素点の合計）から★5〜★1で出します（80以上★5、70以上★4、60以上★3、50以上★2、50未満★1）。各項目のカッコ内は取得点と満点です（例:
           15.5 / 20点）。表示順は点数の高いコースからです。
@@ -106,7 +86,6 @@ export function CourseScoreGuideModal({ open, onClose }: Props) {
           </table>
         </div>
         <p>交差点、上り、下り、時計回り、Uターンは点数に入れません。</p>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { HelpTip, WBGT_HELP_TEXT } from "../../components/WeatherDistanceHelp";
+import { HelpTip, WBGT_HELP_TEXT } from "../../components/HelpTip";
 import { BackHome } from "../../components/BackHome";
 import { RunColumnsModal } from "../../components/RunColumnsModal";
 import { RunFormModal } from "../../components/RunFormModal";
@@ -27,7 +27,8 @@ import {
 } from "../../lib/format";
 import { runRowClass, type WbgtZone } from "../../lib/weatherZone";
 import type { Run } from "../../lib/types";
-import { ModalCloseButton } from "../../components/ModalCloseButton";
+import { ModalShell } from "../../components/ModalShell";
+import { errorMessage } from "../../lib/errors";
 
 type Props = {
   initialEditId?: number;
@@ -64,7 +65,7 @@ export function RunsView({ initialEditId }: Props) {
     try {
       setRuns(await apiGet<Run[]>("/api/runs"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "読み込みに失敗しました");
+      setError(errorMessage(err, "読み込みに失敗しました"));
     } finally {
       setLoaded(true);
     }
@@ -98,7 +99,7 @@ export function RunsView({ initialEditId }: Props) {
       setDeleteId(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "削除に失敗しました");
+      setError(errorMessage(err, "削除に失敗しました"));
       setDeleteId(null);
     }
   }
@@ -225,7 +226,7 @@ export function RunsView({ initialEditId }: Props) {
           <button type="button" className="button action-lg" onClick={() => setFormRunId(null)}>
             記録を追加
           </button>
-          <BackHome variant="button" />
+          <BackHome />
         </StickyActions>
       )}
       <RunColumnsModal
@@ -241,28 +242,24 @@ export function RunsView({ initialEditId }: Props) {
         onSaved={() => void load()}
       />
       {deleteId != null ? (
-        <div className="modal-backdrop" onClick={() => setDeleteId(null)} role="presentation">
-          <div
-            className="modal-panel delete-confirm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-run-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <ModalCloseButton onClick={() => setDeleteId(null)} />
-            <p id="delete-run-title" className="delete-confirm__title">
-              記録を削除してよろしいですか？
-            </p>
-            <div className="delete-confirm__actions">
-              <button type="button" className="button danger" onClick={() => void confirmRemove()}>
-                削除
-              </button>
-              <button type="button" className="button ghost" onClick={() => setDeleteId(null)}>
-                キャンセル
-              </button>
-            </div>
+        <ModalShell
+          open
+          onClose={() => setDeleteId(null)}
+          titleId="delete-run-title"
+          panelClassName="modal-panel delete-confirm"
+        >
+          <p id="delete-run-title" className="delete-confirm__title">
+            記録を削除してよろしいですか？
+          </p>
+          <div className="delete-confirm__actions">
+            <button type="button" className="button danger" onClick={() => void confirmRemove()}>
+              削除
+            </button>
+            <button type="button" className="button ghost" onClick={() => setDeleteId(null)}>
+              キャンセル
+            </button>
           </div>
-        </div>
+        </ModalShell>
       ) : null}
     </div>
   );

@@ -1,21 +1,10 @@
 import Link from "next/link";
 
-type Props = {
-  variant?: "link" | "button";
-};
-
-export function BackHome({ variant = "link" }: Props) {
-  if (variant === "button") {
-    return (
-      <Link className="button home-back" href="/">
-        ホームへ戻る
-      </Link>
-    );
-  }
-
+/** 下部バー用の「ホームへ戻る」ボタン。 */
+export function BackHome() {
   return (
-    <Link className="back-link" href="/">
-      ← ホームへ戻る
+    <Link className="button home-back" href="/">
+      ホームへ戻る
     </Link>
   );
 }

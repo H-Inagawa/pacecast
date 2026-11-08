@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { HelpTip } from "./WeatherDistanceHelp";
+import { HelpTip } from "./HelpTip";
 import { prefectureFromStationId, prefecturesInStations } from "../lib/amedas-prefecture";
 import { canUseGeolocation, geolocationUnavailableReason, requestCurrentPosition } from "../lib/geolocation";
 import { nearestStation } from "../lib/nearest-station";

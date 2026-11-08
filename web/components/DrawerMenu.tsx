@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useModalLock } from "../hooks/useModalLock";
 import { apiSend } from "../lib/api";
 import { NAV_ITEMS, isCurrentPath } from "../lib/nav";
 
@@ -14,25 +15,7 @@ export function DrawerMenu({ lockNav = false }: Props) {
   const pathname = usePathname() || "/";
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useModalLock(open, () => setOpen(false));
 
   useEffect(() => {
     setOpen(false);

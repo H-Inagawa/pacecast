@@ -3,13 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { BackHome } from "../../components/BackHome";
 import { ForecastNowTable } from "../../components/ForecastTimeline";
-import { ModalCloseButton } from "../../components/ModalCloseButton";
+import { ModalShell } from "../../components/ModalShell";
 import { PredictHelpModal } from "../../components/PredictHelpModal";
 import { RelationChart } from "../../components/RelationChart";
 import { StationPicker } from "../../components/StationPicker";
 import { StickyActions } from "../../components/StickyActions";
-import { HelpTip } from "../../components/WeatherDistanceHelp";
-import { apiGet, apiSend } from "../../lib/api";
+import { HelpTip } from "../../components/HelpTip";
+import { apiSend } from "../../lib/api";
+import { errorMessage } from "../../lib/errors";
+import { fetchProfileAndStations } from "../../lib/profileStations";
 import {
   confidenceLabel,
   defaultDateTimeLocal,
@@ -151,12 +153,10 @@ export default function PredictPage() {
   const shouldScrollToResult = useRef(false);
 
   useEffect(() => {
-    void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
-      ([nextProfile, amedasStations]) => {
-        setProfile(nextProfile);
-        setStations(amedasStations);
-      },
-    );
+    void fetchProfileAndStations().then(([nextProfile, amedasStations]) => {
+      setProfile(nextProfile);
+      setStations(amedasStations);
+    });
   }, []);
 
   useEffect(() => {
@@ -256,7 +256,7 @@ export default function PredictPage() {
       setResult(payload);
     } catch (err) {
       setResult(null);
-      setError(err instanceof Error ? err.message : "予測に失敗しました");
+      setError(errorMessage(err, "予測に失敗しました"));
     }
   }
 
@@ -419,19 +419,17 @@ export default function PredictPage() {
         <button type="button" className="button action-lg" disabled={!ready} onClick={() => void onSubmit()}>
           予測する
         </button>
-        <BackHome variant="button" />
+        <BackHome />
       </StickyActions>
 
       {weatherDraft ? (
-        <div className="modal-backdrop modal-backdrop--wide" onClick={() => setWeatherDraft(null)} role="presentation">
-          <div
-            className="modal-panel modal-panel--wide predict-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="weather-setting-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <ModalCloseButton onClick={() => setWeatherDraft(null)} />
+        <ModalShell
+          open
+          onClose={() => setWeatherDraft(null)}
+          titleId="weather-setting-title"
+          backdropClassName="modal-backdrop modal-backdrop--wide"
+          panelClassName="modal-panel modal-panel--wide predict-modal"
+        >
             <h2 id="weather-setting-title">気象の指定</h2>
             <div className="predict-modal-form">
               <label className="choice">
@@ -502,20 +500,17 @@ export default function PredictPage() {
                 設定する
               </button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       ) : null}
 
       {distanceDraft ? (
-        <div className="modal-backdrop modal-backdrop--wide" onClick={() => setDistanceDraft(null)} role="presentation">
-          <div
-            className="modal-panel modal-panel--wide predict-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="distance-setting-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <ModalCloseButton onClick={() => setDistanceDraft(null)} />
+        <ModalShell
+          open
+          onClose={() => setDistanceDraft(null)}
+          titleId="distance-setting-title"
+          backdropClassName="modal-backdrop modal-backdrop--wide"
+          panelClassName="modal-panel modal-panel--wide predict-modal"
+        >
             <h2 id="distance-setting-title">距離/レースを指定</h2>
             <div className="predict-modal-form">
               <label className="choice">
@@ -586,8 +581,7 @@ export default function PredictPage() {
                 設定する
               </button>
             </div>
-          </div>
-        </div>
+        </ModalShell>
       ) : null}
     </div>
   );

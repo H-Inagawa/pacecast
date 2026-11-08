@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { ModalCloseButton } from "./ModalCloseButton";
+import { ModalShell } from "./ModalShell";
 
 type Props = {
   open: boolean;
@@ -9,41 +8,14 @@ type Props = {
 };
 
 export function RunnabilityModal({ open, onClose }: Props) {
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
-
   return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
-      <div
-        className="modal-panel modal-panel--forecast-help"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="runnability-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <ModalCloseButton onClick={onClose} />
-        <h2 id="runnability-title">走りやすさ</h2>
+    <ModalShell
+      open={open}
+      onClose={onClose}
+      titleId="runnability-title"
+      panelClassName="modal-panel modal-panel--forecast-help"
+    >
+      <h2 id="runnability-title">走りやすさ</h2>
         <p>
           100点満点で、走りやすさを採点します。
           <br />
@@ -154,7 +126,6 @@ export function RunnabilityModal({ open, onClose }: Props) {
             </tr>
           </tbody>
         </table>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

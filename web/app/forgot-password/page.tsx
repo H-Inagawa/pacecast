@@ -3,8 +3,10 @@
 import { FormEvent, Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { AuthPageLayout, AuthPageSuspenseFallback } from "../../components/AuthPageLayout";
 import { apiSend } from "../../lib/api";
 import { PASSWORD_RESET_INVALID_MESSAGE, type ForgotPasswordResult } from "../../lib/auth";
+import { errorMessage } from "../../lib/errors";
 
 function ForgotPasswordForm() {
   const searchParams = useSearchParams();
@@ -21,16 +23,16 @@ function ForgotPasswordForm() {
       const payload = await apiSend<ForgotPasswordResult>("/api/auth/forgot-password", "POST", { email });
       setResult(payload);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "再設定を依頼できませんでした");
+      setError(errorMessage(err, "再設定を依頼できませんでした"));
     }
   }
 
   return (
-    <section className="auth-page">
-      <h1>パスワード再設定</h1>
-      <p className="lede">登録したメールアドレスに、再設定用のリンクを送ります。</p>
-      {!result && linkInvalid ? <p className="error">{PASSWORD_RESET_INVALID_MESSAGE}</p> : null}
-      {error ? <p className="error">{error}</p> : null}
+    <AuthPageLayout
+      title="パスワード再設定"
+      lede="登録したメールアドレスに、再設定用のリンクを送ります。"
+      error={error || (!result && linkInvalid ? PASSWORD_RESET_INVALID_MESSAGE : "")}
+    >
       {result ? (
         <div className="notice">
           <p>{result.message}</p>
@@ -56,13 +58,13 @@ function ForgotPasswordForm() {
       <p>
         <Link href="/login">ログインへ戻る</Link>
       </p>
-    </section>
+    </AuthPageLayout>
   );
 }
 
 export default function ForgotPasswordPage() {
   return (
-    <Suspense fallback={<section className="auth-page">読み込み中...</section>}>
+    <Suspense fallback={<AuthPageSuspenseFallback />}>
       <ForgotPasswordForm />
     </Suspense>
   );

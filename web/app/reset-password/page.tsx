@@ -3,9 +3,12 @@
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AuthPageLayout, AuthPageSuspenseFallback } from "../../components/AuthPageLayout";
 import { PasswordField } from "../../components/PasswordField";
 import { apiGet, apiSend } from "../../lib/api";
 import type { AuthUser } from "../../lib/auth";
+import { pathAfterAuth } from "../../lib/auth-redirect";
+import { errorMessage } from "../../lib/errors";
 
 const INVALID_RESET_PATH = "/forgot-password?invalid=1";
 
@@ -44,9 +47,9 @@ function ResetPasswordForm() {
     setError("");
     try {
       const user = await apiSend<AuthUser>("/api/auth/reset-password", "POST", { token, password });
-      window.location.assign(user.onboarding_complete === false ? "/settings" : "/");
+      window.location.assign(pathAfterAuth(user));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "パスワードを変更できませんでした";
+      const message = errorMessage(err, "パスワードを変更できませんでした");
       if (message.includes("再設定リンクが無効") || message.includes("期限が切れ")) {
         router.replace(INVALID_RESET_PATH);
         return;
@@ -60,10 +63,11 @@ function ResetPasswordForm() {
   }
 
   return (
-    <section className="auth-page">
-      <h1>新しいパスワード</h1>
-      <p className="lede">8文字以上の新しいパスワードを入力してください。</p>
-      {error ? <p className="error">{error}</p> : null}
+    <AuthPageLayout
+      title="新しいパスワード"
+      lede="8文字以上の新しいパスワードを入力してください。"
+      error={error}
+    >
       <form className="stack" onSubmit={onSubmit}>
         <PasswordField
           label="新しいパスワード（8文字以上）"
@@ -81,13 +85,13 @@ function ResetPasswordForm() {
       <p>
         リンクが使えないときは <Link href="/forgot-password">再設定をやり直す</Link>
       </p>
-    </section>
+    </AuthPageLayout>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<section className="auth-page">読み込み中...</section>}>
+    <Suspense fallback={<AuthPageSuspenseFallback />}>
       <ResetPasswordForm />
     </Suspense>
   );

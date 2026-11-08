@@ -47,7 +47,7 @@ describe("course search stream", () => {
     ).rejects.toThrow("混んでいます");
   });
 
-  it("stage が無い進捗は map として扱う", async () => {
+  it("stage が無い進捗は major として扱う", async () => {
     const seen: string[] = [];
     await readCourseSearchEvents(
       streamFrom(
@@ -58,6 +58,6 @@ describe("course search stream", () => {
       ),
       (_percent, _passed, stage) => seen.push(stage),
     );
-    expect(seen).toEqual(["map"]);
+    expect(seen).toEqual(["major"]);
   });
 });

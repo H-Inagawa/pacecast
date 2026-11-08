@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { DurationFields } from "./DurationFields";
 import { StationPicker } from "./StationPicker";
 import { apiGet, apiSend } from "../lib/api";
+import { errorMessage } from "../lib/errors";
+import { fetchProfileAndStations } from "../lib/profileStations";
 import { defaultDateTimeLocal, toDateTimeLocalInput } from "../lib/format";
 import { initialRunStationId } from "../lib/run-station-init";
-import type { AmedasStation, Profile, Run } from "../lib/types";
+import type { AmedasStation, Run } from "../lib/types";
 
 type Props = {
   title: string;
@@ -43,28 +45,26 @@ export function RunForm({ title, runId, onCancel, onSuccess }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([apiGet<Profile>("/api/profile"), apiGet<AmedasStation[]>("/api/amedas/stations")]).then(
-      async ([profile, amedasStations]) => {
-        if (cancelled) {
-          return;
-        }
-        setStations(amedasStations);
-        if (runId) {
-          return;
-        }
-        const profileStation = profile.amedas_station_id || "44132";
-        setStationId(profileStation);
-        const next = await initialRunStationId({
-          mode: profile.run_station_init,
-          profileStationId: profileStation,
-          stations: amedasStations,
-        });
-        if (cancelled) {
-          return;
-        }
-        setStationId((current) => (current === profileStation ? next : current));
-      },
-    );
+    void fetchProfileAndStations().then(async ([profile, amedasStations]) => {
+      if (cancelled) {
+        return;
+      }
+      setStations(amedasStations);
+      if (runId) {
+        return;
+      }
+      const profileStation = profile.amedas_station_id || "44132";
+      setStationId(profileStation);
+      const next = await initialRunStationId({
+        mode: profile.run_station_init,
+        profileStationId: profileStation,
+        stations: amedasStations,
+      });
+      if (cancelled) {
+        return;
+      }
+      setStationId((current) => (current === profileStation ? next : current));
+    });
     return () => {
       cancelled = true;
     };
@@ -109,7 +109,7 @@ export function RunForm({ title, runId, onCancel, onSuccess }: Props) {
       }
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存に失敗しました");
+      setError(errorMessage(err, "保存に失敗しました"));
     }
   }
 
