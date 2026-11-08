@@ -36,7 +36,7 @@ export function PredictHelpModal({ open, onClose }: Props) {
   return (
     <div className="modal-backdrop modal-backdrop--wide" onClick={onClose} role="presentation">
       <div
-        className="modal-panel modal-panel--wide about-panel"
+        className="modal-panel modal-panel--wide about-panel predict-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="predict-help-title"

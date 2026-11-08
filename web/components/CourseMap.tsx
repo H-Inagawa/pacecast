@@ -68,6 +68,26 @@ export function CourseMap({ start, courses, hintRoads = [], selectedId, onPick, 
   }, []);
 
   useEffect(() => {
+    const element = host.current;
+    if (!ready || element == null) {
+      return;
+    }
+    const resize = () => {
+      mapRef.current?.invalidateSize();
+    };
+    resize();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", resize);
+      return () => window.removeEventListener("resize", resize);
+    }
+    const observer = new ResizeObserver(() => {
+      resize();
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ready]);
+
+  useEffect(() => {
     const map = mapRef.current;
     const layers = layersRef.current;
     if (!ready || map == null || layers == null) {

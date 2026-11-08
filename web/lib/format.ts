@@ -14,34 +14,70 @@ function paceClock(secPerKm: number): string {
   return `${minutes}'${String(seconds).padStart(2, "0")}"`;
 }
 
-function formatRmsePace(secPerKm: number): string {
-  const total = Math.max(0, Math.round(secPerKm));
-  if (total < 60) {
-    return `${total}"/km`;
-  }
-  return formatPace(total);
-}
-
 /**
- * 予想ペースを、中心と RMSE の幅で表す。
+ * 予想ペースの中心値と RMSE 幅を分ける。
+ *
+ * @param paceSecPerKm 中心のペース（秒/km）
+ * @param rmseSecPerKm RMSE（秒/km）
+ * @returns 中心（大きく出す）とカッコ内の幅
  */
-export function formatPaceRange(paceSecPerKm: number, rmseSecPerKm: number): string {
+export function formatPaceRangeParts(
+  paceSecPerKm: number,
+  rmseSecPerKm: number,
+): { center: string; band: string } {
   const center = Math.max(0, Math.round(paceSecPerKm));
   const error = Math.max(0, Math.round(rmseSecPerKm));
   const low = Math.max(0, center - error);
   const high = center + error;
-  return `${paceClock(low)}~${paceClock(high)}/km (${formatPace(center)}±${formatRmsePace(error)})`;
+  return {
+    center: formatPace(center),
+    band: `(${paceClock(low)} ~ ${paceClock(high)}/km)`,
+  };
 }
 
 /**
- * 予想タイムを、中心と誤差の幅で表す。
+ * 予想ペースを、中心と RMSE の幅で表す。
+ *
+ * @param paceSecPerKm 中心のペース（秒/km）
+ * @param rmseSecPerKm RMSE（秒/km）
+ * @returns `5'30"/km (5'00" ~ 6'00"/km)` 形式
  */
-export function formatDurationRange(durationSec: number, errorSec: number): string {
+export function formatPaceRange(paceSecPerKm: number, rmseSecPerKm: number): string {
+  const { center, band } = formatPaceRangeParts(paceSecPerKm, rmseSecPerKm);
+  return `${center} ${band}`;
+}
+
+/**
+ * 予想タイムの中心値と誤差幅を分ける。
+ *
+ * @param durationSec 中心のタイム（秒）
+ * @param errorSec 誤差（秒）
+ * @returns 中心（大きく出す）とカッコ内の幅
+ */
+export function formatDurationRangeParts(
+  durationSec: number,
+  errorSec: number,
+): { center: string; band: string } {
   const center = Math.max(0, Math.round(durationSec));
   const error = Math.max(0, Math.round(errorSec));
   const low = Math.max(0, center - error);
   const high = center + error;
-  return `${formatDuration(low)}~${formatDuration(high)} (${formatDuration(center)}±${formatDuration(error)})`;
+  return {
+    center: formatDuration(center),
+    band: `(${formatDuration(low)} ~ ${formatDuration(high)})`,
+  };
+}
+
+/**
+ * 予想タイムを、中心と誤差の幅で表す。
+ *
+ * @param durationSec 中心のタイム（秒）
+ * @param errorSec 誤差（秒）
+ * @returns `55:00 (50:00 ~ 1:00:00)` 形式
+ */
+export function formatDurationRange(durationSec: number, errorSec: number): string {
+  const { center, band } = formatDurationRangeParts(durationSec, errorSec);
+  return `${center} ${band}`;
 }
 
 /**

@@ -26,7 +26,7 @@ MVP は FastAPI が Jinja2 で HTML を返し、画面と業務ロジックが�
 - `GET /api/forecast?station_id=`
 - `POST /api/predict`
 
-認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` `/forgot-password` `/reset-password` 以外は未ログインならログインへ戻す。`GET /api/auth/me` は `email` / `display_name` / `needs_settings` を返す。ログイン中でユーザー名が空なら設定未完了として `/settings` へ戻す（クライアントは `window.location.replace`）。設定の保存ではユーザー名・アメダス地点・誕生日を必須にする。ヘッダに登録の3段階を出す。走行・設定・予測はそのセッションのユーザーだけを対象にする。確認メールとパスワード再設定メールは Next.js が `smtp.gmail.com` へ送る。SMTP 未設定なら登録 API が `verification_url`、再設定 API が `reset_url` を返し、画面にリンクを出す。未登録メールへの再設定依頼は、登録済みと同じ案内にする。
+認証以外の `/api/*` はログイン必須。セッションは httpOnly Cookie（`pacecast_session`）。画面の `/login` `/register` `/verify` `/forgot-password` `/reset-password` 以外は未ログインならログインへ戻す。`GET /api/auth/me` は `email` / `display_name` / `needs_settings` を返す。ログイン中でユーザー名が空なら設定未完了として `/settings` へ戻す（クライアントは `window.location.replace`）。設定の保存ではユーザー名・アメダス地点・誕生日を必須にする。ヘッダに登録の3段階を出す。走行・設定・予測はそのセッションのユーザーだけを対象にする。確認メールとパスワード再設定メールは Next.js が `smtp.gmail.com` へ送る。SMTP 未設定なら登録 API が `verification_url` を返し、画面に確認リンクを出す。再設定リンクは画面に出さず、サーバのログに出す。未登録メールへの再設定依頼も、登録済みと同じ「入力したメールアドレスに再設定用のリンクを送りました。」にする。リンクが無効または期限切れのときは、パスワード入力へ進まず依頼画面で送り直す。
 
 走行時間は DB 上は従来どおり `duration_sec`。API の入出力は時・分・秒に分解し、既存記録と互換を保つ。
 

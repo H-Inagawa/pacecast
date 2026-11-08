@@ -471,6 +471,30 @@ export async function sendPasswordResetEmail(toEmail: string, url: string): Prom
   return true;
 }
 
+export async function passwordResetTokenIsUsable(token: string): Promise<boolean> {
+  const trimmed = token.trim();
+  if (!trimmed) {
+    return false;
+  }
+  const client = getServiceClient();
+  const found = await client.from("password_resets").select("*").eq("token", trimmed).maybeSingle();
+  if (found.error) {
+    throw new ApiError(500, found.error.message);
+  }
+  const reset = found.data as PasswordResetRow | null;
+  if (reset == null || reset.used_at != null) {
+    return false;
+  }
+  if (parseDbTimestamp(reset.expires_at).getTime() < Date.now()) {
+    return false;
+  }
+  const userResult = await client.from("auth_users").select("id").eq("id", reset.user_id).maybeSingle();
+  if (userResult.error) {
+    throw new ApiError(500, userResult.error.message);
+  }
+  return userResult.data != null;
+}
+
 export async function consumePasswordResetToken(token: string, password: string): Promise<AuthUserRow> {
   if (password.length < 8) {
     throw new ApiError(400, "パスワードは8文字以上にしてください");

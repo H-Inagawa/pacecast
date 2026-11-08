@@ -40,7 +40,6 @@ function VerifyClient() {
 
   return (
     <section className="auth-page">
-      <p className="eyebrow">PACECAST</p>
       <h1>メール確認</h1>
       {error ? (
         <>

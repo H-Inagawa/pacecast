@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { AUTH_PAGES } from "./lib/auth-pages";
-import { ONBOARDING_COOKIE, onboardingRedirectPath } from "./lib/onboarding";
+import { ONBOARDING_COOKIE, isPublicAssetPath, onboardingRedirectPath } from "./lib/onboarding";
 
 const PUBLIC_AUTH_PAGES = new Set<string>(AUTH_PAGES);
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (isPublicAssetPath(pathname)) {
+    return NextResponse.next();
+  }
   const session = request.cookies.get("pacecast_session")?.value;
   const needsOnboarding = request.cookies.get(ONBOARDING_COOKIE)?.value === "1";
   const isAuthPage = PUBLIC_AUTH_PAGES.has(pathname);
@@ -34,5 +37,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/|icons/|images/).*)"],
 };

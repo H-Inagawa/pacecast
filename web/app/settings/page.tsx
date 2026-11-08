@@ -15,8 +15,20 @@ import { normalizeRunStationInit, type RunStationInit } from "../../lib/run-stat
 import type { AmedasStation, IntensityHrs, Profile } from "../../lib/types";
 import { normalizeRowColorMode, type RowColorMode } from "../../lib/weatherZone";
 
+type AdvancedDraft = {
+  maxHr: string;
+  hrs: IntensityHrs;
+  priorK: string;
+  runStationInit: RunStationInit;
+};
+
+const RUN_STATION_INIT_HELP =
+  "許可が取れない・測位できないときは設定地点に戻します。GPS の測位は「GPSで探す」と同じです。";
+
+const INTENSITY_HELP = "初期値は最大心拍数からの算出です。必要なら個別に上書きできます。";
+
 const PRIOR_K_HELP =
-  "一般の WBGT 補正と、自分の記録から求めた補正の混ぜ方です。α = 有効件数 / (有効件数 + K)。K が小さいほど自分の記録を強く使います。K が大きいほど一般の補正に寄ります。未設定は 10 です。";
+  "一般の WBGT 補正と、自分の記録から求めた補正の混ぜ方です。α = 有効件数 / (有効件数 + K)。K が小さいほど自分の記録を強く使います。K が大きいほど一般の補正に寄ります。未入力で保存すると 10 になります。ユーザー名・地点・誕生日とは別に保存します。";
 
 const STATION_HELP =
   "気象の取得と推定 WBGT に使います。未設定時は東京（44132）。都道府県で絞り、観測所番号順です。「GPSで探す」は HTTPS か http://127.0.0.1 で使えます。";
@@ -43,6 +55,7 @@ export default function SettingsPage() {
   const [hrs, setHrs] = useState<IntensityHrs>(emptyHrs());
   const [priorK, setPriorK] = useState(String(PERSONAL_PRIOR_K));
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [draft, setDraft] = useState<AdvancedDraft | null>(null);
   const [colorOpen, setColorOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +86,40 @@ export default function SettingsPage() {
     );
   }, []);
 
-  function setHr(key: keyof IntensityHrs, value: string) {
-    setHrs({ ...hrs, [key]: value ? Number(value) : null });
+  function setDraftHr(key: keyof IntensityHrs, value: string) {
+    setDraft((current) =>
+      current ? { ...current, hrs: { ...current.hrs, [key]: value ? Number(value) : null } } : current,
+    );
+  }
+
+  function openAdvanced() {
+    setDraft({
+      maxHr,
+      hrs: { ...hrs },
+      priorK,
+      runStationInit,
+    });
+    setAdvancedOpen(true);
+  }
+
+  function discardAdvanced() {
+    setDraft(null);
+    setAdvancedOpen(false);
+  }
+
+  function commitAdvanced() {
+    if (!draft) {
+      return;
+    }
+    if (!draft.maxHr && colorMode === "hr") {
+      setColorMode("off");
+    }
+    setMaxHr(draft.maxHr);
+    setHrs(draft.hrs);
+    setPriorK(draft.priorK);
+    setRunStationInit(draft.runStationInit);
+    setDraft(null);
+    setAdvancedOpen(false);
   }
 
   async function onSubmit(event: React.FormEvent) {
@@ -131,24 +176,27 @@ export default function SettingsPage() {
   const colorLocked = !maxHr;
 
   function resetAdvancedDefaults() {
-    if (!window.confirm("高度な設定をデフォルトに戻しますか？")) {
+    if (!draft || !window.confirm("高度な設定をデフォルトに戻しますか？")) {
       return;
     }
     if (birthday) {
-      const nextAge = ageFromBirthday(birthday);
-      const nextMax = maxHrFromAge(nextAge);
-      setMaxHr(String(nextMax));
-      setHrs(suggestedHrs(nextMax));
-      setAge(nextAge);
-    } else {
-      setMaxHr("");
-      setHrs(emptyHrs());
-      if (colorMode === "hr") {
-        setColorMode("off");
-      }
+      const nextMax = maxHrFromAge(ageFromBirthday(birthday));
+      setDraft({
+        ...draft,
+        maxHr: String(nextMax),
+        hrs: suggestedHrs(nextMax),
+        runStationInit: "profile",
+        priorK: String(PERSONAL_PRIOR_K),
+      });
+      return;
     }
-    setRunStationInit("profile");
-    setPriorK(String(PERSONAL_PRIOR_K));
+    setDraft({
+      ...draft,
+      maxHr: "",
+      hrs: emptyHrs(),
+      runStationInit: "profile",
+      priorK: String(PERSONAL_PRIOR_K),
+    });
   }
 
   useEffect(() => {
@@ -157,6 +205,7 @@ export default function SettingsPage() {
     }
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        setDraft(null);
         setAdvancedOpen(false);
       }
     }
@@ -165,13 +214,11 @@ export default function SettingsPage() {
   }, [advancedOpen]);
 
   return (
-    <>
+    <div className="settings-page">
       <h1>{onboarding ? "ユーザー設定" : "設定"}</h1>
-      <p className="lede">
-        {onboarding
-          ? "ユーザー名、アメダス地点、誕生日を入力すると、メイン画面へ進めます。"
-          : "ユーザー情報と、予測・記録色分けに使う設定を保存します。"}
-      </p>
+      {onboarding ? (
+        <p className="lede">ユーザー名、アメダス地点、誕生日を入力すると、メイン画面へ進めます。</p>
+      ) : null}
       {notice ? <p className="notice">{notice}</p> : null}
       {error ? <p className="error">{error}</p> : null}
       {loaded ? (
@@ -263,12 +310,12 @@ export default function SettingsPage() {
             </button>
           </section>
 
-          <button type="button" className="button home-back settings-advanced-open" onClick={() => setAdvancedOpen(true)}>
+          <button type="button" className="button home-back settings-advanced-open" onClick={openAdvanced}>
             高度な設定
           </button>
-          {advancedOpen
+          {advancedOpen && draft
             ? createPortal(
-            <div className="modal-backdrop settings-backdrop" onClick={() => setAdvancedOpen(false)} role="presentation">
+            <div className="modal-backdrop settings-backdrop" onClick={discardAdvanced} role="presentation">
               <div
                 className="modal-panel settings-modal"
                 role="dialog"
@@ -276,38 +323,42 @@ export default function SettingsPage() {
                 aria-labelledby="advanced-settings-title"
                 onClick={(event) => event.stopPropagation()}
               >
-                <ModalCloseButton onClick={() => setAdvancedOpen(false)} />
+                <ModalCloseButton onClick={discardAdvanced} />
                 <h2 id="advanced-settings-title">高度な設定</h2>
                 <div className="stack settings-modal__body">
                   <section className="settings-modal__section" aria-labelledby="advanced-max-hr">
-                    <h3 id="advanced-max-hr">最大心拍数</h3>
-                    <input
-                      type="number"
-                      min="80"
-                      max="230"
-                      aria-labelledby="advanced-max-hr"
-                      value={maxHr}
-                      onChange={(event) => {
-                        setMaxHr(event.target.value);
-                        if (!event.target.value && colorMode === "hr") {
-                          setColorMode("off");
-                        }
-                      }}
-                      onBlur={() => {
-                        if (maxHr && maxHr !== originalMaxHr && window.confirm("強度別心拍数を変更しますか？")) {
-                          setHrs(suggestedHrs(Number(maxHr)));
-                        }
-                      }}
-                    />
+                    <div className="settings-modal__field">
+                      <h3 id="advanced-max-hr">最大心拍数</h3>
+                      <input
+                        type="number"
+                        min="80"
+                        max="230"
+                        aria-labelledby="advanced-max-hr"
+                        value={draft.maxHr}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setDraft((current) => (current ? { ...current, maxHr: value } : current));
+                        }}
+                        onBlur={() => {
+                          if (draft.maxHr && draft.maxHr !== maxHr && window.confirm("強度別心拍数を変更しますか？")) {
+                            setDraft((current) =>
+                              current ? { ...current, hrs: suggestedHrs(Number(current.maxHr)) } : current,
+                            );
+                          }
+                        }}
+                      />
+                    </div>
                   </section>
                   <section className="settings-modal__section settings-modal__section--spaced" aria-labelledby="advanced-run-station">
-                    <h3 id="advanced-run-station">走行記録を追加するときの初期地点</h3>
+                    <h3 id="advanced-run-station">
+                      <HelpTip label="走行記録を追加するときの初期地点" text={RUN_STATION_INIT_HELP} />
+                    </h3>
                     <label className="choice">
                       <input
                         type="radio"
                         name="run-station-init"
-                        checked={runStationInit === "profile"}
-                        onChange={() => setRunStationInit("profile")}
+                        checked={draft.runStationInit === "profile"}
+                        onChange={() => setDraft((current) => (current ? { ...current, runStationInit: "profile" } : current))}
                       />
                       設定どおりのアメダスを出す
                     </label>
@@ -315,66 +366,75 @@ export default function SettingsPage() {
                       <input
                         type="radio"
                         name="run-station-init"
-                        checked={runStationInit === "gps"}
-                        onChange={() => setRunStationInit("gps")}
+                        checked={draft.runStationInit === "gps"}
+                        onChange={() => setDraft((current) => (current ? { ...current, runStationInit: "gps" } : current))}
                       />
                       GPS で近くのアメダスを探す
                     </label>
-                    <p className="meta">許可が取れない・測位できないときは設定地点に戻します。GPS の測位は「GPSで探す」と同じです。</p>
                   </section>
                   <section className="settings-modal__section settings-modal__section--spaced" aria-labelledby="advanced-intensity">
-                    <h3 id="advanced-intensity">強度別心拍数</h3>
-                    <p className="meta">初期値は最大心拍数からの算出です。必要なら個別に上書きできます。</p>
+                    <h3 id="advanced-intensity">
+                      <HelpTip label="強度別心拍数" text={INTENSITY_HELP} />
+                    </h3>
                     <label>
                       低強度（60〜70%）
-                      <input type="number" min="30" max="230" value={fieldValue(hrs.low)} onChange={(event) => setHr("low", event.target.value)} />
+                      <input type="number" min="30" max="230" value={fieldValue(draft.hrs.low)} onChange={(event) => setDraftHr("low", event.target.value)} />
                     </label>
                     <label>
                       中強度（70〜80%）
-                      <input type="number" min="30" max="230" value={fieldValue(hrs.medium)} onChange={(event) => setHr("medium", event.target.value)} />
+                      <input type="number" min="30" max="230" value={fieldValue(draft.hrs.medium)} onChange={(event) => setDraftHr("medium", event.target.value)} />
                     </label>
                     <label>
                       高強度（80〜90%）
-                      <input type="number" min="30" max="230" value={fieldValue(hrs.high)} onChange={(event) => setHr("high", event.target.value)} />
+                      <input type="number" min="30" max="230" value={fieldValue(draft.hrs.high)} onChange={(event) => setDraftHr("high", event.target.value)} />
                     </label>
                   </section>
                   <section className="settings-modal__section settings-modal__section--spaced" aria-labelledby="advanced-race">
                     <h3 id="advanced-race">レースペース心拍数</h3>
                     <label>
                       5km（90〜100%）
-                      <input type="number" min="30" max="230" value={fieldValue(hrs.race_5k)} onChange={(event) => setHr("race_5k", event.target.value)} />
+                      <input type="number" min="30" max="230" value={fieldValue(draft.hrs.race_5k)} onChange={(event) => setDraftHr("race_5k", event.target.value)} />
                     </label>
                     <label>
                       10km（90〜95%）
-                      <input type="number" min="30" max="230" value={fieldValue(hrs.race_10k)} onChange={(event) => setHr("race_10k", event.target.value)} />
+                      <input type="number" min="30" max="230" value={fieldValue(draft.hrs.race_10k)} onChange={(event) => setDraftHr("race_10k", event.target.value)} />
                     </label>
                     <label>
                       ハーフマラソン（85〜92%）
-                      <input type="number" min="30" max="230" value={fieldValue(hrs.race_half)} onChange={(event) => setHr("race_half", event.target.value)} />
+                      <input type="number" min="30" max="230" value={fieldValue(draft.hrs.race_half)} onChange={(event) => setDraftHr("race_half", event.target.value)} />
                     </label>
                     <label>
                       フルマラソン（75〜88%）
-                      <input type="number" min="30" max="230" value={fieldValue(hrs.race_full)} onChange={(event) => setHr("race_full", event.target.value)} />
+                      <input type="number" min="30" max="230" value={fieldValue(draft.hrs.race_full)} onChange={(event) => setDraftHr("race_full", event.target.value)} />
                     </label>
                   </section>
                   <section className="settings-modal__section settings-modal__section--spaced" aria-labelledby="advanced-prior-k">
-                    <h3 id="advanced-prior-k">
-                      <HelpTip label="個人記録の重み設定" text={PRIOR_K_HELP} />
-                    </h3>
-                    <input
-                      aria-label="個人記録の重み設定"
-                      type="number"
-                      min="0.1"
-                      max="1000"
-                      step="0.1"
-                      value={priorK}
-                      onChange={(event) => setPriorK(event.target.value)}
-                    />
-                    <p className="meta">未入力で保存すると 10 になります。ユーザー名・地点・誕生日とは別に保存します。</p>
+                    <div className="settings-modal__field">
+                      <h3 id="advanced-prior-k">
+                        <HelpTip label="個人記録の重み設定" text={PRIOR_K_HELP} />
+                      </h3>
+                      <input
+                        aria-label="個人記録の重み設定"
+                        type="number"
+                        min="0.1"
+                        max="1000"
+                        step="0.1"
+                        value={draft.priorK}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setDraft((current) => (current ? { ...current, priorK: value } : current));
+                        }}
+                      />
+                    </div>
                   </section>
-                  <button type="button" className="button home-back settings-modal__reset" onClick={resetAdvancedDefaults}>
-                    デフォルト設定に戻す
-                  </button>
+                  <div className="settings-modal__actions">
+                    <button type="button" className="button home-back settings-modal__reset" onClick={resetAdvancedDefaults}>
+                      デフォルト設定に戻す
+                    </button>
+                    <button type="button" className="button settings-modal__save" onClick={commitAdvanced}>
+                      保存する
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>,
@@ -391,6 +451,6 @@ export default function SettingsPage() {
         </button>
         {onboarding ? null : <BackHome variant="button" />}
       </StickyActions>
-    </>
+    </div>
   );
 }

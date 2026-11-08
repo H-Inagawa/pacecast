@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   FORECAST_COLUMN_LABELS,
   FORECAST_OPTIONAL_COLUMNS,
@@ -13,11 +13,24 @@ import { ModalCloseButton } from "./ModalCloseButton";
 type Props = {
   open: boolean;
   columns: ForecastColumnVisibility;
-  onChange: (key: OptionalForecastColumn, visible: boolean) => void;
+  onSave: (columns: ForecastColumnVisibility) => void;
   onClose: () => void;
 };
 
-export function ForecastColumnsModal({ open, columns, onChange, onClose }: Props) {
+export function ForecastColumnsModal({ open, columns, onSave, onClose }: Props) {
+  const [draft, setDraft] = useState(columns);
+  const [baseline, setBaseline] = useState(columns);
+  const [captured, setCaptured] = useState(false);
+
+  if (open && !captured) {
+    setDraft({ ...columns });
+    setBaseline({ ...columns });
+    setCaptured(true);
+  }
+  if (!open && captured) {
+    setCaptured(false);
+  }
+
   useEffect(() => {
     if (!open) {
       return;
@@ -42,10 +55,14 @@ export function ForecastColumnsModal({ open, columns, onChange, onClose }: Props
     return null;
   }
 
+  function setVisible(key: OptionalForecastColumn, visible: boolean) {
+    setDraft((current) => ({ ...current, [key]: visible }));
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <div
-        className="modal-panel"
+        className="modal-panel modal-panel--compact"
         role="dialog"
         aria-modal="true"
         aria-labelledby="forecast-columns-title"
@@ -65,12 +82,20 @@ export function ForecastColumnsModal({ open, columns, onChange, onClose }: Props
           {FORECAST_OPTIONAL_COLUMNS.map((key) => (
             <li key={key}>
               <label className="choice">
-                <input type="checkbox" checked={columns[key]} onChange={(event) => onChange(key, event.target.checked)} />
+                <input type="checkbox" checked={draft[key]} onChange={(event) => setVisible(key, event.target.checked)} />
                 {FORECAST_COLUMN_LABELS[key]}
               </label>
             </li>
           ))}
         </ul>
+        <div className="column-modal-actions">
+          <button type="button" onClick={() => onSave(draft)}>
+            保存
+          </button>
+          <button type="button" className="button ghost" onClick={() => setDraft({ ...baseline })}>
+            元に戻す
+          </button>
+        </div>
       </div>
     </div>
   );

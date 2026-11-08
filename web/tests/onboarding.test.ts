@@ -46,6 +46,8 @@ describe("登録導線", () => {
     expect(onboardingRedirectPath("/", true, true)).toBe("/settings");
     expect(onboardingRedirectPath("/runs", true, true)).toBe("/settings");
     expect(onboardingRedirectPath("/login", true, true)).toBe("/settings");
+    expect(onboardingRedirectPath("/icons/hamburger.svg", true, true)).toBeNull();
+    expect(onboardingRedirectPath("/images/home/home-card-predict.png", true, true)).toBeNull();
     expect(onboardingRedirectPath("/settings", true, true)).toBeNull();
     expect(onboardingRedirectPath("/verify", true, true)).toBeNull();
     expect(onboardingRedirectPath("/forgot-password", true, true)).toBeNull();

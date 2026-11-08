@@ -41,7 +41,7 @@ export function RunFormModal({ open, runId, onClose, onSaved }: Props) {
   return (
     <div className="modal-backdrop modal-backdrop--wide" onClick={onClose} role="presentation">
       <div
-        className="modal-panel modal-panel--wide"
+        className="modal-panel modal-panel--wide modal-panel--compact"
         role="dialog"
         aria-modal="true"
         aria-labelledby="run-form-title"

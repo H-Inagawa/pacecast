@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { OnboardingGuide } from "./OnboardingGuide";
 import { SiteHeader } from "./SiteHeader";
 import { SESSION_COOKIE, userFromSession } from "../lib/server/auth";
@@ -7,7 +7,6 @@ import { getOrCreateProfile } from "../lib/server/profile";
 import { profileNeedsOnboarding } from "../lib/onboarding";
 
 export async function AppHeader() {
-  const pathname = (await headers()).get("x-pathname") || "";
   let displayName: string | null = null;
   let signedIn = false;
   let onboarding = false;
@@ -24,17 +23,14 @@ export async function AppHeader() {
     displayName = null;
   }
 
-  const showGuide = onboarding || pathname === "/register" || pathname === "/verify";
   const homeHref = onboarding ? "/settings" : "/";
 
   return (
     <div className="site-header-wrap">
       <SiteHeader signedIn={signedIn} onboarding={onboarding} displayName={displayName} homeHref={homeHref} />
-      {showGuide ? (
-        <Suspense fallback={null}>
-          <OnboardingGuide />
-        </Suspense>
-      ) : null}
+      <Suspense fallback={null}>
+        <OnboardingGuide />
+      </Suspense>
     </div>
   );
 }

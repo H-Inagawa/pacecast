@@ -13,7 +13,6 @@ import {
   saveForecastColumns,
   DEFAULT_FORECAST_COLUMNS,
   type ForecastColumnVisibility,
-  type OptionalForecastColumn,
 } from "../../lib/forecastColumns";
 import { pickCurrentForecastHour } from "../../lib/runningForecast";
 import type { AmedasStation, Profile, RunningForecast } from "../../lib/types";
@@ -57,18 +56,16 @@ export default function ForecastPage() {
       });
   }, [stationId]);
 
-  function setColumn(key: OptionalForecastColumn, visible: boolean) {
-    setColumns((current) => {
-      const next = { ...current, [key]: visible };
-      saveForecastColumns(next);
-      return next;
-    });
+  function saveColumns(next: ForecastColumnVisibility) {
+    setColumns(next);
+    saveForecastColumns(next);
+    setColumnsOpen(false);
   }
 
   const currentHour = forecast ? pickCurrentForecastHour(forecast.hours) : null;
 
   return (
-    <>
+    <div className="forecast-page">
       <div className="page-heading">
         <h1>ランニング天気予報</h1>
       </div>
@@ -99,10 +96,10 @@ export default function ForecastPage() {
       <ForecastColumnsModal
         open={columnsOpen}
         columns={columns}
-        onChange={setColumn}
+        onSave={saveColumns}
         onClose={() => setColumnsOpen(false)}
       />
       <RunnabilityModal open={scoreOpen} onClose={() => setScoreOpen(false)} />
-    </>
+    </div>
   );
 }

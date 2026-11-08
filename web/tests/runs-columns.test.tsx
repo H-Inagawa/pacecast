@@ -69,7 +69,7 @@ describe("走行記録の表示項目", () => {
     expect(within(dialog).getByLabelText("距離")).toBeChecked();
   });
 
-  it("ペースを外すと列が消え、選択は残る", async () => {
+  it("保存するまで列と選択は変わらず、閉じると捨てる", async () => {
     const user = userEvent.setup();
     render(<RunsView />);
     await screen.findByRole("columnheader", { name: "ペース" });
@@ -77,12 +77,29 @@ describe("走行記録の表示項目", () => {
     await user.click(screen.getByRole("button", { name: "表示項目設定" }));
     await user.click(screen.getByLabelText("ペース"));
 
+    expect(screen.getByRole("columnheader", { name: "ペース" })).toBeInTheDocument();
+    expect(window.localStorage.getItem(RUN_COLUMNS_STORAGE_KEY)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "元に戻す" }));
+    expect(screen.getByLabelText("ペース")).toBeChecked();
+
+    await user.click(screen.getByLabelText("ペース"));
+    await user.click(screen.getByRole("button", { name: "閉じる" }));
+    expect(screen.getByRole("columnheader", { name: "ペース" })).toBeInTheDocument();
+    expect(window.localStorage.getItem(RUN_COLUMNS_STORAGE_KEY)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "表示項目設定" }));
+    expect(screen.getByLabelText("ペース")).toBeChecked();
+    await user.click(screen.getByLabelText("ペース"));
+    await user.click(screen.getByRole("button", { name: "保存" }));
+
+    expect(screen.queryByRole("dialog", { name: "表示項目設定" })).not.toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "ペース" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "日時" })).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(RUN_COLUMNS_STORAGE_KEY) ?? "{}").pace).toBe(false);
   });
 
-  it("気温を外しても WBGT 列と説明は残る", async () => {
+  it("気温を外して保存しても WBGT 列と説明は残る", async () => {
     const user = userEvent.setup();
     render(<RunsView />);
     await screen.findByRole("columnheader", { name: "気温" });
@@ -93,6 +110,8 @@ describe("走行記録の表示項目", () => {
     expect(within(dialog).getByLabelText("湿度")).toBeEnabled();
     expect(within(dialog).getByLabelText("WBGT")).toBeEnabled();
     await user.click(within(dialog).getByLabelText("気温"));
+    expect(screen.getByRole("columnheader", { name: "気温" })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "保存" }));
 
     expect(screen.queryByRole("columnheader", { name: "気温" })).not.toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "湿度" })).toBeInTheDocument();
