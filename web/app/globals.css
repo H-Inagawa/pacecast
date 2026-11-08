@@ -837,28 +837,34 @@ td.wbgt-none { background: var(--wbgt-none-bg); color: var(--wbgt-none-ink); }
 
 @media (min-width: 721px) {
   .settings-page,
-  .predict-page {
+  .predict-page,
+  .forecast-page {
     width: min(800px, 100%);
     margin-inline: auto;
   }
 
   .settings-page .sticky-actions,
-  .predict-page .sticky-actions {
+  .predict-page .sticky-actions,
+  .forecast-page .sticky-actions,
+  .forecast-page .forecast-dock {
     padding-inline: max(0.62rem, calc((100% - 800px) / 2));
   }
 
   .settings-page form.stack > label,
-  .settings-page .station-pick__fields > label {
+  .settings-page .station-pick__fields > label,
+  .forecast-page .station-pick__fields > label {
     grid-template-columns: 10.5rem minmax(0, 1fr);
     align-items: center;
     column-gap: 0.75rem;
   }
 
-  .settings-page .station-pick {
+  .settings-page .station-pick,
+  .forecast-page .station-pick {
     align-items: stretch;
   }
 
-  .settings-page .station-pick__gps {
+  .settings-page .station-pick__gps,
+  .forecast-page .station-pick__gps {
     height: auto;
     align-self: stretch;
   }
@@ -1647,6 +1653,10 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
 
 .modal-panel.modal-panel--compact {
   max-width: 520px;
+}
+
+.modal-panel.modal-panel--forecast-help {
+  max-width: 800px;
 }
 
 .column-modal-actions {

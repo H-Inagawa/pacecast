@@ -65,7 +65,7 @@ export default function ForecastPage() {
   const currentHour = forecast ? pickCurrentForecastHour(forecast.hours) : null;
 
   return (
-    <>
+    <div className="forecast-page">
       <div className="page-heading">
         <h1>ランニング天気予報</h1>
       </div>
@@ -100,6 +100,6 @@ export default function ForecastPage() {
         onClose={() => setColumnsOpen(false)}
       />
       <RunnabilityModal open={scoreOpen} onClose={() => setScoreOpen(false)} />
-    </>
+    </div>
   );
 }

@@ -36,7 +36,7 @@ export function RunnabilityModal({ open, onClose }: Props) {
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <div
-        className="modal-panel"
+        className="modal-panel modal-panel--forecast-help"
         role="dialog"
         aria-modal="true"
         aria-labelledby="runnability-title"
