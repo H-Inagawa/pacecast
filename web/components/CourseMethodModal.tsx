@@ -36,7 +36,7 @@ export function CourseMethodModal({ open, onClose }: Props) {
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <div
-        className="modal-panel about-panel"
+        className="modal-panel about-panel modal-panel--course"
         role="dialog"
         aria-modal="true"
         aria-labelledby="course-method-title"

@@ -72,7 +72,7 @@ export function CourseScoreGuideModal({ open, onClose }: Props) {
   return (
     <div className="modal-backdrop course-guide-backdrop" onClick={onClose} role="presentation">
       <div
-        className="modal-panel about-panel"
+        className="modal-panel about-panel modal-panel--course"
         role="dialog"
         aria-modal="true"
         aria-labelledby="course-score-guide-title"

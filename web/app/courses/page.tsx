@@ -129,7 +129,7 @@ export default function CoursesPage() {
   }
 
   return (
-    <>
+    <div className="courses-page">
       <header className="page-heading" ref={headingRef}>
         <h1>コースを作る</h1>
       </header>
@@ -192,6 +192,6 @@ export default function CoursesPage() {
         </button>
         <BackHome variant="button" />
       </StickyActions>
-    </>
+    </div>
   );
 }

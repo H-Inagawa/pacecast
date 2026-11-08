@@ -838,7 +838,8 @@ td.wbgt-none { background: var(--wbgt-none-bg); color: var(--wbgt-none-ink); }
 @media (min-width: 721px) {
   .settings-page,
   .predict-page,
-  .forecast-page {
+  .forecast-page,
+  .courses-page {
     width: min(800px, 100%);
     margin-inline: auto;
   }
@@ -846,7 +847,8 @@ td.wbgt-none { background: var(--wbgt-none-bg); color: var(--wbgt-none-ink); }
   .settings-page .sticky-actions,
   .predict-page .sticky-actions,
   .forecast-page .sticky-actions,
-  .forecast-page .forecast-dock {
+  .forecast-page .forecast-dock,
+  .courses-page .sticky-actions {
     padding-inline: max(0.62rem, calc((100% - 800px) / 2));
   }
 
@@ -1655,7 +1657,8 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   max-width: 520px;
 }
 
-.modal-panel.modal-panel--forecast-help {
+.modal-panel.modal-panel--forecast-help,
+.modal-panel.modal-panel--course {
   max-width: 800px;
 }
 
@@ -2234,7 +2237,9 @@ button.text-link { background: none; color: var(--link); padding: 0; border-radi
   position: relative;
   z-index: 0;
   isolation: isolate;
-  height: 18rem;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
   margin: 0.5rem 0 1rem;
   border-radius: 1rem;
   overflow: hidden;

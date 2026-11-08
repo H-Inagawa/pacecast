@@ -46,10 +46,11 @@ vi.mock("../components/CourseMap", () => {
 
 describe("コースを作る", () => {
   it("起点が無いと作成できない", async () => {
-    render(<CoursesPage />);
+    const { container } = render(<CoursesPage />);
     await waitFor(() => {
       expect(requestCurrentPosition).toHaveBeenCalled();
     });
+    expect(container.querySelector(".courses-page")).not.toBeNull();
     expect(screen.getByRole("button", { name: "コースを作る" })).toBeDisabled();
     expect(await screen.findByText("現在地を使えないので、地図をタップしてください")).toBeInTheDocument();
     expect(await screen.findByText("現在地を取得できませんでした")).toBeInTheDocument();
@@ -72,7 +73,9 @@ describe("コースを作る", () => {
     const user = userEvent.setup();
     render(<CoursesPage />);
     await user.click(screen.getByRole("button", { name: "作成方法" }));
-    expect(screen.getByRole("dialog", { name: "作成方法" })).toBeInTheDocument();
+    const methodDialog = screen.getByRole("dialog", { name: "作成方法" });
+    expect(methodDialog).toBeInTheDocument();
+    expect(methodDialog).toHaveClass("modal-panel--course");
     expect(screen.getByText(/面している細い道や公園内の通路/)).toBeInTheDocument();
     expect(screen.getByText(/近くにスタートできる道が無いとき/)).toBeInTheDocument();
     expect(screen.getByText(/配点の詳細は「採点基準」/)).toBeInTheDocument();
@@ -171,6 +174,7 @@ describe("コースを作る", () => {
     await user.click(screen.getByRole("button", { name: "採点基準" }));
     const guide = screen.getByRole("dialog", { name: "採点基準" });
     expect(guide).toBeInTheDocument();
+    expect(guide).toHaveClass("modal-panel--course");
     expect(within(guide).getByRole("columnheader", { name: "項目名" })).toBeInTheDocument();
     expect(within(guide).getByRole("columnheader", { name: "満点" })).toBeInTheDocument();
     expect(within(guide).getByRole("columnheader", { name: "説明" })).toBeInTheDocument();
