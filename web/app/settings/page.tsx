@@ -14,7 +14,7 @@ import { ageFromBirthday, emptyHrs, maxHrFromAge, suggestedHrs } from "../../lib
 import { PERSONAL_PRIOR_K, normalizePersonalPriorK } from "../../lib/personalPredict";
 import { fetchProfileAndStations } from "../../lib/profileStations";
 import { normalizeRunStationInit, type RunStationInit } from "../../lib/run-station-init";
-import type { AmedasStation, IntensityHrs } from "../../lib/types";
+import type { AmedasStation, IntensityHrs, Profile } from "../../lib/types";
 import { normalizeRowColorMode, type RowColorMode } from "../../lib/weatherZone";
 
 type AdvancedDraft = {

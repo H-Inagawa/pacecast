@@ -17,3 +17,8 @@ web/.vercel/
 /local/
 .tmp*
 **/.tmp*
+# Capacitor / Android（ローカル生成物）
+mobile/node_modules/
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/local.properties
