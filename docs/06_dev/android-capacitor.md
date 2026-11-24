@@ -70,7 +70,8 @@ Capacitor は WebView で Web コンテンツを開く枠です。現状の Next
    - Android SDK Platform（API レベルは Capacitor が要求する最低以上。導入時点の Capacitor ドキュメントに合わせる）
    - Android SDK Build-Tools
    - Android SDK Platform-Tools（`adb`）
-4. PowerShell で `adb` が通るか確認する（通らなければ Android Studio の SDK `platform-tools` を PATH に足す）
+4. 新しい Android Studio は Gradle 用 JDK に Java 25 を選ぶことがある。このリポジトリの Gradle は 8.14.3 なので **Java 21**（Studio 付属の `jbr-21` でよい）にする。**Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK** で `jbr-21` を選ぶ。Java 25 のままだと同期できない。バナーで一度選んだだけだと、開き直したときに「JVM 21 を使いますか？」と聞かれることがある。Settings で `jbr-21` にして Apply すれば、この PC では確認は出ない。この選択は `.idea/gradle.xml` に残るが、PC ごとの設定なので Git には載せない
+5. PowerShell で `adb` が通るか確認する（通らなければ Android Studio の SDK `platform-tools` を PATH に足す）
 
 ```powershell
 adb version
@@ -98,7 +99,7 @@ pacecast/
   web/                 Next.js（画面・API。変更を最小に）
   mobile/              Capacitor シェル（この Issue で追加）
     package.json
-    capacitor.config.ts
+    capacitor.config.json
     android/           npx cap add android で生成
   docs/06_dev/
     android-capacitor.md   ← この文書
@@ -139,45 +140,39 @@ npx cap init
 | App ID | `app.pacecast.android`（後から変えにくいので慎重に） |
 | Web dir | 仮で `www`（中身はほぼ使わない。実体は `server.url`） |
 
-`www` に最低限のプレースホルダを置きます（Capacitor がディレクトリを要求するため）。本番の画面はサーバ側です。
+`www` に最低限のプレースホルダを置きます（Capacitor がディレクトリを要求するため）。本番の画面はサーバ側です。接続先は **`mobile/capacitor.config.json`** の `server.url` です。`www/` に置いても読まれません。`server.url` が無いと、アプリはプレースホルダの「Loading…」のままです。`npx cap init` は json を作ります。このリポジトリも json を使います。
 
 ```powershell
 mkdir www
 Set-Content -Encoding utf8 www\index.html "<!doctype html><title>PaceCast</title><p>Loading…</p>"
 ```
 
-### `capacitor.config.ts`（接続の中心）
+### `capacitor.config.json`（接続の中心）
 
-本番相当（Vercel）を既定にする例です。**自分の Vercel URL に置き換えてください。**
+本番相当（Vercel）を既定にする例です。**自分の Vercel URL に置き換えてください。** ファイルは `mobile/` 直下です。
 
-```ts
-import type { CapacitorConfig } from "@capacitor/cli";
-
-const config: CapacitorConfig = {
-  appId: "app.pacecast.android",
-  appName: "PaceCast",
-  webDir: "www",
-  server: {
-    // 本番相当: Vercel の HTTPS
-    url: "https://YOUR-PROJECT.vercel.app",
-    cleartext: false,
+```json
+{
+  "appId": "app.pacecast.android",
+  "appName": "PaceCast",
+  "webDir": "www",
+  "server": {
+    "url": "https://YOUR-PROJECT.vercel.app",
+    "cleartext": false
   },
-  android: {
-    allowMixedContent: false,
-  },
-};
-
-export default config;
+  "android": {
+    "allowMixedContent": false
+  }
+}
 ```
 
 ローカル開発に切り替えるときだけ、一時的に次のようにします（コミットしないか、別ファイル・環境変数で切り替える）。
 
-```ts
-server: {
-  // 例: PC の LAN IP。ipconfig で確認。127.0.0.1 は使わない
-  url: "http://192.168.0.12:3000",
-  cleartext: true,
-},
+```json
+"server": {
+  "url": "http://192.168.0.12:3000",
+  "cleartext": true
+}
 ```
 
 PC 側は従来どおりです。
@@ -228,7 +223,7 @@ npx cap open android
 adb logcat
 ```
 
-Web 側（`web/`）だけ直して Vercel に載せる場合、**シェルの再ビルドは不要**です（WebView がサーバを見ているため）。`capacitor.config.ts` やネイティブ権限を変えたときだけ `cap sync` / 再インストールが必要です。
+Web 側（`web/`）だけ直して Vercel に載せる場合、**シェルの再ビルドは不要**です（WebView がサーバを見ているため）。`capacitor.config.json` やネイティブ権限を変えたときだけ `cap sync` / 再インストールが必要です。
 
 ## 7. 権限（初期は最小）
 
@@ -249,11 +244,13 @@ Web 版ですでに使っている「GPSで探す」（アメダス最寄り）�
 
 | 症状 | 確認すること |
 | --- | --- |
-| 白い画面・Loading のまま | `server.url` が正しいか。Vercel が落ちていないか。実機のネット |
+| 白い画面・Loading のまま | `mobile/capacitor.config.json` に `server.url` があるか（`www/` に置いても無効）。変えたら `npx cap sync android` のあと Run し直す。Vercel が落ちていないか。実機のネット |
 | ログインできない | 本番は HTTPS か。Cookie / 時刻ずれ。Vercel の環境変数 |
 | LAN 開発で繋がらない | `127.0.0.1` を使っていないか。PC の LAN IP か。同一 Wi-Fi か。ファイアウォール。`cleartext: true` か |
 | `adb devices` が空 | USB デバッグ許可。別のケーブル。ドライバ |
 | Gradle 同期失敗 | Android Studio の SDK インストール。ネットワーク。Android Studio の提案どおり Invalidate / Restart |
+| Incompatible Gradle JVM（Gradle 8.14.3 と Java 25） | エラーの **Apply compatible Gradle JDK configuration and sync** を押す。または **Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK** を `jbr-21`（Java 21）にする。Gradle 本体は上げない |
+| 開き直すたびに「JVM 21 を使いますか？」 | Settings の Gradle JDK がまだ 25 のまま。**Gradle JDK** を `jbr-21` にして Apply。必要なら **File → Project Structure → SDK** も 21 にする。Git には載せない（PC ごとの設定） |
 | `cap sync` で webDir エラー | `mobile/www` があるか |
 
 ## 10. #65 の完了条件との対応

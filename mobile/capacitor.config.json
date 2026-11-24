@@ -1,5 +1,12 @@
 {
   "appId": "app.pacecast.android",
   "appName": "PaceCast",
-  "webDir": "www"
+  "webDir": "www",
+  "server": {
+    "url": "https://pacecast-three.vercel.app",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  }
 }
